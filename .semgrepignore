@@ -1,0 +1,6 @@
+# .semgrepignore
+node_modules/
+uploads/
+dist/
+build/
+*.min.js

@@ -1,0 +1,52 @@
+rules:
+  # === Python rules ===
+  - id: python-dangerous-eval
+    languages: [python]
+    message: "Use of `eval()` is dangerous—avoid executing arbitrary code."
+    severity: ERROR
+    pattern: |
+      eval($EXPR)
+
+  - id: python-os-system
+    languages: [python]
+    message: "Calling `os.system()` can lead to command injection. Use safer APIs."
+    severity: WARNING
+    pattern: |
+      os.system($CMD)
+
+  - id: python-subprocess-shell-true
+    languages: [python]
+    message: "Using `shell=True` in subprocess calls can be unsafe. Prefer list form."
+    severity: WARNING
+    pattern: |
+      subprocess.$FUNC(..., shell=True)
+    metavariables:
+      FUNC:
+        pattern: run|Popen|call
+
+  - id: python-pickle-loads
+    languages: [python]
+    message: "Untrusted input to `pickle.loads()` can execute arbitrary code."
+    severity: WARNING
+    pattern: |
+      pickle.loads($DATA)
+
+  # === JavaScript / TypeScript rules ===
+  - id: javascript-dangerous-eval
+    languages: [javascript, typescript]
+    message: "Use of `eval()` is dangerous—avoid executing arbitrary code."
+    severity: ERROR
+    pattern: |
+      eval($EXPR)
+
+  - id: javascript-insecure-fs
+    languages: [javascript, typescript]
+    message: "Using `fs.*Sync` with dynamic paths can be insecure—validate inputs."
+    severity: WARNING
+    pattern-either:
+      - pattern: |
+          fs.readFileSync($PATH)
+      - pattern: |
+          fs.writeFileSync($PATH, $DATA)
+
+  # …add more project-specific rules as needed…
