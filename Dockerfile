@@ -1,37 +1,31 @@
-# Dockerfile
 FROM node:18-slim
 
-# 1. Install Python venv support (includes pip) and curl for healthcheck
+# Install Python venv & curl
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3-venv curl \
-  && rm -rf /var/lib/apt/lists/*
+ && apt-get install -y --no-install-recommends python3-venv curl \
+ && rm -rf /var/lib/apt/lists/*
 
-# 2. Create & activate a venv, install Semgrep into it
+# Create venv & install Semgrep
 RUN python3 -m venv /opt/semgrep-venv \
-  && /opt/semgrep-venv/bin/pip install --no-cache-dir semgrep
+ && /opt/semgrep-venv/bin/pip install --no-cache-dir semgrep
 
-# 3. Put the venv's bin directory first on the PATH
+# **Put the venv bin on PATH so 'semgrep' is found**
 ENV PATH="/opt/semgrep-venv/bin:${PATH}"
 
-# 4. Set a default PORT env var (can be overridden by Railway/Heroku)
-ENV PORT=3000
-
-# 5. Create & switch into the app directory
+# App directory
 WORKDIR /app
 
-# 6. Copy and install Node dependencies
+# Install Node deps
 COPY package*.json ./
 RUN npm ci --production
 
-# 7. Copy the rest of your source
+# Copy source
 COPY . .
 
-# 8. Expose the port (will match $PORT)
+# Expose & healthcheck
+ENV PORT=3000
 EXPOSE ${PORT}
-
-# 9. Healthcheck against the /healthz endpoint (added below)
 HEALTHCHECK --interval=30s --timeout=5s \
   CMD curl --fail http://localhost:${PORT}/healthz || exit 1
 
-# 10. Launch the service
 CMD ["node", "src/server.js"]

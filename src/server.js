@@ -8,13 +8,11 @@ const path      = require('path');
 
 const app  = express();
 
-// 1️⃣ Pick up the platform-assigned port (Railway, Heroku, Cloud Run, etc.)
+// 1️⃣ Pick up the platform-assigned port
 const PORT = process.env.PORT || 3000;
 
 // 2️⃣ CORS: only allow your front-end’s origin
-//    Set in Railway/Heroku as ALLOWED_ORIGIN=https://your-react-app.up.railway.app
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
-
 app.use(
   cors({
     origin: ALLOWED_ORIGIN,
@@ -22,10 +20,8 @@ app.use(
   })
 );
 
-// 3️⃣ Health-check endpoint (used by Docker/Cloud Run/Heroku)
-app.get('/healthz', (_req, res) => {
-  res.sendStatus(200);
-});
+// 3️⃣ Health-check endpoint
+app.get('/healthz', (_req, res) => res.sendStatus(200));
 
 // 4️⃣ Ensure uploads folder exists
 const UPLOAD_DIR = path.resolve(__dirname, '../uploads');
@@ -33,7 +29,7 @@ if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-// 5️⃣ Multer: save uploads into /uploads, preserving extension
+// 5️⃣ Configure Multer
 const storage = multer.diskStorage({
   destination: UPLOAD_DIR,
   filename: (_req, file, cb) => {
@@ -43,7 +39,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// 6️⃣ POST /scan — accept one file field named "file"
+// 6️⃣ POST /scan handler
 app.post('/scan', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded.' });
@@ -52,36 +48,34 @@ app.post('/scan', upload.single('file'), (req, res) => {
   const toScan = req.file.path;
   console.log('📂 Saved file:', toScan);
 
-  // 7️⃣ Semgrep rule sources (registry + custom)
   const configs = [
-    'p/python',
-    'p/javascript',
-    'p/java',
-    'p/go',
-    'p/cpp',
-    'p/php',
-    'p/ruby',
-    'p/sql',
+    'p/python','p/javascript','p/java','p/go',
+    'p/cpp','p/php','p/ruby','p/sql',
     path.resolve(__dirname, '../config/custom-rules.yaml'),
   ];
 
-  // build: semgrep scan --quiet --json --config X ... <file>
   const args = [
-    'scan',
-    '--quiet',
-    '--json',
+    'scan','--quiet','--json',
     ...configs.flatMap(cfg => ['--config', cfg]),
     toScan,
   ];
 
-  const semgrep = spawn('semgrep', args);
+  // spawn with a 20s timeout
+  const semgrep = spawn('semgrep', args, { timeout: 20000 });
   let stdout = '', stderr = '';
+
+  // ❌ capture spawn errors immediately
+  semgrep.on('error', err => {
+    console.error('🛑 Spawn error:', err.message);
+    fs.unlink(toScan, () => {});
+    return res.status(500).json({ error: 'Failed to start Semgrep.' });
+  });
 
   semgrep.stdout.on('data', chunk => { stdout += chunk; });
   semgrep.stderr.on('data', chunk => { stderr += chunk; });
 
   semgrep.on('close', code => {
-    // Always cleanup the uploaded file
+    // always clean up
     fs.unlink(toScan, err => {
       if (err) console.error('🗑️ Delete failed:', err);
       else     console.log('🗑️ Deleted:', toScan);
@@ -93,7 +87,6 @@ app.post('/scan', upload.single('file'), (req, res) => {
     }
 
     try {
-      // Trim stray whitespace/newlines before JSON.parse
       const result = JSON.parse(stdout.trim());
       console.log(`✅ Semgrep found ${result.results.length} issue(s)`);
       return res.json(result);
@@ -104,7 +97,7 @@ app.post('/scan', upload.single('file'), (req, res) => {
   });
 });
 
-// 8️⃣ Start server
+// 7️⃣ Start server
 app.listen(PORT, () => {
   console.log(`🚀 API listening on port ${PORT}`);
   console.log(`🌍 CORS allowed origin: ${ALLOWED_ORIGIN}`);
