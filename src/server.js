@@ -111,3 +111,18 @@ app.listen(PORT, () => {
   console.log(`🚀 API listening on port ${PORT}`);
   console.log(`🌍 CORS allowed origin: ${FRONT}`);
 });
+
+// ##### at the bottom of src/server.js, just before app.listen(...)
+  
+// Catch-all GET so Railway’s health probes never 404
+app.get('*', (_req, res) => {
+  console.log('🟢 Caught GET', _req.path);
+  return res.sendStatus(200);
+});
+
+// 7️⃣ Start server
+app.listen(PORT, () => {
+  console.log(`🚀 API listening on port ${PORT}`);
+  console.log(`🌍 CORS allowed origin: ${FRONT}`);
+});
+
