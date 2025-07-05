@@ -6,7 +6,7 @@ const { spawn } = require('child_process');
 const fs        = require('fs');
 const path      = require('path');
 
-const app  = express();
+const app = express();
 
 // 1️⃣ Pick up the platform-assigned port
 const PORT = process.env.PORT || 3000;
@@ -20,7 +20,10 @@ app.use(
   })
 );
 
-// 3️⃣ Health-check endpoint
+// 3️⃣ Health-check endpoints
+// Railway’s default check hits `/`
+app.get('/', (_req, res) => res.sendStatus(200));
+// Your explicit healthz endpoint
 app.get('/healthz', (_req, res) => res.sendStatus(200));
 
 // 4️⃣ Ensure uploads folder exists
@@ -29,7 +32,7 @@ if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-// 5️⃣ Configure Multer
+// 5️⃣ Configure Multer for file uploads
 const storage = multer.diskStorage({
   destination: UPLOAD_DIR,
   filename: (_req, file, cb) => {
@@ -48,6 +51,7 @@ app.post('/scan', upload.single('file'), (req, res) => {
   const toScan = req.file.path;
   console.log('📂 Saved file:', toScan);
 
+  // Semgrep configurations
   const configs = [
     'p/python','p/javascript','p/java','p/go',
     'p/cpp','p/php','p/ruby','p/sql',
@@ -55,16 +59,18 @@ app.post('/scan', upload.single('file'), (req, res) => {
   ];
 
   const args = [
-    'scan','--quiet','--json',
+    'scan',
+    '--quiet',
+    '--json',
     ...configs.flatMap(cfg => ['--config', cfg]),
     toScan,
   ];
 
-  // spawn with a 20s timeout
+  // Spawn semgrep with a 20-second timeout
   const semgrep = spawn('semgrep', args, { timeout: 20000 });
   let stdout = '', stderr = '';
 
-  // ❌ capture spawn errors immediately
+  // Handle spawn errors (e.g. semgrep not found)
   semgrep.on('error', err => {
     console.error('🛑 Spawn error:', err.message);
     fs.unlink(toScan, () => {});
@@ -75,20 +81,22 @@ app.post('/scan', upload.single('file'), (req, res) => {
   semgrep.stderr.on('data', chunk => { stderr += chunk; });
 
   semgrep.on('close', code => {
-    // always clean up
+    // Always clean up the uploaded file
     fs.unlink(toScan, err => {
       if (err) console.error('🗑️ Delete failed:', err);
       else     console.log('🗑️ Deleted:', toScan);
     });
 
-    if (code !== 0) {
-      console.error('❌ Semgrep error:', stderr.trim());
+    // Semgrep exit codes: 0 = no findings, 1 = findings, >1 = runtime error
+    if (code > 1) {
+      console.error('❌ Semgrep runtime error:', stderr.trim());
       return res.status(500).json({ error: stderr.trim() });
     }
 
+    // code 0 or 1: valid JSON output with or without findings
     try {
       const result = JSON.parse(stdout.trim());
-      console.log(`✅ Semgrep found ${result.results.length} issue(s)`);
+      console.log(`✅ Semgrep exit ${code}, found ${result.results.length} issue(s)`);
       return res.json(result);
     } catch (e) {
       console.error('❌ JSON parse failed:', e.message);
