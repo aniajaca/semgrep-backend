@@ -14,19 +14,19 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', FRONT);
   res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
   next();
 });
 
 // ── 2️⃣ Health endpoints ─────────────────────────────────────────────────────
-// Railway’s default probe hits `/`
 app.get('/', (_req, res) => {
-  console.log('🟢 Received GET /');
+  console.log('🟢 GET / → 200');
   res.sendStatus(200);
 });
-// Explicit healthz
 app.get('/healthz', (_req, res) => {
-  console.log('🟢 Received GET /healthz');
+  console.log('🟢 GET /healthz → 200');
   res.sendStatus(200);
 });
 
@@ -47,11 +47,12 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// ── 5️⃣ /scan handler ────────────────────────────────────────────────────────
+// ── 5️⃣ POST /scan handler ──────────────────────────────────────────────────
 app.post('/scan', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded.' });
   }
+
   const toScan = req.file.path;
   console.log('📂 Saved file:', toScan);
 
@@ -60,40 +61,52 @@ app.post('/scan', upload.single('file'), (req, res) => {
     'p/cpp','p/php','p/ruby','p/sql',
     path.resolve(__dirname, '../config/custom-rules.yaml'),
   ];
-  const args = ['scan','--quiet','--json', ...configs.flatMap(c=>['--config',c]), toScan];
+  const args = [
+    'scan', '--quiet', '--json',
+    ...configs.flatMap(c => ['--config', c]),
+    toScan,
+  ];
 
   const semgrep = spawn('semgrep', args, { timeout: 20000 });
   let stdout = '', stderr = '';
 
   semgrep.on('error', err => {
-    console.error('🛑 Spawn error:', err);
-    fs.unlink(toScan, ()=>{});
-    res.status(500).json({ error: 'Failed to start Semgrep.' });
+    console.error('🛑 Spawn error:', err.message);
+    fs.unlink(toScan, () => {});
+    return res.status(500).json({ error: 'Failed to start Semgrep.' });
   });
-  semgrep.stdout.on('data', d => stdout += d);
-  semgrep.stderr.on('data', d => stderr += d);
+
+  semgrep.stdout.on('data', chunk => { stdout += chunk; });
+  semgrep.stderr.on('data', chunk => { stderr += chunk; });
 
   semgrep.on('close', code => {
-    fs.unlink(toScan, ()=>{});  // always clean up
+    // Always clean up the uploaded file
+    fs.unlink(toScan, err => {
+      if (err) console.error('🗑️ Delete failed:', err);
+      else     console.log('🗑️ Deleted:', toScan);
+    });
 
+    // Semgrep exit codes: 0 = no findings, 1 = findings, >1 = runtime error
     if (code > 1) {
       console.error('❌ Semgrep runtime error:', stderr.trim());
       return res.status(500).json({ error: stderr.trim() });
     }
+
+    // code 0 or 1: valid JSON output
     try {
       const result = JSON.parse(stdout.trim());
       console.log(`✅ Semgrep exit ${code}, found ${result.results.length} issue(s)`);
-      res.json(result);
+      return res.json(result);
     } catch (e) {
-      console.error('❌ JSON parse failed:', e);
-      res.status(500).json({ error: 'Invalid Semgrep output.' });
+      console.error('❌ JSON parse failed:', e.message);
+      return res.status(500).json({ error: 'Invalid Semgrep output.' });
     }
   });
 });
 
-// ── 6️⃣ Catch-all so no GET ever 404s ─────────────────────────────────────────
-app.get('*', (req, res) => {
-  console.log('🟢 Caught GET', req.path);
+// ── 6️⃣ Catch-all for any other GET (ensures no 404) ───────────────────────────
+app.use((req, res) => {
+  console.log(`🟢 Fallback ${req.method} ${req.path} → 200`);
   res.sendStatus(200);
 });
 
