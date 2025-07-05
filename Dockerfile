@@ -1,29 +1,20 @@
 FROM node:18-slim
 
-# Install Python venv & curl
+# 1) Python & Semgrep
 RUN apt-get update \
- && apt-get install -y --no-install-recommends python3-venv curl \
- && rm -rf /var/lib/apt/lists/*
+ && apt-get install -y python3-venv curl --no-install-recommends \
+ && rm -rf /var/lib/apt/lists/* \
+ && python3 -m venv /opt/semgrep-venv \
+ && /opt/semgrep-venv/bin/pip install semgrep
 
-# Create venv & install Semgrep
-RUN python3 -m venv /opt/semgrep-venv \
- && /opt/semgrep-venv/bin/pip install --no-cache-dir semgrep
-
-# Add venv to PATH
 ENV PATH="/opt/semgrep-venv/bin:${PATH}"
 
-# App directory
+# 2) App setup
 WORKDIR /app
-
-# Copy package.json and install deps
 COPY package*.json ./
-RUN npm ci
-
-# Copy code
+RUN npm ci --production
 COPY . .
 
-# Expose port (Railway will override via $PORT)
+# 3) Port & entrypoint
 EXPOSE 3000
-
-# Launch the server directly
-CMD ["node", "src/server.js"]
+CMD ["node","src/server.js"]
