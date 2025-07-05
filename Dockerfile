@@ -9,23 +9,21 @@ RUN apt-get update \
 RUN python3 -m venv /opt/semgrep-venv \
  && /opt/semgrep-venv/bin/pip install --no-cache-dir semgrep
 
-# **Put the venv bin on PATH so 'semgrep' is found**
+# Add venv to PATH
 ENV PATH="/opt/semgrep-venv/bin:${PATH}"
 
 # App directory
 WORKDIR /app
 
-# Install Node deps
+# Copy package.json and install deps
 COPY package*.json ./
-RUN npm ci --production
+RUN npm ci
 
-# Copy source
+# Copy code
 COPY . .
 
-# Expose & healthcheck
-ENV PORT=3000
-EXPOSE ${PORT}
-HEALTHCHECK --interval=30s --timeout=5s \
-  CMD curl --fail http://localhost:${PORT}/healthz || exit 1
+# Expose port (Railway will override via $PORT)
+EXPOSE 3000
 
+# Launch the server directly
 CMD ["node", "src/server.js"]
