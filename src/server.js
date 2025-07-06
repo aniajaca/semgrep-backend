@@ -73,6 +73,7 @@ const customCors = (req, res, next) => {
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
   console.log(`${timestamp} - ${req.method} ${req.path} - Origin: ${req.headers.origin || 'none'}`);
+  console.log(`Headers: ${JSON.stringify(req.headers, null, 2)}`);
   next();
 });
 
@@ -141,11 +142,17 @@ app.get('/', (req, res) => {
 // Health check endpoint
 app.get('/healthz', (req, res) => {
   try {
+    console.log('=== HEALTH CHECK REQUEST ===');
+    console.log('Request headers:', req.headers);
+    console.log('Request IP:', req.ip);
+    
     res.status(200).json({ 
       status: 'healthy', 
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      memory: process.memoryUsage()
+      memory: process.memoryUsage(),
+      port: PORT,
+      environment: process.env.NODE_ENV
     });
   } catch (error) {
     console.error('Error in health check:', error);
@@ -409,7 +416,12 @@ function startServer() {
       console.log(`Server running on port ${PORT}`);
       console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`Allowed origins: ${process.env.ALLOWED_ORIGIN || 'not set'}`);
+      console.log(`Server listening on: 0.0.0.0:${PORT}`);
       console.log('Server ready to accept connections');
+      
+      // Log server address info
+      const address = server.address();
+      console.log('Server address info:', address);
       
       // Check Semgrep availability on startup
       checkSemgrepAvailability()
@@ -426,10 +438,15 @@ function startServer() {
     });
     
     server.on('error', (error) => {
+      console.error('=== SERVER ERROR ===');
       console.error('Server error:', error);
       if (error.code === 'EADDRINUSE') {
         console.error(`Port ${PORT} is already in use`);
       }
+    });
+    
+    server.on('connection', (socket) => {
+      console.log('New connection established from:', socket.remoteAddress);
     });
     
   } catch (error) {
