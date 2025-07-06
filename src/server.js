@@ -1,117 +1,263 @@
-// src/server.js
-const express   = require('express');
-const multer    = require('multer');
+const express = require('express');
+const multer = require('multer');
 const { spawn } = require('child_process');
-const fs        = require('fs');
-const path      = require('path');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
-const app   = express();
-const PORT  = process.env.PORT || 3000;
-const FRONT = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-// ── 1️⃣ Simple CORS middleware ───────────────────────────────────────────────
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', FRONT);
-  res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
+// Custom CORS middleware to avoid path-to-regexp issues
+const customCors = (req, res, next) => {
+  const allowedOrigins = [
+    process.env.ALLOWED_ORIGIN,
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'https://preview--neperia-code-guardian.lovable.app'
+  ].filter(Boolean); // Remove any undefined values
+
+  const origin = req.headers.origin;
+  
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (allowedOrigins.length === 0) {
+    // Fallback for development - allow all origins if no specific origins configured
+    res.setHeader('Access-Control-Allow-Origin', '*');
   }
+  
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
   next();
+};
+
+// Apply CORS middleware
+app.use(customCors);
+
+// Body parsing middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(os.tmpdir(), 'uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    // Keep original filename with timestamp to avoid conflicts
+    const timestamp = Date.now();
+    const originalName = file.originalname || 'uploaded_file';
+    cb(null, `${timestamp}-${originalName}`);
+  }
 });
 
-// ── 2️⃣ Health endpoints ─────────────────────────────────────────────────────
-app.get('/', (_req, res) => {
-  console.log('🟢 GET / → 200');
-  res.sendStatus(200);
-});
-app.get('/healthz', (_req, res) => {
-  console.log('🟢 GET /healthz → 200');
-  res.sendStatus(200);
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept common code file types
+    const allowedTypes = [
+      'text/plain',
+      'text/javascript',
+      'application/javascript',
+      'text/x-python',
+      'text/x-java-source',
+      'text/x-c',
+      'text/x-c++',
+      'application/json',
+      'text/xml',
+      'application/xml'
+    ];
+    
+    if (allowedTypes.includes(file.mimetype) || !file.mimetype) {
+      cb(null, true);
+    } else {
+      cb(null, true); // Accept all files for now, let Semgrep handle compatibility
+    }
+  }
 });
 
-// ── 3️⃣ Ensure uploads folder exists ─────────────────────────────────────────
-const UPLOAD_DIR = path.resolve(__dirname, '../uploads');
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-  console.log(`📂 Created uploads dir at ${UPLOAD_DIR}`);
+// Root route - handles Railway health checks
+app.get('/', (req, res) => {
+  res.status(200).json({ 
+    status: 'success', 
+    message: 'Cybersecurity Scanner API is running',
+    version: '1.0.0',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Health check endpoint
+app.get('/healthz', (req, res) => {
+  res.status(200).json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString()
+  });
+});
+
+// API info endpoint
+app.get('/api', (req, res) => {
+  res.status(200).json({ 
+    status: 'success', 
+    message: 'API is running',
+    endpoints: {
+      'GET /': 'Root endpoint',
+      'GET /healthz': 'Health check',
+      'POST /scan': 'File scanning endpoint'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Scan endpoint
+app.post('/scan', upload.single('file'), async (req, res) => {
+  console.log('Scan request received');
+  
+  if (!req.file) {
+    return res.status(400).json({ 
+      status: 'error', 
+      message: 'No file uploaded' 
+    });
+  }
+
+  const filePath = req.file.path;
+  console.log('File uploaded to:', filePath);
+
+  try {
+    // Run Semgrep scan
+    const semgrepResults = await runSemgrepScan(filePath);
+    
+    // Clean up uploaded file
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    
+    res.json({
+      status: 'success',
+      filename: req.file.originalname,
+      results: semgrepResults
+    });
+    
+  } catch (error) {
+    console.error('Scan error:', error);
+    
+    // Clean up uploaded file on error
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Scan failed',
+      error: error.message
+    });
+  }
+});
+
+// Function to run Semgrep scan
+function runSemgrepScan(filePath) {
+  return new Promise((resolve, reject) => {
+    console.log('Starting Semgrep scan for:', filePath);
+    
+    const semgrepArgs = [
+      '--json',
+      '--config=auto',
+      filePath
+    ];
+    
+    const semgrepProcess = spawn('semgrep', semgrepArgs, {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    
+    let stdout = '';
+    let stderr = '';
+    
+    semgrepProcess.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+    
+    semgrepProcess.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+    
+    semgrepProcess.on('close', (code) => {
+      console.log('Semgrep process exited with code:', code);
+      console.log('Stdout:', stdout.substring(0, 200) + '...');
+      console.log('Stderr:', stderr.substring(0, 200) + '...');
+      
+      if (code === 0 || code === 1) {
+        // Code 0 = no findings, Code 1 = findings found (both are success)
+        try {
+          const results = stdout ? JSON.parse(stdout) : { results: [] };
+          resolve(results);
+        } catch (parseError) {
+          console.error('Failed to parse Semgrep output:', parseError);
+          resolve({ 
+            results: [], 
+            raw_output: stdout,
+            parse_error: parseError.message 
+          });
+        }
+      } else {
+        // Other exit codes indicate errors
+        reject(new Error(`Semgrep failed with exit code ${code}: ${stderr}`));
+      }
+    });
+    
+    semgrepProcess.on('error', (error) => {
+      console.error('Semgrep spawn error:', error);
+      reject(error);
+    });
+  });
 }
 
-// ── 4️⃣ Multer config ────────────────────────────────────────────────────────
-const storage = multer.diskStorage({
-  destination: UPLOAD_DIR,
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `file-${Date.now()}${ext}`);
-  },
-});
-const upload = multer({ storage });
-
-// ── 5️⃣ POST /scan handler ──────────────────────────────────────────────────
-app.post('/scan', upload.single('file'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded.' });
-  }
-
-  const toScan = req.file.path;
-  console.log('📂 Saved file:', toScan);
-
-  const configs = [
-    'p/python','p/javascript','p/java','p/go',
-    'p/cpp','p/php','p/ruby','p/sql',
-    path.resolve(__dirname, '../config/custom-rules.yaml'),
-  ];
-  const args = [
-    'scan', '--quiet', '--json',
-    ...configs.flatMap(c => ['--config', c]),
-    toScan,
-  ];
-
-  const semgrep = spawn('semgrep', args, { timeout: 20000 });
-  let stdout = '', stderr = '';
-
-  semgrep.on('error', err => {
-    console.error('🛑 Spawn error:', err.message);
-    fs.unlink(toScan, () => {});
-    return res.status(500).json({ error: 'Failed to start Semgrep.' });
-  });
-
-  semgrep.stdout.on('data', chunk => { stdout += chunk; });
-  semgrep.stderr.on('data', chunk => { stderr += chunk; });
-
-  semgrep.on('close', code => {
-    // Always clean up the uploaded file
-    fs.unlink(toScan, err => {
-      if (err) console.error('🗑️ Delete failed:', err);
-      else     console.log('🗑️ Deleted:', toScan);
-    });
-
-    // Semgrep exit codes: 0 = no findings, 1 = findings, >1 = runtime error
-    if (code > 1) {
-      console.error('❌ Semgrep runtime error:', stderr.trim());
-      return res.status(500).json({ error: stderr.trim() });
-    }
-
-    // code 0 or 1: valid JSON output
-    try {
-      const result = JSON.parse(stdout.trim());
-      console.log(`✅ Semgrep exit ${code}, found ${result.results.length} issue(s)`);
-      return res.json(result);
-    } catch (e) {
-      console.error('❌ JSON parse failed:', e.message);
-      return res.status(500).json({ error: 'Invalid Semgrep output.' });
-    }
+// Catch-all for undefined routes (this should be last)
+app.use('*', (req, res) => {
+  res.status(404).json({ 
+    status: 'error', 
+    message: 'Route not found',
+    path: req.originalUrl,
+    timestamp: new Date().toISOString()
   });
 });
 
-// ── 6️⃣ Catch-all for any other GET (ensures no 404) ───────────────────────────
-app.use((req, res) => {
-  console.log(`🟢 Fallback ${req.method} ${req.path} → 200`);
-  res.sendStatus(200);
+// Error handling middleware
+app.use((error, req, res, next) => {
+  console.error('Unhandled error:', error);
+  res.status(500).json({ 
+    status: 'error', 
+    message: 'Internal server error',
+    timestamp: new Date().toISOString()
+  });
 });
 
-// ── 7️⃣ Start server ─────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`🚀 API listening on port ${PORT}`);
-  console.log(`🌍 CORS allowed origin: ${FRONT}`);
+// Start server
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Allowed origins: ${process.env.ALLOWED_ORIGIN || 'not set'}`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully');
+  process.exit(0);
 });
