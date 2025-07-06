@@ -36,31 +36,14 @@ console.log('Allowed Origin:', process.env.ALLOWED_ORIGIN || 'not set');
 console.log('Current working directory:', process.cwd());
 console.log('Temp directory:', os.tmpdir());
 
-// Custom CORS middleware - Railway compatible
+// Simplified CORS middleware - Railway compatible
 const customCors = (req, res, next) => {
   try {
-    const allowedOrigins = [
-      process.env.ALLOWED_ORIGIN,
-      'http://localhost:3000',
-      'http://localhost:5173',
-      'https://preview--neperia-code-guardian.lovable.app',
-      'https://healthcheck.railway.app'  // Railway health check hostname
-    ].filter(Boolean);
-
-    const origin = req.headers.origin;
-    
-    // For Railway health checks, they might not send an origin header
-    if (!origin && req.get('User-Agent')?.includes('Railway')) {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-    } else if (allowedOrigins.includes(origin)) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-    } else if (allowedOrigins.length === 0) {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-    }
-    
+    // Always allow Railway health checks and internal requests
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Credentials', 'false');
     
     if (req.method === 'OPTIONS') {
       return res.status(200).end();
@@ -128,59 +111,31 @@ const upload = multer({
   }
 });
 
-// Root route - handles Railway health checks
+// Root route - simplified for Railway
 app.get('/', (req, res) => {
-  try {
-    console.log('=== ROOT REQUEST ===');
-    console.log('Headers:', req.headers);
-    console.log('IP:', req.ip);
-    console.log('User Agent:', req.get('User-Agent'));
-    
-    res.status(200).json({ 
-      status: 'success', 
-      message: 'Cybersecurity Scanner API is running',
-      version: '1.0.0',
-      environment: process.env.NODE_ENV || 'development',
-      timestamp: new Date().toISOString(),
-      endpoints: {
-        'GET /': 'Root endpoint',
-        'GET /healthz': 'Health check',
-        'GET /semgrep-status': 'Check Semgrep availability',
-        'GET /api': 'API information',
-        'POST /scan': 'File scanning endpoint'
-      }
-    });
-  } catch (error) {
-    console.error('Error in root route:', error);
-    res.status(500).json({ status: 'error', message: 'Internal server error' });
-  }
+  console.log('🏠 Root accessed');
+  res.status(200).send('Cybersecurity Scanner API is running');
 });
 
-// Health check endpoint - Railway compatible
+// Health check endpoint - Railway compatible (simplified)
 app.get('/healthz', (req, res) => {
-  try {
-    console.log('=== HEALTH CHECK REQUEST ===');
-    console.log('Request headers:', req.headers);
-    console.log('Request IP:', req.ip);
-    console.log('User Agent:', req.get('User-Agent'));
-    
-    res.status(200).json({ 
-      status: 'healthy',
-      service: 'semgrep-backend',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      port: PORT,
-      environment: process.env.NODE_ENV,
-      memory: process.memoryUsage()
-    });
-  } catch (error) {
-    console.error('Health check failed:', error);
-    res.status(503).json({ 
-      status: 'unhealthy',
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
-  }
+  console.log('🏥 Health check accessed');
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  
+  // Set explicit headers for Railway
+  res.set({
+    'Content-Type': 'text/plain',
+    'Cache-Control': 'no-cache'
+  });
+  
+  // Send simple response
+  res.status(200).send('OK');
+});
+
+// Alternative health check endpoint
+app.get('/health', (req, res) => {
+  console.log('🏥 /health accessed');
+  res.status(200).send('OK');
 });
 
 // Debug endpoint for Railway troubleshooting
@@ -234,6 +189,7 @@ app.get('/api', (req, res) => {
       endpoints: {
         'GET /': 'Root endpoint',
         'GET /healthz': 'Health check',
+        'GET /health': 'Alternative health check',
         'GET /semgrep-status': 'Check Semgrep availability',
         'GET /debug': 'Debug information',
         'POST /scan': 'File scanning endpoint'
