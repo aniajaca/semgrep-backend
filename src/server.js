@@ -36,16 +36,39 @@ console.log('Allowed Origin:', process.env.ALLOWED_ORIGIN || 'not set');
 console.log('Current working directory:', process.cwd());
 console.log('Temp directory:', os.tmpdir());
 
-// Simplified CORS middleware - Railway compatible
+// FIXED CORS middleware - properly configured for Lovable frontend
 const customCors = (req, res, next) => {
   try {
-    // Always allow Railway health checks and internal requests
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Allow-Credentials', 'false');
+    const origin = req.headers.origin;
+    
+    // List of allowed origins
+    const allowedOrigins = [
+      'https://preview--neperia-code-guardian.lovable.app',
+      'https://neperia-code-guardian.lovable.app',
+      'https://lovable.app',
+      'http://localhost:3000',
+      'http://localhost:5173' // Vite dev server
+    ];
+    
+    // Check if origin is allowed or if it's a Lovable subdomain
+    const isAllowed = allowedOrigins.includes(origin) || 
+                     (origin && origin.includes('.lovable.app'));
+    
+    if (isAllowed || !origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', 'https://preview--neperia-code-guardian.lovable.app');
+    }
+    
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+    
+    console.log(`CORS: Origin ${origin} -> ${isAllowed ? 'ALLOWED' : 'DEFAULT'}`);
     
     if (req.method === 'OPTIONS') {
+      console.log('Handling OPTIONS preflight request');
       return res.status(200).end();
     }
     
@@ -65,7 +88,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Apply CORS middleware
+// Apply CORS middleware FIRST
 app.use(customCors);
 
 // Body parsing middleware with error handling
@@ -114,7 +137,17 @@ const upload = multer({
 // Root route - simplified for Railway
 app.get('/', (req, res) => {
   console.log('🏠 Root accessed');
-  res.status(200).send('Cybersecurity Scanner API is running');
+  res.status(200).json({
+    message: 'Cybersecurity Scanner API is running',
+    status: 'active',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      'GET /': 'Root endpoint',
+      'GET /healthz': 'Health check',
+      'GET /semgrep-status': 'Check Semgrep availability',
+      'POST /scan': 'File scanning endpoint'
+    }
+  });
 });
 
 // Health check endpoint - Railway compatible (simplified)
@@ -124,18 +157,26 @@ app.get('/healthz', (req, res) => {
   
   // Set explicit headers for Railway
   res.set({
-    'Content-Type': 'text/plain',
+    'Content-Type': 'application/json',
     'Cache-Control': 'no-cache'
   });
   
-  // Send simple response
-  res.status(200).send('OK');
+  // Send JSON response for better frontend integration
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
 });
 
 // Alternative health check endpoint
 app.get('/health', (req, res) => {
   console.log('🏥 /health accessed');
-  res.status(200).send('OK');
+  res.status(200).json({
+    status: 'healthy',
+    service: 'semgrep-scanner',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Debug endpoint for Railway troubleshooting
@@ -150,7 +191,13 @@ app.get('/debug', (req, res) => {
       query: req.query,
       timestamp: new Date().toISOString(),
       port: PORT,
-      environment: process.env.NODE_ENV
+      environment: process.env.NODE_ENV,
+      railway: {
+        deploymentId: process.env.RAILWAY_DEPLOYMENT_ID,
+        projectId: process.env.RAILWAY_PROJECT_ID,
+        serviceId: process.env.RAILWAY_SERVICE_ID,
+        environment: process.env.RAILWAY_ENVIRONMENT,
+      }
     });
   } catch (error) {
     console.error('Error in debug route:', error);
@@ -202,9 +249,83 @@ app.get('/api', (req, res) => {
   }
 });
 
-// Scan endpoint
+// NEW: Code scanning endpoint for direct code input (no file upload)
+app.post('/scan-code', async (req, res) => {
+  console.log('=== CODE SCAN REQUEST RECEIVED ===');
+  console.log('Headers:', req.headers);
+  console.log('Origin:', req.headers.origin);
+  
+  try {
+    const { code, language = 'javascript', filename = 'code.js' } = req.body;
+    
+    if (!code || typeof code !== 'string' || code.trim() === '') {
+      return res.status(400).json({ 
+        status: 'error', 
+        message: 'No code provided' 
+      });
+    }
+
+    console.log('Code length:', code.length);
+    console.log('Language:', language);
+    console.log('Filename:', filename);
+
+    // Check if Semgrep is available before trying to scan
+    const semgrepAvailable = await checkSemgrepAvailability();
+    if (!semgrepAvailable.available) {
+      return res.status(503).json({
+        status: 'error',
+        message: 'Semgrep is not available',
+        details: semgrepAvailable.error
+      });
+    }
+
+    // Create temporary file with the code
+    const tempDir = path.join(os.tmpdir(), 'scan-temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
+    const tempFilePath = path.join(tempDir, `${Date.now()}-${filename}`);
+    fs.writeFileSync(tempFilePath, code, 'utf8');
+    
+    console.log('Created temp file:', tempFilePath);
+
+    // Run Semgrep scan
+    const semgrepResults = await runSemgrepScan(tempFilePath);
+    
+    // Clean up temp file
+    if (fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+      console.log('Cleaned up temp file');
+    }
+    
+    res.json({
+      status: 'success',
+      language: language,
+      findings: semgrepResults.results || [],
+      metadata: {
+        scanned_at: new Date().toISOString(),
+        code_length: code.length,
+        semgrep_version: semgrepAvailable.version
+      }
+    });
+    
+  } catch (error) {
+    console.error('Code scan error:', error);
+    console.error('Stack trace:', error.stack);
+    
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Code scan failed',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Original file upload scan endpoint
 app.post('/scan', upload.single('file'), async (req, res) => {
-  console.log('=== SCAN REQUEST RECEIVED ===');
+  console.log('=== FILE SCAN REQUEST RECEIVED ===');
   console.log('Headers:', req.headers);
   console.log('Origin:', req.headers.origin);
   
@@ -250,12 +371,16 @@ app.post('/scan', upload.single('file'), async (req, res) => {
     res.json({
       status: 'success',
       filename: req.file.originalname,
-      results: semgrepResults,
-      timestamp: new Date().toISOString()
+      findings: semgrepResults.results || [],
+      metadata: {
+        scanned_at: new Date().toISOString(),
+        file_size: req.file.size,
+        semgrep_version: semgrepAvailable.version
+      }
     });
     
   } catch (error) {
-    console.error('Scan error:', error);
+    console.error('File scan error:', error);
     console.error('Stack trace:', error.stack);
     
     // Clean up uploaded file on error
@@ -270,7 +395,7 @@ app.post('/scan', upload.single('file'), async (req, res) => {
     
     res.status(500).json({ 
       status: 'error', 
-      message: 'Scan failed',
+      message: 'File scan failed',
       error: error.message,
       timestamp: new Date().toISOString()
     });
@@ -313,6 +438,8 @@ function runSemgrepScan(filePath) {
     const semgrepArgs = [
       '--json',
       '--config=auto',
+      '--skip-unknown-extensions',
+      '--timeout=30',
       filePath
     ];
     
@@ -377,7 +504,7 @@ function runSemgrepScan(filePath) {
       console.error('Semgrep scan timeout');
       semgrepProcess.kill('SIGTERM');
       reject(new Error('Semgrep scan timeout'));
-    }, 60000); // 60 second timeout
+    }, 45000); // 45 second timeout
     
     semgrepProcess.on('close', () => {
       clearTimeout(timeout);
@@ -397,6 +524,13 @@ app.use('*', (req, res) => {
     message: 'Route not found',
     path: req.originalUrl,
     method: req.method,
+    available_routes: [
+      'GET /',
+      'GET /healthz',
+      'GET /semgrep-status', 
+      'POST /scan',
+      'POST /scan-code'
+    ],
     timestamp: new Date().toISOString()
   });
 });
@@ -425,7 +559,7 @@ function startServer() {
       console.log('=== SERVER STARTED SUCCESSFULLY ===');
       console.log(`Server running on port ${PORT}`);
       console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`Allowed origins: ${process.env.ALLOWED_ORIGIN || 'not set'}`);
+      console.log(`Allowed origins: Lovable subdomains + localhost`);
       console.log(`Server listening on: 0.0.0.0:${PORT}`);
       console.log('Server ready to accept connections');
       
