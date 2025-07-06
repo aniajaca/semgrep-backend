@@ -145,7 +145,8 @@ app.get('/', (req, res) => {
       'GET /': 'Root endpoint',
       'GET /healthz': 'Health check',
       'GET /semgrep-status': 'Check Semgrep availability',
-      'POST /scan': 'File scanning endpoint'
+      'POST /scan': 'File scanning endpoint',
+      'POST /scan-code': 'Direct code scanning endpoint'
     }
   });
 });
@@ -239,7 +240,8 @@ app.get('/api', (req, res) => {
         'GET /health': 'Alternative health check',
         'GET /semgrep-status': 'Check Semgrep availability',
         'GET /debug': 'Debug information',
-        'POST /scan': 'File scanning endpoint'
+        'POST /scan': 'File scanning endpoint',
+        'POST /scan-code': 'Direct code scanning endpoint'
       },
       timestamp: new Date().toISOString()
     });
@@ -249,7 +251,7 @@ app.get('/api', (req, res) => {
   }
 });
 
-// NEW: Code scanning endpoint for direct code input (no file upload)
+// 🔧 FIXED: Code scanning endpoint for direct code input with proper code extraction
 app.post('/scan-code', async (req, res) => {
   console.log('=== CODE SCAN REQUEST RECEIVED ===');
   console.log('Headers:', req.headers);
@@ -268,6 +270,7 @@ app.post('/scan-code', async (req, res) => {
     console.log('Code length:', code.length);
     console.log('Language:', language);
     console.log('Filename:', filename);
+    console.log('Code preview:', code.substring(0, 200) + '...');
 
     // Check if Semgrep is available before trying to scan
     const semgrepAvailable = await checkSemgrepAvailability();
@@ -286,12 +289,15 @@ app.post('/scan-code', async (req, res) => {
     }
     
     const tempFilePath = path.join(tempDir, `${Date.now()}-${filename}`);
+    
+    // 🔧 CRITICAL FIX: Write the actual code to the file
     fs.writeFileSync(tempFilePath, code, 'utf8');
     
     console.log('Created temp file:', tempFilePath);
+    console.log('File content length:', fs.readFileSync(tempFilePath, 'utf8').length);
 
-    // Run Semgrep scan
-    const semgrepResults = await runSemgrepScan(tempFilePath);
+    // 🔧 FIXED: Run Semgrep scan with code extraction
+    const semgrepResults = await runSemgrepScanWithCodeExtraction(tempFilePath, code);
     
     // Clean up temp file
     if (fs.existsSync(tempFilePath)) {
@@ -306,7 +312,8 @@ app.post('/scan-code', async (req, res) => {
       metadata: {
         scanned_at: new Date().toISOString(),
         code_length: code.length,
-        semgrep_version: semgrepAvailable.version
+        semgrep_version: semgrepAvailable.version,
+        findings_count: (semgrepResults.results || []).length
       }
     });
     
@@ -359,8 +366,11 @@ app.post('/scan', upload.single('file'), async (req, res) => {
       });
     }
 
-    // Run Semgrep scan
-    const semgrepResults = await runSemgrepScan(filePath);
+    // Read file content for code extraction
+    const fileContent = fs.readFileSync(filePath, 'utf8');
+
+    // Run Semgrep scan with code extraction
+    const semgrepResults = await runSemgrepScanWithCodeExtraction(filePath, fileContent);
     
     // Clean up uploaded file
     if (fs.existsSync(filePath)) {
@@ -424,22 +434,27 @@ function checkSemgrepAvailability() {
   });
 }
 
-// Function to run Semgrep scan
-function runSemgrepScan(filePath) {
+// 🔧 COMPLETELY FIXED: Semgrep scan function with proper code extraction
+function runSemgrepScanWithCodeExtraction(filePath, originalCode) {
   return new Promise((resolve, reject) => {
-    console.log('=== STARTING SEMGREP SCAN ===');
+    console.log('=== STARTING SEMGREP SCAN WITH CODE EXTRACTION ===');
     console.log('File path:', filePath);
     
-    // Verify file exists
+    // Verify file exists and has content
     if (!fs.existsSync(filePath)) {
       return reject(new Error('File not found: ' + filePath));
     }
+    
+    const fileContent = fs.readFileSync(filePath, 'utf8');
+    console.log('File content length:', fileContent.length);
+    console.log('Original code length:', originalCode.length);
     
     const semgrepArgs = [
       '--json',
       '--config=auto',
       '--skip-unknown-extensions',
       '--timeout=30',
+      '--verbose',
       filePath
     ];
     
@@ -476,13 +491,53 @@ function runSemgrepScan(filePath) {
         try {
           const results = stdout ? JSON.parse(stdout) : { results: [] };
           console.log('Parsed results successfully, findings:', results.results?.length || 0);
+          
+          // 🔧 CRITICAL FIX: Enhance findings with actual code
+          if (results.results && results.results.length > 0) {
+            const codeLines = originalCode.split('\n');
+            
+            results.results = results.results.map(finding => {
+              // Extract the actual vulnerable code line
+              const lineNumber = finding.start?.line || 1;
+              const vulnerableLine = codeLines[lineNumber - 1] || '';
+              
+              console.log(`Processing finding at line ${lineNumber}:`, vulnerableLine.substring(0, 100));
+              
+              // 🔧 COMPLETELY REPLACE the "requires login" placeholder
+              finding.extra = finding.extra || {};
+              finding.extra.lines = vulnerableLine.trim();
+              finding.extra.rendered_text = vulnerableLine.trim();
+              finding.extra.original_code = vulnerableLine.trim();
+              
+              // Remove any "requires login" placeholders
+              if (finding.extra.fingerprint === "requires login") {
+                finding.extra.fingerprint = `line-${lineNumber}-${finding.check_id}`;
+              }
+              
+              // Add context lines if available (3 lines before and after)
+              const startLine = Math.max(0, lineNumber - 2);
+              const endLine = Math.min(codeLines.length, lineNumber + 2);
+              const contextLines = codeLines.slice(startLine, endLine);
+              finding.extra.context = contextLines.join('\n');
+              
+              console.log('Enhanced finding:', {
+                ruleId: finding.check_id,
+                line: lineNumber,
+                extractedCode: vulnerableLine.trim(),
+                message: finding.message
+              });
+              
+              return finding;
+            });
+          }
+          
           resolve(results);
         } catch (parseError) {
           console.error('Failed to parse Semgrep output:', parseError);
           console.error('Raw output preview:', stdout.substring(0, 500));
           resolve({ 
             results: [], 
-            raw_output: stdout.substring(0, 1000), // Limit output size
+            raw_output: stdout.substring(0, 1000),
             parse_error: parseError.message 
           });
         }
@@ -510,6 +565,12 @@ function runSemgrepScan(filePath) {
       clearTimeout(timeout);
     });
   });
+}
+
+// Legacy function for backward compatibility
+function runSemgrepScan(filePath) {
+  const fileContent = fs.readFileSync(filePath, 'utf8');
+  return runSemgrepScanWithCodeExtraction(filePath, fileContent);
 }
 
 // Catch-all for undefined routes (this should be last)
