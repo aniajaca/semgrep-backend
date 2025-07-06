@@ -36,19 +36,23 @@ console.log('Allowed Origin:', process.env.ALLOWED_ORIGIN || 'not set');
 console.log('Current working directory:', process.cwd());
 console.log('Temp directory:', os.tmpdir());
 
-// Custom CORS middleware
+// Custom CORS middleware - Railway compatible
 const customCors = (req, res, next) => {
   try {
     const allowedOrigins = [
       process.env.ALLOWED_ORIGIN,
       'http://localhost:3000',
       'http://localhost:5173',
-      'https://preview--neperia-code-guardian.lovable.app'
+      'https://preview--neperia-code-guardian.lovable.app',
+      'https://healthcheck.railway.app'  // Railway health check hostname
     ].filter(Boolean);
 
     const origin = req.headers.origin;
     
-    if (allowedOrigins.includes(origin)) {
+    // For Railway health checks, they might not send an origin header
+    if (!origin && req.get('User-Agent')?.includes('Railway')) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    } else if (allowedOrigins.includes(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
     } else if (allowedOrigins.length === 0) {
       res.setHeader('Access-Control-Allow-Origin', '*');
@@ -73,7 +77,8 @@ const customCors = (req, res, next) => {
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
   console.log(`${timestamp} - ${req.method} ${req.path} - Origin: ${req.headers.origin || 'none'}`);
-  console.log(`Headers: ${JSON.stringify(req.headers, null, 2)}`);
+  console.log(`User-Agent: ${req.get('User-Agent') || 'none'}`);
+  console.log(`IP: ${req.ip}`);
   next();
 });
 
@@ -126,12 +131,24 @@ const upload = multer({
 // Root route - handles Railway health checks
 app.get('/', (req, res) => {
   try {
+    console.log('=== ROOT REQUEST ===');
+    console.log('Headers:', req.headers);
+    console.log('IP:', req.ip);
+    console.log('User Agent:', req.get('User-Agent'));
+    
     res.status(200).json({ 
       status: 'success', 
       message: 'Cybersecurity Scanner API is running',
       version: '1.0.0',
       environment: process.env.NODE_ENV || 'development',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      endpoints: {
+        'GET /': 'Root endpoint',
+        'GET /healthz': 'Health check',
+        'GET /semgrep-status': 'Check Semgrep availability',
+        'GET /api': 'API information',
+        'POST /scan': 'File scanning endpoint'
+      }
     });
   } catch (error) {
     console.error('Error in root route:', error);
@@ -139,29 +156,57 @@ app.get('/', (req, res) => {
   }
 });
 
-// Health check endpoint
+// Health check endpoint - Railway compatible
 app.get('/healthz', (req, res) => {
   try {
     console.log('=== HEALTH CHECK REQUEST ===');
     console.log('Request headers:', req.headers);
     console.log('Request IP:', req.ip);
+    console.log('User Agent:', req.get('User-Agent'));
     
     res.status(200).json({ 
-      status: 'healthy', 
+      status: 'healthy',
+      service: 'semgrep-backend',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      memory: process.memoryUsage(),
+      port: PORT,
+      environment: process.env.NODE_ENV,
+      memory: process.memoryUsage()
+    });
+  } catch (error) {
+    console.error('Health check failed:', error);
+    res.status(503).json({ 
+      status: 'unhealthy',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Debug endpoint for Railway troubleshooting
+app.get('/debug', (req, res) => {
+  try {
+    res.json({
+      headers: req.headers,
+      ip: req.ip,
+      ips: req.ips,
+      method: req.method,
+      path: req.path,
+      query: req.query,
+      timestamp: new Date().toISOString(),
       port: PORT,
       environment: process.env.NODE_ENV
     });
   } catch (error) {
-    console.error('Error in health check:', error);
-    res.status(500).json({ status: 'error', message: 'Health check failed' });
+    console.error('Error in debug route:', error);
+    res.status(500).json({ status: 'error', message: 'Debug endpoint error' });
   }
 });
 
 // Semgrep status endpoint
 app.get('/semgrep-status', (req, res) => {
+  console.log('=== SEMGREP STATUS REQUEST ===');
+  
   checkSemgrepAvailability()
     .then(result => {
       res.json({
@@ -190,6 +235,7 @@ app.get('/api', (req, res) => {
         'GET /': 'Root endpoint',
         'GET /healthz': 'Health check',
         'GET /semgrep-status': 'Check Semgrep availability',
+        'GET /debug': 'Debug information',
         'POST /scan': 'File scanning endpoint'
       },
       timestamp: new Date().toISOString()
@@ -203,6 +249,8 @@ app.get('/api', (req, res) => {
 // Scan endpoint
 app.post('/scan', upload.single('file'), async (req, res) => {
   console.log('=== SCAN REQUEST RECEIVED ===');
+  console.log('Headers:', req.headers);
+  console.log('Origin:', req.headers.origin);
   
   try {
     if (!req.file) {
@@ -383,10 +431,16 @@ function runSemgrepScan(filePath) {
 
 // Catch-all for undefined routes (this should be last)
 app.use('*', (req, res) => {
+  console.log('=== 404 REQUEST ===');
+  console.log('Path:', req.originalUrl);
+  console.log('Method:', req.method);
+  console.log('Headers:', req.headers);
+  
   res.status(404).json({ 
     status: 'error', 
     message: 'Route not found',
     path: req.originalUrl,
+    method: req.method,
     timestamp: new Date().toISOString()
   });
 });
@@ -449,22 +503,28 @@ function startServer() {
       console.log('New connection established from:', socket.remoteAddress);
     });
     
+    // Graceful shutdown handlers
+    process.on('SIGTERM', () => {
+      console.log('SIGTERM received, shutting down gracefully');
+      server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+      });
+    });
+
+    process.on('SIGINT', () => {
+      console.log('SIGINT received, shutting down gracefully');
+      server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+      });
+    });
+    
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);
   }
 }
-
-// Graceful shutdown handlers
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  process.exit(0);
-});
-
-process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully');
-  process.exit(0);
-});
 
 // Start the server
 startServer();
