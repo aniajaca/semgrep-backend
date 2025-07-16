@@ -251,11 +251,15 @@ app.get('/api', (req, res) => {
   }
 });
 
-// 🔧 FIXED: Code scanning endpoint for direct code input with proper code extraction
+// 🔧 ENHANCED: Code scanning endpoint with PERFORMANCE MONITORING
 app.post('/scan-code', async (req, res) => {
   console.log('=== CODE SCAN REQUEST RECEIVED ===');
   console.log('Headers:', req.headers);
   console.log('Origin:', req.headers.origin);
+  
+  // 🔧 ADD PERFORMANCE MONITORING
+  const scanStartTime = performance.now();
+  const memBefore = process.memoryUsage();
   
   try {
     const { code, language = 'javascript', filename = 'code.js' } = req.body;
@@ -296,8 +300,31 @@ app.post('/scan-code', async (req, res) => {
     console.log('Created temp file:', tempFilePath);
     console.log('File content length:', fs.readFileSync(tempFilePath, 'utf8').length);
 
-    // 🔧 FIXED: Run Semgrep scan with code extraction
+    // 🔧 MEASURE SEMGREP TIME
+    const semgrepStartTime = performance.now();
     const semgrepResults = await runSemgrepScanWithCodeExtraction(tempFilePath, code);
+    const semgrepEndTime = performance.now();
+    
+    // 🔧 MEASURE CLASSIFICATION TIME (placeholder for when SecurityClassificationSystem is integrated)
+    const classificationStartTime = performance.now();
+    // TODO: Add SecurityClassificationSystem integration here
+    // const classifiedFindings = classifier.classifyFindings(semgrepResults.results);
+    const classificationEndTime = performance.now();
+    
+    // 🔧 FINAL PERFORMANCE METRICS
+    const scanEndTime = performance.now();
+    const memAfter = process.memoryUsage();
+    
+    const performanceMetrics = {
+      totalScanTime: `${(scanEndTime - scanStartTime).toFixed(2)}ms`,
+      semgrepTime: `${(semgrepEndTime - semgrepStartTime).toFixed(2)}ms`,
+      classificationTime: `${(classificationEndTime - classificationStartTime).toFixed(2)}ms`,
+      memoryUsed: `${Math.round((memAfter.heapUsed - memBefore.heapUsed) / 1024 / 1024)}MB`,
+      totalMemory: `${Math.round(memAfter.heapTotal / 1024 / 1024)}MB`,
+      peakMemory: `${Math.round(memAfter.heapUsed / 1024 / 1024)}MB`
+    };
+    
+    console.log('🔧 PERFORMANCE METRICS:', performanceMetrics);
     
     // Clean up temp file
     if (fs.existsSync(tempFilePath)) {
@@ -313,7 +340,8 @@ app.post('/scan-code', async (req, res) => {
         scanned_at: new Date().toISOString(),
         code_length: code.length,
         semgrep_version: semgrepAvailable.version,
-        findings_count: (semgrepResults.results || []).length
+        findings_count: (semgrepResults.results || []).length,
+        performance: performanceMetrics  // 🔧 ADD PERFORMANCE DATA
       }
     });
     
@@ -321,20 +349,32 @@ app.post('/scan-code', async (req, res) => {
     console.error('Code scan error:', error);
     console.error('Stack trace:', error.stack);
     
+    // Calculate error response time
+    const errorEndTime = performance.now();
+    const errorResponseTime = `${(errorEndTime - scanStartTime).toFixed(2)}ms`;
+    console.log('🔧 ERROR RESPONSE TIME:', errorResponseTime);
+    
     res.status(500).json({ 
       status: 'error', 
       message: 'Code scan failed',
       error: error.message,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      performance: {
+        errorResponseTime: errorResponseTime
+      }
     });
   }
 });
 
-// Original file upload scan endpoint
+// 🔧 ENHANCED: File upload scan endpoint with PERFORMANCE MONITORING
 app.post('/scan', upload.single('file'), async (req, res) => {
   console.log('=== FILE SCAN REQUEST RECEIVED ===');
   console.log('Headers:', req.headers);
   console.log('Origin:', req.headers.origin);
+  
+  // 🔧 ADD PERFORMANCE MONITORING
+  const scanStartTime = performance.now();
+  const memBefore = process.memoryUsage();
   
   try {
     if (!req.file) {
@@ -367,10 +407,28 @@ app.post('/scan', upload.single('file'), async (req, res) => {
     }
 
     // Read file content for code extraction
+    const fileReadStartTime = performance.now();
     const fileContent = fs.readFileSync(filePath, 'utf8');
+    const fileReadEndTime = performance.now();
 
-    // Run Semgrep scan with code extraction
+    // 🔧 MEASURE SEMGREP TIME
+    const semgrepStartTime = performance.now();
     const semgrepResults = await runSemgrepScanWithCodeExtraction(filePath, fileContent);
+    const semgrepEndTime = performance.now();
+    
+    // 🔧 FINAL PERFORMANCE METRICS
+    const scanEndTime = performance.now();
+    const memAfter = process.memoryUsage();
+    
+    const performanceMetrics = {
+      totalScanTime: `${(scanEndTime - scanStartTime).toFixed(2)}ms`,
+      fileReadTime: `${(fileReadEndTime - fileReadStartTime).toFixed(2)}ms`,
+      semgrepTime: `${(semgrepEndTime - semgrepStartTime).toFixed(2)}ms`,
+      memoryUsed: `${Math.round((memAfter.heapUsed - memBefore.heapUsed) / 1024 / 1024)}MB`,
+      totalMemory: `${Math.round(memAfter.heapTotal / 1024 / 1024)}MB`
+    };
+    
+    console.log('🔧 PERFORMANCE METRICS:', performanceMetrics);
     
     // Clean up uploaded file
     if (fs.existsSync(filePath)) {
@@ -385,7 +443,9 @@ app.post('/scan', upload.single('file'), async (req, res) => {
       metadata: {
         scanned_at: new Date().toISOString(),
         file_size: req.file.size,
-        semgrep_version: semgrepAvailable.version
+        semgrep_version: semgrepAvailable.version,
+        findings_count: (semgrepResults.results || []).length,
+        performance: performanceMetrics  // 🔧 ADD PERFORMANCE DATA
       }
     });
     
@@ -434,7 +494,7 @@ function checkSemgrepAvailability() {
   });
 }
 
-// 🔧 COMPLETELY FIXED: Semgrep scan function with proper code extraction
+// 🔧 ENHANCED: Semgrep scan function with proper code extraction and PERFORMANCE MONITORING
 function runSemgrepScanWithCodeExtraction(filePath, originalCode) {
   return new Promise((resolve, reject) => {
     console.log('=== STARTING SEMGREP SCAN WITH CODE EXTRACTION ===');
@@ -460,6 +520,7 @@ function runSemgrepScanWithCodeExtraction(filePath, originalCode) {
     
     console.log('Semgrep command:', 'semgrep', semgrepArgs.join(' '));
     
+    const semgrepProcessStartTime = performance.now();
     const semgrepProcess = spawn('semgrep', semgrepArgs, {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env, PATH: process.env.PATH }
@@ -477,8 +538,12 @@ function runSemgrepScanWithCodeExtraction(filePath, originalCode) {
     });
     
     semgrepProcess.on('close', (code) => {
+      const semgrepProcessEndTime = performance.now();
+      const semgrepProcessTime = semgrepProcessEndTime - semgrepProcessStartTime;
+      
       console.log('=== SEMGREP SCAN COMPLETED ===');
       console.log('Exit code:', code);
+      console.log('Process time:', `${semgrepProcessTime.toFixed(2)}ms`);
       console.log('Stdout length:', stdout.length);
       console.log('Stderr length:', stderr.length);
       
@@ -489,11 +554,16 @@ function runSemgrepScanWithCodeExtraction(filePath, originalCode) {
       if (code === 0 || code === 1) {
         // Code 0 = no findings, Code 1 = findings found (both are success)
         try {
+          const parseStartTime = performance.now();
           const results = stdout ? JSON.parse(stdout) : { results: [] };
+          const parseEndTime = performance.now();
+          
+          console.log('JSON parse time:', `${(parseEndTime - parseStartTime).toFixed(2)}ms`);
           console.log('Parsed results successfully, findings:', results.results?.length || 0);
           
           // 🔧 CRITICAL FIX: Enhance findings with actual code
           if (results.results && results.results.length > 0) {
+            const enhancementStartTime = performance.now();
             const codeLines = originalCode.split('\n');
             
             results.results = results.results.map(finding => {
@@ -508,6 +578,9 @@ function runSemgrepScanWithCodeExtraction(filePath, originalCode) {
               finding.extra.lines = vulnerableLine.trim();
               finding.extra.rendered_text = vulnerableLine.trim();
               finding.extra.original_code = vulnerableLine.trim();
+              
+              // 🔧 ADD EXTRACTED CODE FIELD FOR FRONTEND
+              finding.extractedCode = vulnerableLine.trim();
               
               // Remove any "requires login" placeholders
               if (finding.extra.fingerprint === "requires login") {
@@ -529,7 +602,17 @@ function runSemgrepScanWithCodeExtraction(filePath, originalCode) {
               
               return finding;
             });
+            
+            const enhancementEndTime = performance.now();
+            console.log('Finding enhancement time:', `${(enhancementEndTime - enhancementStartTime).toFixed(2)}ms`);
           }
+          
+          // Add performance metadata to results
+          results.performance = {
+            semgrepProcessTime: `${semgrepProcessTime.toFixed(2)}ms`,
+            jsonParseTime: `${(parseEndTime - parseStartTime).toFixed(2)}ms`,
+            findingsCount: results.results?.length || 0
+          };
           
           resolve(results);
         } catch (parseError) {
