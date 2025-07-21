@@ -1,2 +1,1 @@
-// test.js
-eval("alert('danger')");
+console.log('Hello World');
