@@ -1,0 +1,435 @@
+import React, { useState } from 'react';
+import { AlertTriangle, CheckCircle, Shield, ChevronDown, ChevronUp, AlertCircle, Bug } from 'lucide-react';
+
+interface Finding {
+  id: number;
+  title: string;
+  severity: string;
+  description: string;
+  owaspCategory: string;
+  remediation: string;
+  line: number;
+  impact: number | string;
+  codeSnippet: string;
+  cvssScore?: number;
+  cwe?: string;
+  confidence?: string;
+}
+
+interface RiskCalculation {
+  finalRiskScore: number;
+  totalFindingPoints: number;
+  totalMultiplier: number;
+  calculatedSubtotal?: number;
+  severityBreakdown: Array<{
+    severity: string;
+    count: number;
+    points: number;
+  }>;
+  multipliers: Array<{
+    label: string;
+    value: number;
+  }>;
+  additionalFactors?: Array<{
+    label: string;
+    points: number;
+  }>;
+  hiddenFactorsTotal?: number;
+  calculation?: {
+    baseSeverityPoints: number;
+    environmentalMultipliers: Array<{
+      label: string;
+      value: number;
+    }>;
+    totalEnvironmentalMultiplier: number;
+    subtotalAfterEnvironmental: number;
+    diversityFactors: Array<{
+      label: string;
+      multiplier: number;
+      points: number;
+    }>;
+    diversityBonusTotal: number;
+    finalCalculatedScore: number;
+  };
+}
+
+interface ResultsSectionProps {
+  findings: Finding[];
+  totalRiskScore: number;
+  isScanning: boolean;
+  scanStatus: string;
+  errorMessage?: string;
+  riskCalculation?: RiskCalculation;
+}
+
+const ResultsSection: React.FC<ResultsSectionProps> = ({ findings, totalRiskScore, isScanning, scanStatus, errorMessage, riskCalculation }) => {
+  const [expandedCards, setExpandedCards] = useState<number[]>([]);
+  const [showCalculation, setShowCalculation] = useState(false);
+
+  const toggleCard = (id: number) => {
+    setExpandedCards(prev => 
+      prev.includes(id) 
+        ? prev.filter(cardId => cardId !== id)
+        : [...prev, id]
+    );
+  };
+
+  const getSeverityConfig = (severity: string) => {
+    switch (severity) {
+      case 'Critical': return { 
+        color: 'bg-red-100 text-red-800 border-red-200',
+        bgGradient: 'from-red-50 to-red-100',
+        icon: AlertCircle,
+        iconColor: 'text-red-600'
+      };
+      case 'High': return { 
+        color: 'bg-orange-100 text-orange-800 border-orange-200',
+        bgGradient: 'from-orange-50 to-orange-100',
+        icon: AlertTriangle,
+        iconColor: 'text-orange-600'
+      };
+      case 'Medium': return { 
+        color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+        bgGradient: 'from-yellow-50 to-yellow-100',
+        icon: Bug,
+        iconColor: 'text-yellow-600'
+      };
+      case 'Low': return { 
+        color: 'bg-blue-100 text-blue-800 border-blue-200',
+        bgGradient: 'from-blue-50 to-blue-100',
+        icon: AlertCircle,
+        iconColor: 'text-blue-600'
+      };
+      default: return { 
+        color: 'bg-gray-100 text-gray-800 border-gray-200',
+        bgGradient: 'from-gray-50 to-gray-100',
+        icon: Bug,
+        iconColor: 'text-gray-600'
+      };
+    }
+  };
+
+  // Generate risk calculation data from findings if not provided by backend
+  const generateRiskCalculation = (): RiskCalculation => {
+    const severityPoints = { Critical: 25, High: 15, Medium: 8, Low: 3 };
+    const severityBreakdown = ['Critical', 'High', 'Medium', 'Low'].map(severity => {
+      const count = findings.filter(f => f.severity === severity).length;
+      const points = count * (severityPoints[severity as keyof typeof severityPoints] || 0);
+      return { severity, count, points };
+    }).filter(item => item.count > 0);
+
+    const totalFindingPoints = severityBreakdown.reduce((sum, item) => sum + item.points, 0);
+    
+    // Default environmental multipliers (these would come from backend in real scenario)
+    const multipliers = [
+      { label: "Production environment", value: 0.10 },
+      { label: "Internet-facing", value: 0.30 }
+    ];
+    
+    const totalMultiplier = 1 + multipliers.reduce((sum, mult) => sum + mult.value, 0);
+    const finalRiskScore = totalFindingPoints * totalMultiplier;
+
+    return {
+      finalRiskScore,
+      totalFindingPoints,
+      totalMultiplier,
+      severityBreakdown,
+      multipliers
+    };
+  };
+
+  const calculationData = riskCalculation || generateRiskCalculation();
+
+  const getRiskScoreConfig = (score: number) => {
+    if (score >= 80) return { color: 'text-red-600', bg: 'from-red-50 to-red-100', label: 'Critical Risk' };
+    if (score >= 60) return { color: 'text-orange-600', bg: 'from-orange-50 to-orange-100', label: 'High Risk' };
+    if (score >= 40) return { color: 'text-yellow-600', bg: 'from-yellow-50 to-yellow-100', label: 'Medium Risk' };
+    return { color: 'text-green-600', bg: 'from-green-50 to-green-100', label: 'Low Risk' };
+  };
+
+  if (isScanning) {
+    return (
+      <section className="bg-white/70 backdrop-blur-sm rounded-3xl shadow-lg border border-white/20 p-10">
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="relative mb-8">
+              <div className="animate-spin rounded-full h-16 w-16 border-4 border-green-200 border-t-green-600 mx-auto"></div>
+              <Shield className="w-8 h-8 text-green-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">Analyzing Your Code</h3>
+            <p className="text-lg text-gray-600 mb-2">Running comprehensive security scan...</p>
+            <p className="text-sm text-gray-500">Using OWASP standards and industry best practices</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (scanStatus === 'idle') {
+    return null;
+  }
+
+  if (scanStatus === 'error' && errorMessage) {
+    return (
+      <section className="bg-white/70 backdrop-blur-sm rounded-3xl shadow-lg border border-white/20 p-10">
+        <div className="text-center py-16">
+          <div className="bg-gradient-to-br from-red-400 to-red-600 p-6 rounded-3xl w-fit mx-auto mb-6 shadow-lg">
+            <AlertTriangle className="w-16 h-16 text-white" />
+          </div>
+          <h3 className="text-3xl font-bold text-gray-900 mb-4">Scan Failed</h3>
+          <p className="text-lg text-red-600 max-w-2xl mx-auto mb-4">
+            {errorMessage}
+          </p>
+          <p className="text-sm text-gray-600 max-w-2xl mx-auto">
+            Please check your code or file format and try again. Make sure your backend service is running.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  if (findings.length === 0) {
+    return (
+      <section className="bg-white/70 backdrop-blur-sm rounded-3xl shadow-lg border border-white/20 p-10">
+        <div className="text-center py-16">
+          <div className="bg-gradient-to-br from-green-400 to-green-600 p-6 rounded-3xl w-fit mx-auto mb-6 shadow-lg">
+            <CheckCircle className="w-16 h-16 text-white" />
+          </div>
+          <h3 className="text-3xl font-bold text-gray-900 mb-4">Great Job! No Vulnerabilities Found</h3>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Your code follows security best practices according to OWASP standards. No immediate security risks detected.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  const riskConfig = getRiskScoreConfig(totalRiskScore);
+
+  return (
+    <section className="space-y-8">
+      {/* Risk Score Card */}
+      <div className={`bg-gradient-to-br ${riskConfig.bg} rounded-3xl shadow-lg border border-white/20 p-8 backdrop-blur-sm`}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex-1">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center">
+              <Shield className="w-7 h-7 mr-3 text-gray-700" />
+              Security Risk Assessment
+            </h2>
+            <p className="text-gray-600 mb-4 text-lg">
+              Based on {findings.length} vulnerabilities found using OWASP criteria
+            </p>
+          </div>
+          
+          <div className="text-right ml-8">
+            <div className={`text-6xl font-bold ${riskConfig.color} mb-2`}>
+              {totalRiskScore.toFixed(1)}
+              <span className="text-2xl text-gray-500">/100</span>
+            </div>
+            <div className={`text-lg font-semibold ${riskConfig.color} mb-3`}>
+              {riskConfig.label}
+            </div>
+            
+            <button
+              onClick={() => setShowCalculation(!showCalculation)}
+              className="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-800 transition-colors ml-auto"
+              title="Risk score reflects vulnerability severity and business context"
+            >
+              <span>{showCalculation ? 'Hide Calculation' : 'View Calculation'}</span>
+              {showCalculation ? 
+                <ChevronUp className="w-4 h-4" /> : 
+                <ChevronDown className="w-4 h-4" />
+              }
+            </button>
+          </div>
+        </div>
+
+        {showCalculation && (
+          <div className="border-t border-white/40 pt-6 animate-accordion-down">
+            <div className="bg-white/60 rounded-xl p-6 space-y-4">
+              {/* Findings Breakdown */}
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 mb-3">Findings Breakdown:</h4>
+                <div className="space-y-2">
+                  {calculationData.severityBreakdown.map((item) => (
+                    <div key={item.severity} className="flex justify-between text-gray-700">
+                      <span>• {item.severity} ({item.count} {item.count === 1 ? 'finding' : 'findings'}) →</span>
+                      <span className="font-medium">{item.points.toFixed(1)} pts</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between pt-2 border-t border-gray-300 font-semibold">
+                    <span>Subtotal:</span>
+                    <span>{calculationData.totalFindingPoints.toFixed(1)} pts</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Environmental Multipliers */}
+              {calculationData.multipliers.length > 0 && (
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-900 mb-3">Environmental Multipliers:</h4>
+                  <div className="space-y-2">
+                    {calculationData.multipliers.map((multiplier, index) => (
+                      <div key={index} className="flex items-center text-gray-700">
+                        <span className="text-green-600 mr-2">✓</span>
+                        <span>{multiplier.label} (+{(multiplier.value * 100).toFixed(0)}%)</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between pt-2 border-t border-gray-300 font-semibold">
+                      <span>Environmental Total:</span>
+                      <span>{calculationData.totalFindingPoints.toFixed(1)} × {calculationData.totalMultiplier.toFixed(2)} = {(calculationData.totalFindingPoints * calculationData.totalMultiplier).toFixed(1)} pts</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* NEW: Diversity Factors Section */}
+              {calculationData.calculation?.diversityFactors && calculationData.calculation.diversityFactors.length > 0 && (
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-900 mb-3">Diversity Adjustments:</h4>
+                  <div className="space-y-2">
+                    {calculationData.calculation.diversityFactors.map((factor, index) => (
+                      <div key={index} className="flex justify-between text-gray-700">
+                        <span>• {factor.label}:</span>
+                        <span className="font-medium">{factor.points > 0 ? '+' : ''}{factor.points.toFixed(1)} pts</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between pt-2 border-t border-gray-300 font-semibold">
+                      <span>Total Diversity Adjustment:</span>
+                      <span>{calculationData.calculation.diversityBonusTotal > 0 ? '+' : ''}{calculationData.calculation.diversityBonusTotal.toFixed(1)} pts</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Final Calculation */}
+              <div className="bg-gray-100 rounded-lg p-4">
+                <h4 className="text-lg font-semibold text-gray-900 mb-2">Final Calculation:</h4>
+                {calculationData.calculation ? (
+                  <div className="font-mono text-gray-800 space-y-1">
+                    <div>Base: {calculationData.calculation.baseSeverityPoints.toFixed(1)} pts</div>
+                    <div>Environmental: {calculationData.calculation.baseSeverityPoints.toFixed(1)} × {calculationData.calculation.totalEnvironmentalMultiplier.toFixed(2)} = {calculationData.calculation.subtotalAfterEnvironmental.toFixed(1)} pts</div>
+                    {calculationData.calculation.diversityBonusTotal !== 0 && (
+                      <div>Diversity: {calculationData.calculation.diversityBonusTotal > 0 ? '+' : ''}{calculationData.calculation.diversityBonusTotal.toFixed(1)} pts</div>
+                    )}
+                    <div className="font-bold border-t pt-1">Final: {calculationData.calculation.subtotalAfterEnvironmental.toFixed(1)} {calculationData.calculation.diversityBonusTotal > 0 ? '+' : ''} {Math.abs(calculationData.calculation.diversityBonusTotal).toFixed(1)} = {totalRiskScore.toFixed(1)} / 100</div>
+                  </div>
+                ) : (
+                  <div className="font-mono text-gray-800">
+                    {calculationData.totalFindingPoints.toFixed(1)} pts × {calculationData.totalMultiplier.toFixed(2)} = {totalRiskScore.toFixed(1)} / 100
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+
+      {/* Summary Stats */}
+      <div className="grid grid-cols-4 gap-6">
+        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 text-center shadow-lg border border-white/20">
+          <div className="text-3xl font-bold text-gray-900 mb-1">{findings.length}</div>
+          <div className="text-sm text-gray-600">Total Issues</div>
+        </div>
+        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 text-center shadow-lg border border-white/20">
+          <div className="text-3xl font-bold text-red-600 mb-1">
+            {findings.filter(f => f.severity === 'Critical').length}
+          </div>
+          <div className="text-sm text-gray-600">Critical</div>
+        </div>
+        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 text-center shadow-lg border border-white/20">
+          <div className="text-3xl font-bold text-orange-600 mb-1">
+            {findings.filter(f => f.severity === 'High').length}
+          </div>
+          <div className="text-sm text-gray-600">High</div>
+        </div>
+        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 text-center shadow-lg border border-white/20">
+          <div className="text-3xl font-bold text-yellow-600 mb-1">
+            {findings.filter(f => f.severity === 'Medium').length}
+          </div>
+          <div className="text-sm text-gray-600">Medium</div>
+        </div>
+      </div>
+
+      {/* Vulnerability Cards */}
+      <div className="space-y-6">
+        <h3 className="text-2xl font-bold text-gray-900 mb-6">Security Findings</h3>
+        
+        {findings.map((finding) => {
+          const severityConfig = getSeverityConfig(finding.severity);
+          const isExpanded = expandedCards.includes(finding.id);
+          const SeverityIcon = severityConfig.icon;
+          
+          return (
+            <div 
+              key={finding.id} 
+              className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
+            >
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start space-x-4 flex-1">
+                    <div className={`bg-gradient-to-br ${severityConfig.bgGradient} p-3 rounded-xl`}>
+                      <SeverityIcon className={`w-6 h-6 ${severityConfig.iconColor}`} />
+                    </div>
+                    
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <h4 className="text-xl font-bold text-gray-900">{finding.title}</h4>
+                        <span className={`px-3 py-1 rounded-full text-sm font-semibold border ${severityConfig.color}`}>
+                          {finding.severity}
+                        </span>
+                      </div>
+                      
+                      <p className="text-gray-600 mb-3 text-lg">{finding.description}</p>
+                      
+                      <div className="flex items-center text-sm text-gray-500 space-x-4">
+                        <span>Line {finding.line}</span>
+                        <span>•</span>
+                        <span>{finding.owaspCategory}</span>
+                        {finding.cvssScore && (
+                          <>
+                            <span>•</span>
+                            <span>CVSS: {finding.cvssScore}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={() => toggleCard(finding.id)}
+                    className="ml-4 p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                  >
+                    {isExpanded ? 
+                      <ChevronUp className="w-5 h-5 text-gray-500" /> : 
+                      <ChevronDown className="w-5 h-5 text-gray-500" />
+                    }
+                  </button>
+                </div>
+
+                {isExpanded && (
+                  <div className="space-y-4 border-t border-gray-200 pt-4">
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <h5 className="text-sm font-semibold text-gray-700 mb-2">Vulnerable Code</h5>
+                      <code className="text-sm text-gray-800 font-mono bg-white p-3 rounded-lg block">
+                        {finding.codeSnippet}
+                      </code>
+                    </div>
+                    
+                    <div className="bg-green-50 rounded-xl p-4">
+                      <h5 className="text-sm font-semibold text-green-800 mb-2">Recommended Fix</h5>
+                      <p className="text-sm text-green-700">{finding.remediation}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
+export default ResultsSection;

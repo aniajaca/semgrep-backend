@@ -1,0 +1,19 @@
+# Node modules
+node_modules/
+node_modules_backup/
+
+# macOS junk
+.DS_Store
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Semgrep outputs
+semgrep_results.json
+semgrep_verbose.txt
+
+# Python cache
+__pycache__/
+*.pyc

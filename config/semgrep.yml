@@ -1,0 +1,11 @@
+# config/semgrep.yml
+rules:
+  - rulesets:
+      - p/python
+      - p/javascript
+      - p/java
+      - p/go
+      - p/cpp
+      - p/php
+      - p/ruby
+      - p/sql
