@@ -5,6 +5,9 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { performance } = require('perf_hooks'); 
+require('dotenv').config();
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
 
 // Import the SecurityClassificationSystem using CommonJS
 const { SecurityClassificationSystem } = require('./SecurityClassificationSystem');
@@ -270,7 +273,20 @@ app.post('/scan-code', async (req, res) => {
   const memBefore = process.memoryUsage();
   
   try {
-    const { code, language = 'javascript', filename = 'code.js' } = req.body;
+    const { 
+      code, 
+      language = 'javascript', 
+      filename = 'code.js',
+      // Accept environmental context from request
+      environment = 'production',
+      deployment = 'internet-facing',
+      dataHandling = {
+        personalData: false,
+        financialData: false,
+        healthData: false
+      },
+      compliance = []
+    } = req.body;
     
     if (!code || typeof code !== 'string' || code.trim() === '') {
       return res.status(400).json({ 
@@ -317,13 +333,15 @@ app.post('/scan-code', async (req, res) => {
     const classificationStartTime = performance.now();
     const classifier = new SecurityClassificationSystem();
     
-    // Use the environmental context for CVSS adjustment
-    const componentContext = {
-      isProduction: true,
-      hasNetworkAccess: true,
-      handlesPersonalData: false,
-      isInternetFacing: true
-    };
+    // Build dynamic component context
+    const componentContext = buildComponentContext({
+      environment,
+      deployment,
+      dataHandling,
+      compliance
+    });
+
+    console.log('Environmental Context:', componentContext);
     
     // Classify each finding
     const classifiedFindings = semgrepResults.results.map(finding => {
@@ -338,6 +356,25 @@ app.post('/scan-code', async (req, res) => {
     const riskAssessment = classifier.aggregateRiskScore(classifiedFindings, componentContext);
     
     const classificationEndTime = performance.now();
+    
+    // Generate structured report
+    const report = generateStructuredReport({
+      findings: classifiedFindings,
+      riskAssessment,
+      metadata: {
+        scanned_at: new Date().toISOString(),
+        code_length: code.length,
+        language,
+        filename,
+        environment: componentContext,
+        semgrep_version: semgrepAvailable.version
+      },
+      performance: {
+        totalScanTime: `${(performance.now() - scanStartTime).toFixed(2)}ms`,
+        semgrepTime: `${(semgrepEndTime - semgrepStartTime).toFixed(2)}ms`,
+        classificationTime: `${(classificationEndTime - classificationStartTime).toFixed(2)}ms`
+      }
+    });
     
     // 🔧 FINAL PERFORMANCE METRICS
     const scanEndTime = performance.now();
@@ -362,17 +399,12 @@ app.post('/scan-code', async (req, res) => {
     
     res.json({
       status: 'success',
-      language: language,
+      report,
+      // Keep legacy fields for compatibility
       findings: classifiedFindings,
       riskScore: riskAssessment.riskScore,
-      metadata: {
-        scanned_at: new Date().toISOString(),
-        code_length: code.length,
-        semgrep_version: semgrepAvailable.version,
-        findings_count: classifiedFindings.length,
-        performance: performanceMetrics  // 🔧 ADD PERFORMANCE DATA
-      },
-      riskAssessment: riskAssessment
+      metadata: report.metadata,
+      riskAssessment
     });
     
   } catch (error) {
@@ -414,6 +446,18 @@ app.post('/scan', upload.single('file'), async (req, res) => {
       });
     }
 
+    // Extract environmental context from request body
+    const { 
+      environment = 'production',
+      deployment = 'internet-facing',
+      dataHandling = {
+        personalData: false,
+        financialData: false,
+        healthData: false
+      },
+      compliance = []
+    } = req.body;
+
     const filePath = req.file.path;
     console.log('File uploaded to:', filePath);
     console.log('File details:', {
@@ -450,13 +494,15 @@ app.post('/scan', upload.single('file'), async (req, res) => {
     const classificationStartTime = performance.now();
     const classifier = new SecurityClassificationSystem();
     
-    // Use the environmental context for CVSS adjustment
-    const componentContext = {
-      isProduction: true,
-      hasNetworkAccess: true,
-      handlesPersonalData: false,
-      isInternetFacing: true
-    };
+    // Build dynamic component context
+    const componentContext = buildComponentContext({
+      environment,
+      deployment,
+      dataHandling,
+      compliance
+    });
+
+    console.log('Environmental Context:', componentContext);
     
     // Classify each finding
     const classifiedFindings = semgrepResults.results.map(finding => {
@@ -471,6 +517,25 @@ app.post('/scan', upload.single('file'), async (req, res) => {
     const riskAssessment = classifier.aggregateRiskScore(classifiedFindings, componentContext);
     
     const classificationEndTime = performance.now();
+    
+    // Generate structured report
+    const report = generateStructuredReport({
+      findings: classifiedFindings,
+      riskAssessment,
+      metadata: {
+        scanned_at: new Date().toISOString(),
+        file_size: req.file.size,
+        filename: req.file.originalname,
+        environment: componentContext,
+        semgrep_version: semgrepAvailable.version
+      },
+      performance: {
+        totalScanTime: `${(performance.now() - scanStartTime).toFixed(2)}ms`,
+        fileReadTime: `${(fileReadEndTime - fileReadStartTime).toFixed(2)}ms`,
+        semgrepTime: `${(semgrepEndTime - semgrepStartTime).toFixed(2)}ms`,
+        classificationTime: `${(classificationEndTime - classificationStartTime).toFixed(2)}ms`
+      }
+    });
     
     // 🔧 FINAL PERFORMANCE METRICS
     const scanEndTime = performance.now();
@@ -495,17 +560,13 @@ app.post('/scan', upload.single('file'), async (req, res) => {
     
     res.json({
       status: 'success',
+      report,
+      // Keep legacy fields for compatibility
       filename: req.file.originalname,
       findings: classifiedFindings,
       riskScore: riskAssessment.riskScore,
-      metadata: {
-        scanned_at: new Date().toISOString(),
-        file_size: req.file.size,
-        semgrep_version: semgrepAvailable.version,
-        findings_count: classifiedFindings.length,
-        performance: performanceMetrics  // 🔧 ADD PERFORMANCE DATA
-      },
-      riskAssessment: riskAssessment
+      metadata: report.metadata,
+      riskAssessment
     });
     
   } catch (error) {
@@ -707,6 +768,212 @@ function runSemgrepScanWithCodeExtraction(filePath, originalCode) {
       clearTimeout(timeout);
     });
   });
+}
+
+// Helper function to build component context
+function buildComponentContext(options) {
+  const { environment, deployment, dataHandling, compliance } = options;
+  
+  return {
+    // Environment type
+    isProduction: environment === 'production',
+    isDevelopment: environment === 'development',
+    isStaging: environment === 'staging',
+    isLegacy: environment === 'legacy',
+    
+    // Deployment context
+    isInternetFacing: deployment === 'internet-facing',
+    hasNetworkAccess: deployment !== 'air-gapped',
+    isInternal: deployment === 'internal',
+    isAirGapped: deployment === 'air-gapped',
+    
+    // Data handling
+    handlesPersonalData: dataHandling.personalData,
+    handlesFinancialData: dataHandling.financialData,
+    handlesHealthData: dataHandling.healthData,
+    
+    // Compliance requirements
+    regulatoryRequirements: compliance,
+    
+    // Calculate risk multiplier
+    environmentMultiplier: calculateEnvironmentMultiplier(environment, deployment),
+    
+    // Human-readable summary
+    summary: `${environment} ${deployment} system${compliance.length ? ` (${compliance.join(', ')})` : ''}`
+  };
+}
+
+// Calculate environment multiplier
+function calculateEnvironmentMultiplier(environment, deployment) {
+  const baseMultipliers = {
+    'production': 1.0,
+    'legacy': 0.9,
+    'staging': 0.7,
+    'development': 0.5
+  };
+  
+  const deploymentMultipliers = {
+    'internet-facing': 1.5,
+    'external': 1.3,
+    'internal': 1.0,
+    'air-gapped': 0.7
+  };
+  
+  const base = baseMultipliers[environment] || 1.0;
+  const deploy = deploymentMultipliers[deployment] || 1.0;
+  
+  return base * deploy;
+}
+
+// Generate structured report
+function generateStructuredReport(data) {
+  const { findings, riskAssessment, metadata, performance } = data;
+  
+  // Group findings by severity
+  const findingsBySeverity = {
+    Critical: findings.filter(f => f.severity === 'Critical'),
+    High: findings.filter(f => f.severity === 'High'),
+    Medium: findings.filter(f => f.severity === 'Medium'),
+    Low: findings.filter(f => f.severity === 'Low')
+  };
+  
+  // Get top risks
+  const topRisks = findings
+    .sort((a, b) => b.cvss.adjustedScore - a.cvss.adjustedScore)
+    .slice(0, 3)
+    .map(f => ({
+      title: f.title,
+      score: f.cvss.adjustedScore,
+      file: f.scannerData.location.file,
+      line: f.scannerData.location.line,
+      impact: f.impact
+    }));
+  
+  return {
+    // Executive Summary
+    executiveSummary: {
+      scanDate: metadata.scanned_at,
+      projectName: metadata.filename,
+      totalFindings: findings.length,
+      findingsBySeverity: {
+        critical: findingsBySeverity.Critical.length,
+        high: findingsBySeverity.High.length,
+        medium: findingsBySeverity.Medium.length,
+        low: findingsBySeverity.Low.length
+      },
+      overallRiskRating: riskAssessment.riskLevel,
+      riskScore: riskAssessment.riskScore,
+      topRisks,
+      environmentContext: metadata.environment.summary,
+      businessRiskFlags: {
+        handlesPII: metadata.environment.handlesPersonalData,
+        handlesFinancial: metadata.environment.handlesFinancialData,
+        complianceRequired: metadata.environment.regulatoryRequirements
+      }
+    },
+    
+    // Component Risk Analysis
+    componentRisk: analyzeComponentRisk(findings),
+    
+    // Detailed Findings
+    findings: findings.map(f => ({
+      id: f.id,
+      title: f.title,
+      file: f.scannerData.location.file,
+      line: f.scannerData.location.line,
+      ruleId: f.ruleId,
+      cwe: f.cwe,
+      cvss: {
+        base: f.cvss.baseScore,
+        adjusted: f.cvss.adjustedScore,
+        vector: f.cvss.vector,
+        severity: f.cvss.severity
+      },
+      owaspCategory: f.owaspCategory,
+      extractedCode: f.codeSnippet,
+      remediation: f.remediation,
+      confidence: f.confidence
+    })),
+    
+    // Remediation Checklist
+    remediationChecklist: generateRemediationChecklist(findings),
+    
+    // Technical Metadata
+    technicalMetadata: {
+      ...metadata,
+      performance,
+      scanEngine: 'Semgrep + Neperia Security Classification',
+      classificationVersion: '1.0'
+    }
+  };
+}
+
+// Analyze risk by component/file
+function analyzeComponentRisk(findings) {
+  const componentMap = new Map();
+  
+  findings.forEach(f => {
+    const file = f.scannerData.location.file;
+    if (!componentMap.has(file)) {
+      componentMap.set(file, {
+        file,
+        findings: [],
+        highestRisk: 0,
+        totalRisk: 0
+      });
+    }
+    
+    const component = componentMap.get(file);
+    component.findings.push(f);
+    component.highestRisk = Math.max(component.highestRisk, f.cvss.adjustedScore);
+    component.totalRisk += f.cvss.adjustedScore;
+  });
+  
+  return Array.from(componentMap.values()).map(c => ({
+    file: c.file,
+    findingsCount: c.findings.length,
+    highestRisk: c.highestRisk,
+    averageRisk: (c.totalRisk / c.findings.length).toFixed(1),
+    classification: getRiskClassification(c.highestRisk)
+  })).sort((a, b) => b.highestRisk - a.highestRisk);
+}
+
+// Generate remediation checklist
+function generateRemediationChecklist(findings) {
+  const checklist = findings
+    .sort((a, b) => b.cvss.adjustedScore - a.cvss.adjustedScore)
+    .map(f => ({
+      action: f.remediation,
+      severity: f.severity,
+      file: f.scannerData.location.file,
+      line: f.scannerData.location.line,
+      cwe: f.cwe.id,
+      priority: getPriority(f.cvss.adjustedScore)
+    }));
+  
+  // Remove duplicates by action
+  const seen = new Set();
+  return checklist.filter(item => {
+    const key = `${item.action}:${item.file}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+// Helper functions
+function getRiskClassification(score) {
+  if (score >= 9.0) return 'Critical';
+  if (score >= 7.0) return 'High';
+  if (score >= 4.0) return 'Medium';
+  return 'Low';
+}
+
+function getPriority(score) {
+  if (score >= 9.0) return 'P0 - Immediate';
+  if (score >= 7.0) return 'P1 - High';
+  if (score >= 4.0) return 'P2 - Medium';
+  return 'P3 - Low';
 }
 
 // Catch-all for undefined routes (this should be last)
