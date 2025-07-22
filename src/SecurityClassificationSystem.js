@@ -298,8 +298,12 @@ class SecurityClassificationSystem {
       ruleId: ruleId,
       title: classification.cwe.name,
       
-      // CWE Classification
-      cwe: classification.cwe,
+      // CWE Classification - Fix double prefix issue
+      cwe: {
+      id: classification.cwe.id.replace('CWE-CWE-', 'CWE-'),
+      name: classification.cwe.name,
+      description: classification.cwe.description
+    },
       
       // CVSS Scoring
       cvss: {
@@ -591,7 +595,8 @@ class SecurityClassificationSystem {
     
     // Calculate final score
     const diversityBonusTotal = subtotalAfterEnvironmental * (owaspCoverageMultiplier + diversityMultiplier);
-    const finalScore = Math.min(subtotalAfterEnvironmental + diversityBonusTotal, 100);
+    const rawFinalScore = subtotalAfterEnvironmental + diversityBonusTotal;
+    const finalScore = Math.min(rawFinalScore, 100);
     
     return {
       // Overall assessment
