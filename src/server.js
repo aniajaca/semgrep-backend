@@ -254,7 +254,7 @@ app.get('/api', (req, res) => {
     res.status(500).json({ status: 'error', message: 'Internal server error' });
   }
 });
-
+ 
 // 🔧 ENHANCED: Code scanning endpoint with PERFORMANCE MONITORING and CLASSIFICATION
 app.post('/scan-code', async (req, res) => {
   console.log('=== CODE SCAN REQUEST RECEIVED ===');
