@@ -40,39 +40,47 @@ console.log('Allowed Origin:', process.env.ALLOWED_ORIGIN || 'not set');
 console.log('Current working directory:', process.cwd());
 console.log('Temp directory:', os.tmpdir());
 
-// FIXED CORS middleware - properly configured for Lovable frontend
+
+// FIXED CORS middleware - properly configured for Lovable frontend & previews
 const customCors = (req, res, next) => {
   try {
     const origin = req.headers.origin;
     
-    // List of allowed origins
+    // Static whitelist (explicit domains)
     const allowedOrigins = [
       'https://preview--neperia-code-guardian.lovable.app',
       'https://neperia-code-guardian.lovable.app',
       'https://lovable.app',
       'http://localhost:3000',
-      'http://localhost:5173' // Vite dev server
+      'http://localhost:5173'
     ];
     
-    // Check if origin is allowed or if it's a Lovable subdomain
-    const isAllowed = allowedOrigins.includes(origin) || 
-                     (origin && origin.includes('.lovable.app'));
+    // Dynamically allow any subdomain of lovable.app or lovableproject.com
+    const isAllowed = 
+      allowedOrigins.includes(origin) ||
+      (origin && (
+        origin.endsWith('.lovable.app') ||
+        origin.endsWith('.lovableproject.com')
+      ));
     
-    if (isAllowed || !origin) {
-      res.setHeader('Access-Control-Allow-Origin', origin || '*');
-    } else {
-      res.setHeader('Access-Control-Allow-Origin', 'https://preview--neperia-code-guardian.lovable.app');
-    }
+    // If allowed—or if no origin (e.g. server-to-server)—echo it; otherwise fallback
+    res.setHeader(
+      'Access-Control-Allow-Origin',
+      isAllowed || !origin ? (origin || '*') 
+                         : 'https://preview--neperia-code-guardian.lovable.app'
+    );
     
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    res.setHeader(
+      'Access-Control-Allow-Headers', 
+      'Content-Type, Authorization, X-Requested-With, Accept, Origin'
+    );
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+    res.setHeader('Access-Control-Max-Age', '86400');
     
     console.log(`CORS: Origin ${origin} -> ${isAllowed ? 'ALLOWED' : 'DEFAULT'}`);
     
     if (req.method === 'OPTIONS') {
-      console.log('Handling OPTIONS preflight request');
       return res.status(200).end();
     }
     
@@ -83,14 +91,8 @@ const customCors = (req, res, next) => {
   }
 };
 
-// Request logging middleware
-app.use((req, res, next) => {
-  const timestamp = new Date().toISOString();
-  console.log(`${timestamp} - ${req.method} ${req.path} - Origin: ${req.headers.origin || 'none'}`);
-  console.log(`User-Agent: ${req.get('User-Agent') || 'none'}`);
-  console.log(`IP: ${req.ip}`);
-  next();
-});
+// Apply it before all other routes
+app.use(customCors);
 
 // Apply CORS middleware FIRST
 app.use(customCors);
