@@ -260,6 +260,8 @@ app.post('/scan-code', async (req, res) => {
   console.log('=== CODE SCAN REQUEST RECEIVED ===');
   console.log('Headers:', req.headers);
   console.log('Origin:', req.headers.origin);
+
+  
   
   // 🔧 ADD PERFORMANCE MONITORING
   const scanStartTime = performance.now();
