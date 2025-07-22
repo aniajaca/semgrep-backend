@@ -12,7 +12,7 @@
  * DESIGNED FOR: Enterprise environments requiring compliance and standardization
  */
 
-export class SecurityClassificationSystem {
+class SecurityClassificationSystem {
   
   constructor() {
     this.initializeClassificationDatabase();
@@ -345,6 +345,15 @@ export class SecurityClassificationSystem {
         confidence: this.calculateClassificationConfidence(scannerFinding)
       }
     };
+  }
+
+  /**
+   * Process multiple findings at once
+   * @param {Array} findings - Array of raw findings
+   * @returns {Array} Array of classified findings
+   */
+  classifyFindings(findings) {
+    return findings.map(finding => this.classifyFinding(finding));
   }
 
   /**
@@ -788,3 +797,6 @@ export class SecurityClassificationSystem {
     return `Security issue: ${readable}`;
   }
 }
+
+// CommonJS export
+module.exports = { SecurityClassificationSystem }; 
