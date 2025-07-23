@@ -1,3 +1,4 @@
+// src/server.js - Complete corrected server with AI integration
 const express = require('express');
 const multer = require('multer');
 const { spawn, exec } = require('child_process');
@@ -6,50 +7,51 @@ const path = require('path');
 const os = require('os');
 const { performance } = require('perf_hooks'); 
 require('dotenv').config();
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-
-// Import the SecurityClassificationSystem using CommonJS
+// Import the enhanced SecurityClassificationSystem
 const { SecurityClassificationSystem } = require('./SecurityClassificationSystem');
+
+// Import AI router
+const aiRouter = require('./aiRouter');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+console.log('🚀 Starting Neperia Cybersecurity Analysis Tool with AI Integration');
+console.log('🔧 STATIC: Semgrep + CWE + OWASP + CVSS Classification');  
+console.log('🤖 AI: OpenAI GPT-4 Enhanced Explanations and Reporting');
+
 // Global error handlers to prevent crashes
 process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
+  console.error('❌ Uncaught Exception:', error);
   console.error('Stack:', error.stack);
-  // Don't exit immediately in production, let Railway handle restarts
   if (process.env.NODE_ENV !== 'production') {
     process.exit(1);
   }
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  // Don't exit immediately in production
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
   if (process.env.NODE_ENV !== 'production') {
     process.exit(1);
   }
 });
 
 // Enhanced startup logging
-console.log('=== SERVER STARTUP ===');
+console.log('=== NEPERIA SECURITY SCANNER STARTUP ===');
 console.log('Node version:', process.version);
 console.log('Platform:', process.platform);
 console.log('Environment:', process.env.NODE_ENV || 'development');
 console.log('Port:', PORT);
-console.log('Allowed Origin:', process.env.ALLOWED_ORIGIN || 'not set');
+console.log('OpenAI API:', process.env.OPENAI_API_KEY ? '✓ Configured' : '❌ Missing');
 console.log('Current working directory:', process.cwd());
 console.log('Temp directory:', os.tmpdir());
 
-
-// FIXED CORS middleware - properly configured for Lovable frontend & previews
+// CORS middleware for Lovable frontend integration
 const customCors = (req, res, next) => {
   try {
     const origin = req.headers.origin;
     
-    // Static whitelist (explicit domains)
     const allowedOrigins = [
       'https://preview--neperia-code-guardian.lovable.app',
       'https://neperia-code-guardian.lovable.app',
@@ -58,7 +60,6 @@ const customCors = (req, res, next) => {
       'http://localhost:5173'
     ];
     
-    // Dynamically allow any subdomain of lovable.app or lovableproject.com
     const isAllowed = 
       allowedOrigins.includes(origin) ||
       (origin && (
@@ -66,7 +67,6 @@ const customCors = (req, res, next) => {
         origin.endsWith('.lovableproject.com')
       ));
     
-    // If allowed—or if no origin (e.g. server-to-server)—echo it; otherwise fallback
     res.setHeader(
       'Access-Control-Allow-Origin',
       isAllowed || !origin ? (origin || '*') 
@@ -81,7 +81,7 @@ const customCors = (req, res, next) => {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Max-Age', '86400');
     
-    console.log(`CORS: Origin ${origin} -> ${isAllowed ? 'ALLOWED' : 'DEFAULT'}`);
+    console.log(`🌐 CORS: Origin ${origin} -> ${isAllowed ? 'ALLOWED' : 'DEFAULT'}`);
     
     if (req.method === 'OPTIONS') {
       return res.status(200).end();
@@ -89,18 +89,14 @@ const customCors = (req, res, next) => {
     
     next();
   } catch (error) {
-    console.error('CORS middleware error:', error);
+    console.error('❌ CORS middleware error:', error);
     next(error);
   }
 };
 
-// Apply it before all other routes
 app.use(customCors);
 
-// Apply CORS middleware FIRST
-app.use(customCors);
-
-// Body parsing middleware with error handling
+// Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -111,11 +107,11 @@ const storage = multer.diskStorage({
       const uploadDir = path.join(os.tmpdir(), 'uploads');
       if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
-        console.log('Created upload directory:', uploadDir);
+        console.log('📁 Created upload directory:', uploadDir);
       }
       cb(null, uploadDir);
     } catch (error) {
-      console.error('Error creating upload directory:', error);
+      console.error('❌ Error creating upload directory:', error);
       cb(error);
     }
   },
@@ -126,7 +122,7 @@ const storage = multer.diskStorage({
       const filename = `${timestamp}-${originalName}`;
       cb(null, filename);
     } catch (error) {
-      console.error('Error generating filename:', error);
+      console.error('❌ Error generating filename:', error);
       cb(error);
     }
   }
@@ -138,86 +134,74 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024 // 10MB limit
   },
   fileFilter: (req, file, cb) => {
-    // Accept all files for now, let Semgrep handle compatibility
-    cb(null, true);
+    cb(null, true); // Accept all files, let Semgrep handle compatibility
   }
 });
 
-// Root route - simplified for Railway
+// Root route
 app.get('/', (req, res) => {
-  console.log('🏠 Root accessed');
+  console.log('🏠 Root endpoint accessed');
   res.status(200).json({
-    message: 'Cybersecurity Scanner API is running',
+    message: 'Neperia Cybersecurity Analysis Tool with AI Enhancement',
+    version: '2.0',
     status: 'active',
+    features: {
+      staticAnalysis: 'Semgrep + CWE + OWASP + CVSS',
+      aiEnhancement: 'OpenAI GPT-4 Explanations',
+      classification: 'SecurityClassificationSystem v2.0',
+      audiences: ['developer', 'consultant', 'executive', 'auditor']
+    },
     timestamp: new Date().toISOString(),
     endpoints: {
-      'GET /': 'Root endpoint',
+      'GET /': 'Root endpoint with system info',
       'GET /healthz': 'Health check',
       'GET /semgrep-status': 'Check Semgrep availability',
-      'POST /scan': 'File scanning endpoint',
-      'POST /scan-code': 'Direct code scanning endpoint'
+      'POST /scan': 'File scanning with AI enhancement',
+      'POST /scan-code': 'Code scanning with AI enhancement',
+      'POST /api/explain-finding': 'AI explanations for vulnerabilities',
+      'POST /api/assess-risk': 'AI risk assessment',
+      'POST /api/plan-remediation': 'AI remediation planning',
+      'POST /api/compliance-analysis': 'AI compliance analysis',
+      'POST /api/generate-report': 'AI-generated reports'
     }
   });
 });
 
-// Health check endpoint - Railway compatible (simplified)
+// Health check endpoints
 app.get('/healthz', (req, res) => {
   console.log('🏥 Health check accessed');
-  console.log('Headers:', JSON.stringify(req.headers, null, 2));
   
-  // Set explicit headers for Railway
   res.set({
     'Content-Type': 'application/json',
     'Cache-Control': 'no-cache'
   });
   
-  // Send JSON response for better frontend integration
   res.status(200).json({
     status: 'healthy',
+    service: 'neperia-security-scanner',
+    version: '2.0',
+    components: {
+      semgrep: 'checking...',
+      openai: process.env.OPENAI_API_KEY ? 'available' : 'not-configured',
+      classification: 'SecurityClassificationSystem v2.0'
+    },
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
   });
 });
 
-// Alternative health check endpoint
 app.get('/health', (req, res) => {
-  console.log('🏥 /health accessed');
+  console.log('🏥 Alternative health check accessed');
   res.status(200).json({
     status: 'healthy',
-    service: 'semgrep-scanner',
+    service: 'neperia-security-scanner-ai',
     timestamp: new Date().toISOString()
   });
 });
 
-// Debug endpoint for Railway troubleshooting
-app.get('/debug', (req, res) => {
-  try {
-    res.json({
-      headers: req.headers,
-      ip: req.ip,
-      ips: req.ips,
-      method: req.method,
-      path: req.path,
-      query: req.query,
-      timestamp: new Date().toISOString(),
-      port: PORT,
-      environment: process.env.NODE_ENV,
-      railway: {
-        deploymentId: process.env.RAILWAY_DEPLOYMENT_ID,
-        projectId: process.env.RAILWAY_PROJECT_ID,
-        serviceId: process.env.RAILWAY_SERVICE_ID,
-        environment: process.env.RAILWAY_ENVIRONMENT,
-      }
-    });
-  } catch (error) {
-    console.error('Error in debug route:', error);
-    res.status(500).json({ status: 'error', message: 'Debug endpoint error' });
-  }
-});
-
 // Semgrep status endpoint
 app.get('/semgrep-status', (req, res) => {
-  console.log('=== SEMGREP STATUS REQUEST ===');
+  console.log('🔧 STATIC: Semgrep status check requested');
   
   checkSemgrepAvailability()
     .then(result => {
@@ -237,38 +221,12 @@ app.get('/semgrep-status', (req, res) => {
     });
 });
 
-// API info endpoint
-app.get('/api', (req, res) => {
-  try {
-    res.status(200).json({ 
-      status: 'success', 
-      message: 'API is running',
-      endpoints: {
-        'GET /': 'Root endpoint',
-        'GET /healthz': 'Health check',
-        'GET /health': 'Alternative health check',
-        'GET /semgrep-status': 'Check Semgrep availability',
-        'GET /debug': 'Debug information',
-        'POST /scan': 'File scanning endpoint',
-        'POST /scan-code': 'Direct code scanning endpoint'
-      },
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error('Error in API info route:', error);
-    res.status(500).json({ status: 'error', message: 'Internal server error' });
-  }
-});
- 
-// 🔧 ENHANCED: Code scanning endpoint with PERFORMANCE MONITORING and CLASSIFICATION
+// 🚀 ENHANCED: Code scanning endpoint with AI integration
 app.post('/scan-code', async (req, res) => {
-  console.log('=== CODE SCAN REQUEST RECEIVED ===');
+  console.log('=== 🔍 CODE SCAN REQUEST WITH AI ENHANCEMENT ===');
   console.log('Headers:', req.headers);
   console.log('Origin:', req.headers.origin);
-
   
-  
-  // 🔧 ADD PERFORMANCE MONITORING
   const scanStartTime = performance.now();
   const memBefore = process.memoryUsage();
   
@@ -277,7 +235,7 @@ app.post('/scan-code', async (req, res) => {
       code, 
       language = 'javascript', 
       filename = 'code.js',
-      // Accept environmental context from request
+      // Enhanced environmental context for AI
       environment = 'production',
       deployment = 'internet-facing',
       dataHandling = {
@@ -291,49 +249,51 @@ app.post('/scan-code', async (req, res) => {
     if (!code || typeof code !== 'string' || code.trim() === '') {
       return res.status(400).json({ 
         status: 'error', 
-        message: 'No code provided' 
+        message: 'No code provided',
+        hint: 'Send code in request body for analysis'
       });
     }
 
-    console.log('Code length:', code.length);
-    console.log('Language:', language);
-    console.log('Filename:', filename);
-    console.log('Code preview:', code.substring(0, 200) + '...');
+    console.log(`📝 Code analysis: ${code.length} chars, ${language}, ${filename}`);
+    console.log(`🌍 Environment: ${environment} ${deployment} system`);
+    console.log(`📊 Data context: ${JSON.stringify(dataHandling)}`);
+    console.log(`⚖️ Compliance: ${compliance.join(', ') || 'none'}`);
 
-    // Check if Semgrep is available before trying to scan
+    // Check Semgrep availability
     const semgrepAvailable = await checkSemgrepAvailability();
     if (!semgrepAvailable.available) {
       return res.status(503).json({
         status: 'error',
-        message: 'Semgrep is not available',
-        details: semgrepAvailable.error
+        message: 'Semgrep scanner not available',
+        details: semgrepAvailable.error,
+        service: 'Static Analysis'
       });
     }
 
-    // Create temporary file with the code
+    // Create temporary file for scanning
     const tempDir = path.join(os.tmpdir(), 'scan-temp');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
     
     const tempFilePath = path.join(tempDir, `${Date.now()}-${filename}`);
-    
-    // 🔧 CRITICAL FIX: Write the actual code to the file
     fs.writeFileSync(tempFilePath, code, 'utf8');
     
-    console.log('Created temp file:', tempFilePath);
-    console.log('File content length:', fs.readFileSync(tempFilePath, 'utf8').length);
+    console.log(`📁 Created temp file: ${tempFilePath}`);
 
-    // 🔧 MEASURE SEMGREP TIME
+    // 🔧 STATIC: Run Semgrep scan
     const semgrepStartTime = performance.now();
     const semgrepResults = await runSemgrepScanWithCodeExtraction(tempFilePath, code);
     const semgrepEndTime = performance.now();
     
-    // 🔧 MEASURE CLASSIFICATION TIME with SecurityClassificationSystem
+    console.log(`🔧 STATIC: Semgrep scan completed (${(semgrepEndTime - semgrepStartTime).toFixed(2)}ms)`);
+    console.log(`🔧 STATIC: Found ${semgrepResults.results?.length || 0} raw findings`);
+
+    // 🔧 STATIC: Enhanced classification with SecurityClassificationSystem
     const classificationStartTime = performance.now();
     const classifier = new SecurityClassificationSystem();
     
-    // Build dynamic component context
+    // Build dynamic component context for AI
     const componentContext = buildComponentContext({
       environment,
       deployment,
@@ -341,23 +301,28 @@ app.post('/scan-code', async (req, res) => {
       compliance
     });
 
-    console.log('Environmental Context:', componentContext);
+    console.log(`🔧 STATIC: Environmental context:`, componentContext.summary);
     
-    // Classify each finding
+    // Classify each finding with AI-ready metadata
     const classifiedFindings = semgrepResults.results.map(finding => {
       const findingWithContext = {
         ...finding,
         context: componentContext
       };
-      return classifier.classifyFinding(findingWithContext);
+      const classified = classifier.classifyFinding(findingWithContext);
+      
+      console.log(`🔧 STATIC: Classified ${classified.cwe?.name} as ${classified.severity} (CVSS: ${classified.cvss?.adjustedScore})`);
+      return classified;
     });
     
     // Calculate aggregated risk assessment
     const riskAssessment = classifier.aggregateRiskScore(classifiedFindings, componentContext);
     
     const classificationEndTime = performance.now();
-    
-    // Generate structured report
+    console.log(`🔧 STATIC: Classification completed (${(classificationEndTime - classificationStartTime).toFixed(2)}ms)`);
+    console.log(`🔧 STATIC: Overall risk: ${riskAssessment.riskScore} (${riskAssessment.riskLevel})`);
+
+    // Generate structured report with AI-ready data
     const report = generateStructuredReport({
       findings: classifiedFindings,
       riskAssessment,
@@ -367,7 +332,8 @@ app.post('/scan-code', async (req, res) => {
         language,
         filename,
         environment: componentContext,
-        semgrep_version: semgrepAvailable.version
+        semgrep_version: semgrepAvailable.version,
+        classification_version: '2.0'
       },
       performance: {
         totalScanTime: `${(performance.now() - scanStartTime).toFixed(2)}ms`,
@@ -376,7 +342,7 @@ app.post('/scan-code', async (req, res) => {
       }
     });
     
-    // 🔧 FINAL PERFORMANCE METRICS
+    // Calculate final performance metrics
     const scanEndTime = performance.now();
     const memAfter = process.memoryUsage();
     
@@ -385,41 +351,77 @@ app.post('/scan-code', async (req, res) => {
       semgrepTime: `${(semgrepEndTime - semgrepStartTime).toFixed(2)}ms`,
       classificationTime: `${(classificationEndTime - classificationStartTime).toFixed(2)}ms`,
       memoryUsed: `${Math.round((memAfter.heapUsed - memBefore.heapUsed) / 1024 / 1024)}MB`,
-      totalMemory: `${Math.round(memAfter.heapTotal / 1024 / 1024)}MB`,
-      peakMemory: `${Math.round(memAfter.heapUsed / 1024 / 1024)}MB`
+      totalMemory: `${Math.round(memAfter.heapTotal / 1024 / 1024)}MB`
     };
     
-    console.log('🔧 PERFORMANCE METRICS:', performanceMetrics);
+    console.log('⚡ PERFORMANCE METRICS:', performanceMetrics);
     
     // Clean up temp file
     if (fs.existsSync(tempFilePath)) {
       fs.unlinkSync(tempFilePath);
-      console.log('Cleaned up temp file');
+      console.log('🧹 Cleaned up temp file');
     }
     
+    // Send enhanced response with AI-ready data
     res.json({
       status: 'success',
+      service: 'Neperia Security Scanner v2.0',
+      analysis: {
+        static: {
+          semgrepFindings: semgrepResults.results?.length || 0,
+          classification: 'SecurityClassificationSystem v2.0',
+          riskScore: riskAssessment.riskScore,
+          riskLevel: riskAssessment.riskLevel
+        },
+        aiReady: {
+          enhancedFindings: classifiedFindings.length,
+          aiMetadataIncluded: true,
+          audienceTargeting: ['developer', 'consultant', 'executive', 'auditor'],
+          aiEndpoints: [
+            '/api/explain-finding - Individual vulnerability explanations',
+            '/api/assess-risk - Overall risk assessment', 
+            '/api/plan-remediation - Detailed remediation planning',
+            '/api/compliance-analysis - Regulatory compliance analysis',
+            '/api/generate-report - Comprehensive reports'
+          ]
+        }
+      },
+      
+      // Enhanced structured report
       report,
-      // Keep legacy fields for compatibility
+      
+      // Legacy compatibility fields
       findings: classifiedFindings,
       riskScore: riskAssessment.riskScore,
       metadata: report.metadata,
-      riskAssessment
+      riskAssessment,
+      
+      // Performance data
+      performance: performanceMetrics,
+      
+      // Next steps for AI enhancement
+      nextSteps: {
+        aiExplanations: 'POST /api/explain-finding with finding + audience',
+        riskAnalysis: 'POST /api/assess-risk with findings array',
+        remediationPlanning: 'POST /api/plan-remediation with finding + project context',
+        complianceCheck: 'POST /api/compliance-analysis with findings + compliance context',
+        executiveReport: 'POST /api/generate-report with findings + context'
+      }
     });
     
   } catch (error) {
-    console.error('Code scan error:', error);
+    console.error('❌ Code scan error:', error);
     console.error('Stack trace:', error.stack);
     
-    // Calculate error response time
     const errorEndTime = performance.now();
     const errorResponseTime = `${(errorEndTime - scanStartTime).toFixed(2)}ms`;
-    console.log('🔧 ERROR RESPONSE TIME:', errorResponseTime);
+    console.log('⚡ ERROR RESPONSE TIME:', errorResponseTime);
     
     res.status(500).json({ 
       status: 'error', 
       message: 'Code scan failed',
       error: error.message,
+      service: 'Neperia Security Scanner',
       timestamp: new Date().toISOString(),
       performance: {
         errorResponseTime: errorResponseTime
@@ -428,13 +430,12 @@ app.post('/scan-code', async (req, res) => {
   }
 });
 
-// 🔧 ENHANCED: File upload scan endpoint with PERFORMANCE MONITORING and CLASSIFICATION
+// 🚀 ENHANCED: File upload scan endpoint with AI integration
 app.post('/scan', upload.single('file'), async (req, res) => {
-  console.log('=== FILE SCAN REQUEST RECEIVED ===');
+  console.log('=== 📁 FILE SCAN REQUEST WITH AI ENHANCEMENT ===');
   console.log('Headers:', req.headers);
   console.log('Origin:', req.headers.origin);
   
-  // 🔧 ADD PERFORMANCE MONITORING
   const scanStartTime = performance.now();
   const memBefore = process.memoryUsage();
   
@@ -442,7 +443,8 @@ app.post('/scan', upload.single('file'), async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ 
         status: 'error', 
-        message: 'No file uploaded' 
+        message: 'No file uploaded',
+        hint: 'Send file via multipart/form-data'
       });
     }
 
@@ -459,14 +461,10 @@ app.post('/scan', upload.single('file'), async (req, res) => {
     } = req.body;
 
     const filePath = req.file.path;
-    console.log('File uploaded to:', filePath);
-    console.log('File details:', {
-      originalName: req.file.originalname,
-      size: req.file.size,
-      mimetype: req.file.mimetype
-    });
+    console.log(`📁 File uploaded: ${req.file.originalname} (${req.file.size} bytes)`);
+    console.log(`🌍 Environment: ${environment} ${deployment} system`);
 
-    // Check if Semgrep is available before trying to scan
+    // Check Semgrep availability
     const semgrepAvailable = await checkSemgrepAvailability();
     if (!semgrepAvailable.available) {
       // Clean up uploaded file
@@ -475,26 +473,27 @@ app.post('/scan', upload.single('file'), async (req, res) => {
       }
       return res.status(503).json({
         status: 'error',
-        message: 'Semgrep is not available',
+        message: 'Semgrep scanner not available',
         details: semgrepAvailable.error
       });
     }
 
-    // Read file content for code extraction
+    // Read file content for enhanced processing
     const fileReadStartTime = performance.now();
     const fileContent = fs.readFileSync(filePath, 'utf8');
     const fileReadEndTime = performance.now();
 
-    // 🔧 MEASURE SEMGREP TIME
+    // 🔧 STATIC: Run Semgrep scan
     const semgrepStartTime = performance.now();
     const semgrepResults = await runSemgrepScanWithCodeExtraction(filePath, fileContent);
     const semgrepEndTime = performance.now();
     
-    // 🔧 MEASURE CLASSIFICATION TIME with SecurityClassificationSystem
+    console.log(`🔧 STATIC: Semgrep file scan completed (${(semgrepEndTime - semgrepStartTime).toFixed(2)}ms)`);
+
+    // 🔧 STATIC: Enhanced classification
     const classificationStartTime = performance.now();
     const classifier = new SecurityClassificationSystem();
     
-    // Build dynamic component context
     const componentContext = buildComponentContext({
       environment,
       deployment,
@@ -502,9 +501,6 @@ app.post('/scan', upload.single('file'), async (req, res) => {
       compliance
     });
 
-    console.log('Environmental Context:', componentContext);
-    
-    // Classify each finding
     const classifiedFindings = semgrepResults.results.map(finding => {
       const findingWithContext = {
         ...finding,
@@ -513,12 +509,10 @@ app.post('/scan', upload.single('file'), async (req, res) => {
       return classifier.classifyFinding(findingWithContext);
     });
     
-    // Calculate aggregated risk assessment
     const riskAssessment = classifier.aggregateRiskScore(classifiedFindings, componentContext);
-    
     const classificationEndTime = performance.now();
     
-    // Generate structured report
+    // Generate enhanced report
     const report = generateStructuredReport({
       findings: classifiedFindings,
       riskAssessment,
@@ -527,7 +521,8 @@ app.post('/scan', upload.single('file'), async (req, res) => {
         file_size: req.file.size,
         filename: req.file.originalname,
         environment: componentContext,
-        semgrep_version: semgrepAvailable.version
+        semgrep_version: semgrepAvailable.version,
+        classification_version: '2.0'
       },
       performance: {
         totalScanTime: `${(performance.now() - scanStartTime).toFixed(2)}ms`,
@@ -537,7 +532,6 @@ app.post('/scan', upload.single('file'), async (req, res) => {
       }
     });
     
-    // 🔧 FINAL PERFORMANCE METRICS
     const scanEndTime = performance.now();
     const memAfter = process.memoryUsage();
     
@@ -546,40 +540,60 @@ app.post('/scan', upload.single('file'), async (req, res) => {
       fileReadTime: `${(fileReadEndTime - fileReadStartTime).toFixed(2)}ms`,
       semgrepTime: `${(semgrepEndTime - semgrepStartTime).toFixed(2)}ms`,
       classificationTime: `${(classificationEndTime - classificationStartTime).toFixed(2)}ms`,
-      memoryUsed: `${Math.round((memAfter.heapUsed - memBefore.heapUsed) / 1024 / 1024)}MB`,
-      totalMemory: `${Math.round(memAfter.heapTotal / 1024 / 1024)}MB`
+      memoryUsed: `${Math.round((memAfter.heapUsed - memBefore.heapUsed) / 1024 / 1024)}MB`
     };
     
-    console.log('🔧 PERFORMANCE METRICS:', performanceMetrics);
+    console.log('⚡ FILE SCAN PERFORMANCE:', performanceMetrics);
     
     // Clean up uploaded file
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
-      console.log('Cleaned up uploaded file');
+      console.log('🧹 Cleaned up uploaded file');
     }
     
     res.json({
       status: 'success',
+      service: 'Neperia Security Scanner v2.0 - File Analysis',
+      
+      // Enhanced analysis summary
+      analysis: {
+        static: {
+          filename: req.file.originalname,
+          fileSize: req.file.size,
+          findingsCount: classifiedFindings.length,
+          riskScore: riskAssessment.riskScore,
+          riskLevel: riskAssessment.riskLevel
+        },
+        aiReady: {
+          enhancedFindings: classifiedFindings.length,
+          aiMetadataIncluded: true,
+          readyForAIAnalysis: true
+        }
+      },
+      
       report,
-      // Keep legacy fields for compatibility
+      
+      // Legacy compatibility
       filename: req.file.originalname,
       findings: classifiedFindings,
       riskScore: riskAssessment.riskScore,
       metadata: report.metadata,
-      riskAssessment
+      riskAssessment,
+      
+      performance: performanceMetrics
     });
     
   } catch (error) {
-    console.error('File scan error:', error);
+    console.error('❌ File scan error:', error);
     console.error('Stack trace:', error.stack);
     
     // Clean up uploaded file on error
     if (req.file && req.file.path && fs.existsSync(req.file.path)) {
       try {
         fs.unlinkSync(req.file.path);
-        console.log('Cleaned up uploaded file after error');
+        console.log('🧹 Cleaned up uploaded file after error');
       } catch (cleanupError) {
-        console.error('Error cleaning up file:', cleanupError);
+        console.error('❌ Error cleaning up file:', cleanupError);
       }
     }
     
@@ -587,24 +601,29 @@ app.post('/scan', upload.single('file'), async (req, res) => {
       status: 'error', 
       message: 'File scan failed',
       error: error.message,
+      service: 'Neperia Security Scanner',
       timestamp: new Date().toISOString()
     });
   }
 });
+
+// Mount AI enhancement routes
+console.log('🤖 AI: Mounting AI enhancement endpoints under /api');
+app.use('/api', aiRouter);
 
 // Function to check Semgrep availability
 function checkSemgrepAvailability() {
   return new Promise((resolve) => {
     exec('semgrep --version', (error, stdout, stderr) => {
       if (error) {
-        console.error('Semgrep not available:', error.message);
+        console.error('🔧 STATIC: Semgrep not available:', error.message);
         resolve({ 
           available: false, 
           error: error.message,
           stderr: stderr
         });
       } else {
-        console.log('Semgrep version:', stdout.trim());
+        console.log('🔧 STATIC: Semgrep version:', stdout.trim());
         resolve({ 
           available: true, 
           version: stdout.trim() 
@@ -614,20 +633,18 @@ function checkSemgrepAvailability() {
   });
 }
 
-// 🔧 ENHANCED: Semgrep scan function with proper code extraction and PERFORMANCE MONITORING
+// Enhanced Semgrep scan function with code extraction
 function runSemgrepScanWithCodeExtraction(filePath, originalCode) {
   return new Promise((resolve, reject) => {
-    console.log('=== STARTING SEMGREP SCAN WITH CODE EXTRACTION ===');
+    console.log('🔧 STATIC: Starting enhanced Semgrep scan');
     console.log('File path:', filePath);
     
-    // Verify file exists and has content
     if (!fs.existsSync(filePath)) {
       return reject(new Error('File not found: ' + filePath));
     }
     
     const fileContent = fs.readFileSync(filePath, 'utf8');
-    console.log('File content length:', fileContent.length);
-    console.log('Original code length:', originalCode.length);
+    console.log(`🔧 STATIC: File content: ${fileContent.length} chars`);
     
     const semgrepArgs = [
       '--json',
@@ -638,7 +655,7 @@ function runSemgrepScanWithCodeExtraction(filePath, originalCode) {
       filePath
     ];
     
-    console.log('Semgrep command:', 'semgrep', semgrepArgs.join(' '));
+    console.log('🔧 STATIC: Semgrep command:', 'semgrep', semgrepArgs.join(' '));
     
     const semgrepProcessStartTime = performance.now();
     const semgrepProcess = spawn('semgrep', semgrepArgs, {
@@ -661,70 +678,48 @@ function runSemgrepScanWithCodeExtraction(filePath, originalCode) {
       const semgrepProcessEndTime = performance.now();
       const semgrepProcessTime = semgrepProcessEndTime - semgrepProcessStartTime;
       
-      console.log('=== SEMGREP SCAN COMPLETED ===');
+      console.log('🔧 STATIC: Semgrep scan completed');
       console.log('Exit code:', code);
       console.log('Process time:', `${semgrepProcessTime.toFixed(2)}ms`);
-      console.log('Stdout length:', stdout.length);
-      console.log('Stderr length:', stderr.length);
-      
-      if (stderr) {
-        console.log('Stderr preview:', stderr.substring(0, 500));
-      }
       
       if (code === 0 || code === 1) {
-        // Code 0 = no findings, Code 1 = findings found (both are success)
+        // Success cases
         try {
           const parseStartTime = performance.now();
           const results = stdout ? JSON.parse(stdout) : { results: [] };
           const parseEndTime = performance.now();
           
-          console.log('JSON parse time:', `${(parseEndTime - parseStartTime).toFixed(2)}ms`);
-          console.log('Parsed results successfully, findings:', results.results?.length || 0);
+          console.log(`🔧 STATIC: Parsed ${results.results?.length || 0} findings`);
           
-          // 🔧 CRITICAL FIX: Enhance findings with actual code
+          // Enhance findings with actual code extraction
           if (results.results && results.results.length > 0) {
             const enhancementStartTime = performance.now();
             const codeLines = originalCode.split('\n');
             
             results.results = results.results.map(finding => {
-              // Extract the actual vulnerable code line
               const lineNumber = finding.start?.line || 1;
               const vulnerableLine = codeLines[lineNumber - 1] || '';
               
-              console.log(`Processing finding at line ${lineNumber}:`, vulnerableLine.substring(0, 100));
+              console.log(`🔧 STATIC: Enhancing finding at line ${lineNumber}`);
               
-              // 🔧 COMPLETELY REPLACE the "requires login" placeholder
+              // Enhance with extracted code
               finding.extra = finding.extra || {};
               finding.extra.lines = vulnerableLine.trim();
               finding.extra.rendered_text = vulnerableLine.trim();
               finding.extra.original_code = vulnerableLine.trim();
-              
-              // 🔧 ADD EXTRACTED CODE FIELD FOR FRONTEND
               finding.extractedCode = vulnerableLine.trim();
               
-              // Remove any "requires login" placeholders
-              if (finding.extra.fingerprint === "requires login") {
-                finding.extra.fingerprint = `line-${lineNumber}-${finding.check_id}`;
-              }
-              
-              // Add context lines if available (3 lines before and after)
+              // Add context lines
               const startLine = Math.max(0, lineNumber - 2);
               const endLine = Math.min(codeLines.length, lineNumber + 2);
               const contextLines = codeLines.slice(startLine, endLine);
               finding.extra.context = contextLines.join('\n');
               
-              console.log('Enhanced finding:', {
-                ruleId: finding.check_id,
-                line: lineNumber,
-                extractedCode: vulnerableLine.trim(),
-                message: finding.message
-              });
-              
               return finding;
             });
             
             const enhancementEndTime = performance.now();
-            console.log('Finding enhancement time:', `${(enhancementEndTime - enhancementStartTime).toFixed(2)}ms`);
+            console.log(`🔧 STATIC: Enhancement completed (${(enhancementEndTime - enhancementStartTime).toFixed(2)}ms)`);
           }
           
           // Add performance metadata to results
@@ -736,8 +731,7 @@ function runSemgrepScanWithCodeExtraction(filePath, originalCode) {
           
           resolve(results);
         } catch (parseError) {
-          console.error('Failed to parse Semgrep output:', parseError);
-          console.error('Raw output preview:', stdout.substring(0, 500));
+          console.error('🔧 STATIC: Failed to parse Semgrep output:', parseError);
           resolve({ 
             results: [], 
             raw_output: stdout.substring(0, 1000),
@@ -745,24 +739,23 @@ function runSemgrepScanWithCodeExtraction(filePath, originalCode) {
           });
         }
       } else {
-        // Other exit codes indicate errors
         const errorMessage = `Semgrep failed with exit code ${code}: ${stderr}`;
-        console.error('Semgrep error:', errorMessage);
+        console.error('🔧 STATIC: Semgrep error:', errorMessage);
         reject(new Error(errorMessage));
       }
     });
     
     semgrepProcess.on('error', (error) => {
-      console.error('Semgrep spawn error:', error);
+      console.error('🔧 STATIC: Semgrep spawn error:', error);
       reject(error);
     });
     
-    // Set a timeout to prevent hanging
+    // Timeout prevention
     const timeout = setTimeout(() => {
-      console.error('Semgrep scan timeout');
+      console.error('🔧 STATIC: Semgrep scan timeout');
       semgrepProcess.kill('SIGTERM');
       reject(new Error('Semgrep scan timeout'));
-    }, 45000); // 45 second timeout
+    }, 45000);
     
     semgrepProcess.on('close', () => {
       clearTimeout(timeout);
@@ -770,24 +763,24 @@ function runSemgrepScanWithCodeExtraction(filePath, originalCode) {
   });
 }
 
-// Helper function to build component context
+// Helper function to build component context for AI
 function buildComponentContext(options) {
   const { environment, deployment, dataHandling, compliance } = options;
   
   return {
-    // Environment type
+    // Environment type flags
     isProduction: environment === 'production',
     isDevelopment: environment === 'development',
     isStaging: environment === 'staging',
     isLegacy: environment === 'legacy',
     
-    // Deployment context
+    // Deployment context flags
     isInternetFacing: deployment === 'internet-facing',
     hasNetworkAccess: deployment !== 'air-gapped',
     isInternal: deployment === 'internal',
     isAirGapped: deployment === 'air-gapped',
     
-    // Data handling
+    // Data handling flags
     handlesPersonalData: dataHandling.personalData,
     handlesFinancialData: dataHandling.financialData,
     handlesHealthData: dataHandling.healthData,
@@ -795,15 +788,19 @@ function buildComponentContext(options) {
     // Compliance requirements
     regulatoryRequirements: compliance,
     
-    // Calculate risk multiplier
+    // Risk multiplier calculation
     environmentMultiplier: calculateEnvironmentMultiplier(environment, deployment),
     
-    // Human-readable summary
-    summary: `${environment} ${deployment} system${compliance.length ? ` (${compliance.join(', ')})` : ''}`
+    // Human-readable summary for AI
+    summary: `${environment} ${deployment} system${compliance.length ? ` (${compliance.join(', ')})` : ''}`,
+    
+    // Additional context for AI
+    environment,
+    deployment
   };
 }
 
-// Calculate environment multiplier
+// Calculate environment-based risk multiplier
 function calculateEnvironmentMultiplier(environment, deployment) {
   const baseMultipliers = {
     'production': 1.0,
@@ -825,7 +822,7 @@ function calculateEnvironmentMultiplier(environment, deployment) {
   return base * deploy;
 }
 
-// Generate structured report
+// Generate structured report with AI-ready metadata
 function generateStructuredReport(data) {
   const { findings, riskAssessment, metadata, performance } = data;
   
@@ -837,20 +834,23 @@ function generateStructuredReport(data) {
     Low: findings.filter(f => f.severity === 'Low')
   };
   
-  // Get top risks
+  // Get top risks with enhanced data
   const topRisks = findings
-    .sort((a, b) => b.cvss.adjustedScore - a.cvss.adjustedScore)
+    .sort((a, b) => (b.cvss?.adjustedScore || 0) - (a.cvss?.adjustedScore || 0))
     .slice(0, 3)
     .map(f => ({
+      id: f.id,
       title: f.title,
-      score: f.cvss.adjustedScore,
-      file: f.scannerData.location.file,
-      line: f.scannerData.location.line,
-      impact: f.impact
+      cwe: f.cwe?.name,
+      score: f.cvss?.adjustedScore,
+      file: f.scannerData?.location?.file,
+      line: f.scannerData?.location?.line,
+      impact: f.impact,
+      businessRisk: f.businessRisk
     }));
   
   return {
-    // Executive Summary
+    // Executive Summary with AI-ready data
     executiveSummary: {
       scanDate: metadata.scanned_at,
       projectName: metadata.filename,
@@ -863,47 +863,81 @@ function generateStructuredReport(data) {
       },
       overallRiskRating: riskAssessment.riskLevel,
       riskScore: riskAssessment.riskScore,
+      riskConfidence: riskAssessment.confidence,
       topRisks,
       environmentContext: metadata.environment.summary,
       businessRiskFlags: {
         handlesPII: metadata.environment.handlesPersonalData,
         handlesFinancial: metadata.environment.handlesFinancialData,
-        complianceRequired: metadata.environment.regulatoryRequirements
+        handlesHealth: metadata.environment.handlesHealthData,
+        complianceRequired: metadata.environment.regulatoryRequirements?.length > 0
       }
     },
     
     // Component Risk Analysis
     componentRisk: analyzeComponentRisk(findings),
     
-    // Detailed Findings
+    // Enhanced Findings for AI Processing
     findings: findings.map(f => ({
+      // Core finding data
       id: f.id,
       title: f.title,
-      file: f.scannerData.location.file,
-      line: f.scannerData.location.line,
       ruleId: f.ruleId,
+      
+      // Classification (🔧 STATIC)
       cwe: f.cwe,
-      cvss: {
-        base: f.cvss.baseScore,
-        adjusted: f.cvss.adjustedScore,
-        vector: f.cvss.vector,
-        severity: f.cvss.severity
-      },
       owaspCategory: f.owaspCategory,
+      severity: f.severity,
+      
+      // Location and code (🔧 STATIC)
+      file: f.scannerData?.location?.file,
+      line: f.scannerData?.location?.line,
       extractedCode: f.codeSnippet,
+      codeContext: f.codeContext,
+      
+      // Risk assessment (🔧 STATIC)
+      cvss: f.cvss,
+      businessImpact: f.impact,
+      businessRisk: f.businessRisk,
+      exploitability: f.exploitability,
+      
+      // Remediation guidance (🔧 STATIC templates, 🤖 AI-enhanceable)
       remediation: f.remediation,
-      confidence: f.confidence
+      remediationComplexity: f.remediationComplexity,
+      
+      // Compliance mapping (🔧 STATIC)
+      complianceMapping: f.complianceMapping,
+      
+      // AI metadata (🤖 AI-READY)
+      aiMetadata: f.aiMetadata,
+      aiEnhancementAvailable: true
     })),
     
     // Remediation Checklist
     remediationChecklist: generateRemediationChecklist(findings),
     
+    // AI Enhancement Instructions
+    aiEnhancement: {
+      available: true,
+      endpoints: {
+        explanations: '/api/explain-finding',
+        riskAssessment: '/api/assess-risk',
+        remediationPlanning: '/api/plan-remediation',
+        complianceAnalysis: '/api/compliance-analysis',
+        comprehensiveReport: '/api/generate-report'
+      },
+      audiences: ['developer', 'consultant', 'executive', 'auditor'],
+      enhancementReady: findings.every(f => f.aiMetadata)
+    },
+    
     // Technical Metadata
     technicalMetadata: {
       ...metadata,
       performance,
-      scanEngine: 'Semgrep + Neperia Security Classification',
-      classificationVersion: '1.0'
+      scanEngine: 'Semgrep v' + (metadata.semgrep_version || 'unknown'),
+      classificationSystem: 'SecurityClassificationSystem v2.0',
+      aiIntegration: 'OpenAI GPT-4 Ready',
+      neperiaCompatible: true
     }
   };
 }
@@ -913,45 +947,56 @@ function analyzeComponentRisk(findings) {
   const componentMap = new Map();
   
   findings.forEach(f => {
-    const file = f.scannerData.location.file;
+    const file = f.scannerData?.location?.file || 'unknown';
     if (!componentMap.has(file)) {
       componentMap.set(file, {
         file,
         findings: [],
         highestRisk: 0,
-        totalRisk: 0
+        totalRisk: 0,
+        severityBreakdown: { Critical: 0, High: 0, Medium: 0, Low: 0 }
       });
     }
     
     const component = componentMap.get(file);
     component.findings.push(f);
-    component.highestRisk = Math.max(component.highestRisk, f.cvss.adjustedScore);
-    component.totalRisk += f.cvss.adjustedScore;
+    component.highestRisk = Math.max(component.highestRisk, f.cvss?.adjustedScore || 0);
+    component.totalRisk += f.cvss?.adjustedScore || 0;
+    
+    if (component.severityBreakdown[f.severity] !== undefined) {
+      component.severityBreakdown[f.severity]++;
+    }
   });
   
   return Array.from(componentMap.values()).map(c => ({
     file: c.file,
     findingsCount: c.findings.length,
     highestRisk: c.highestRisk,
-    averageRisk: (c.totalRisk / c.findings.length).toFixed(1),
-    classification: getRiskClassification(c.highestRisk)
+    averageRisk: c.findings.length > 0 ? (c.totalRisk / c.findings.length).toFixed(1) : 0,
+    classification: getRiskClassification(c.highestRisk),
+    severityBreakdown: c.severityBreakdown,
+    aiAnalysisAvailable: true
   })).sort((a, b) => b.highestRisk - a.highestRisk);
 }
 
 // Generate remediation checklist
 function generateRemediationChecklist(findings) {
   const checklist = findings
-    .sort((a, b) => b.cvss.adjustedScore - a.cvss.adjustedScore)
+    .sort((a, b) => (b.cvss?.adjustedScore || 0) - (a.cvss?.adjustedScore || 0))
     .map(f => ({
-      action: f.remediation,
+      id: f.id,
+      action: f.remediation?.immediate || `Address ${f.cwe?.name}`,
       severity: f.severity,
-      file: f.scannerData.location.file,
-      line: f.scannerData.location.line,
-      cwe: f.cwe.id,
-      priority: getPriority(f.cvss.adjustedScore)
+      file: f.scannerData?.location?.file,
+      line: f.scannerData?.location?.line,
+      cwe: f.cwe?.id,
+      priority: getPriority(f.cvss?.adjustedScore || 0),
+      complexity: f.remediationComplexity?.level || 'unknown',
+      estimatedEffort: getEffortEstimate(f.remediationComplexity?.score || 5),
+      aiPlanningAvailable: true
     }));
   
-  // Remove duplicates by action
+  // Remove duplicates by action + file
   const seen = new Set();
   return checklist.filter(item => {
     const key = `${item.action}:${item.file}`;
@@ -976,25 +1021,44 @@ function getPriority(score) {
   return 'P3 - Low';
 }
 
-// Catch-all for undefined routes (this should be last)
+function getEffortEstimate(complexityScore) {
+  if (complexityScore >= 8) return '2-4 weeks';
+  if (complexityScore >= 6) return '1-2 weeks';
+  if (complexityScore >= 4) return '3-5 days';
+  return '1-2 days';
+}
+
+// Catch-all for undefined routes
 app.use('*', (req, res) => {
   console.log('=== 404 REQUEST ===');
   console.log('Path:', req.originalUrl);
   console.log('Method:', req.method);
-  console.log('Headers:', req.headers);
   
   res.status(404).json({ 
     status: 'error', 
     message: 'Route not found',
     path: req.originalUrl,
     method: req.method,
-    available_routes: [
-      'GET /',
-      'GET /healthz',
-      'GET /semgrep-status', 
-      'POST /scan',
-      'POST /scan-code'
-    ],
+    service: 'Neperia Security Scanner v2.0',
+    available_routes: {
+      core: [
+        'GET / - System information and capabilities',
+        'GET /healthz - Health check with component status',
+        'GET /semgrep-status - Static analysis engine status'
+      ],
+      scanning: [
+        'POST /scan - File upload scanning with AI enhancement',
+        'POST /scan-code - Direct code scanning with AI enhancement'
+      ],
+      ai_enhancement: [
+        'POST /api/explain-finding - AI explanations for vulnerabilities',
+        'POST /api/assess-risk - AI risk assessment and prioritization',
+        'POST /api/plan-remediation - AI remediation planning',
+        'POST /api/compliance-analysis - AI compliance analysis',
+        'POST /api/generate-report - AI comprehensive reports',
+        'GET /api/cache-stats - AI performance statistics'
+      ]
+    },
     timestamp: new Date().toISOString()
   });
 });
@@ -1012,6 +1076,8 @@ app.use((error, req, res, next) => {
   res.status(500).json({ 
     status: 'error', 
     message: 'Internal server error',
+    service: 'Neperia Security Scanner v2.0',
+    error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     timestamp: new Date().toISOString()
   });
 });
@@ -1020,33 +1086,27 @@ app.use((error, req, res, next) => {
 function startServer() {
   try {
     const server = app.listen(PORT, '0.0.0.0', () => {
-      console.log('=== SERVER STARTED SUCCESSFULLY ===');
-      console.log(`Server running on port ${PORT}`);
-      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`Allowed origins: Lovable subdomains + localhost`);
-      console.log(`Server listening on: 0.0.0.0:${PORT}`);
-      console.log('Server ready to accept connections');
+      console.log('=== 🚀 NEPERIA SECURITY SCANNER STARTED SUCCESSFULLY ===');
+      console.log(`🌐 Server running on port ${PORT}`);
+      console.log(`🔧 Static Analysis: Semgrep + SecurityClassificationSystem v2.0`);
+      console.log(`🤖 AI Enhancement: OpenAI GPT-4 (${process.env.OPENAI_API_KEY ? 'Ready' : 'Not Configured'})`);
+      console.log(`🎯 Target Audiences: Developer, Consultant, Executive, Auditor`);
+      console.log(`⚖️ Compliance: OWASP Top 10, CWE, CVSS 3.1, PCI-DSS, GDPR, HIPAA`);
+      console.log(`🔗 CORS: Configured for Lovable.app integration`);
+      console.log(`📊 Performance: Monitoring enabled`);
+      console.log(`🏗️ Neperia Integration: SEA Manager & KPS compatible`);
+      console.log('=== Ready to accept scan requests ===');
       
       // Log server address info
       const address = server.address();
       console.log('Server address info:', address);
       
-      // Check Semgrep availability on startup
-      checkSemgrepAvailability()
-        .then(result => {
-          if (result.available) {
-            console.log('✅ Semgrep is available:', result.version);
-          } else {
-            console.log('❌ Semgrep is not available:', result.error);
-          }
-        })
-        .catch(error => {
-          console.error('Error checking Semgrep:', error);
-        });
+      // Check system readiness
+      checkSystemReadiness();
     });
     
     server.on('error', (error) => {
-      console.error('=== SERVER ERROR ===');
+      console.error('=== ❌ SERVER ERROR ===');
       console.error('Server error:', error);
       if (error.code === 'EADDRINUSE') {
         console.error(`Port ${PORT} is already in use`);
@@ -1054,31 +1114,80 @@ function startServer() {
     });
     
     server.on('connection', (socket) => {
-      console.log('New connection established from:', socket.remoteAddress);
+      console.log('🔌 New connection established from:', socket.remoteAddress);
     });
     
     // Graceful shutdown handlers
     process.on('SIGTERM', () => {
-      console.log('SIGTERM received, shutting down gracefully');
+      console.log('🛑 SIGTERM received, shutting down gracefully');
       server.close(() => {
-        console.log('Server closed');
+        console.log('✅ Server closed');
         process.exit(0);
       });
     });
 
     process.on('SIGINT', () => {
-      console.log('SIGINT received, shutting down gracefully');
+      console.log('🛑 SIGINT received, shutting down gracefully');
       server.close(() => {
-        console.log('Server closed');
+        console.log('✅ Server closed');
         process.exit(0);
       });
     });
     
   } catch (error) {
-    console.error('Failed to start server:', error);
+    console.error('❌ Failed to start server:', error);
     process.exit(1);
   }
 }
 
+// Check system readiness on startup
+async function checkSystemReadiness() {
+  console.log('=== 🔍 SYSTEM READINESS CHECK ===');
+  
+  try {
+    // Check Semgrep availability
+    const semgrepStatus = await checkSemgrepAvailability();
+    if (semgrepStatus.available) {
+      console.log('✅ Semgrep Static Analysis: Available -', semgrepStatus.version);
+    } else {
+      console.log('❌ Semgrep Static Analysis: Not Available -', semgrepStatus.error);
+    }
+    
+    // Check OpenAI configuration
+    if (process.env.OPENAI_API_KEY) {
+      console.log('✅ OpenAI GPT-4 AI Enhancement: API Key Configured');
+    } else {
+      console.log('⚠️ OpenAI GPT-4 AI Enhancement: API Key Not Configured (AI features disabled)');
+    }
+    
+    // Check SecurityClassificationSystem
+    try {
+      const testClassifier = new SecurityClassificationSystem();
+      console.log('✅ SecurityClassificationSystem v2.0: Initialized');
+    } catch (error) {
+      console.log('❌ SecurityClassificationSystem: Failed to initialize -', error.message);
+    }
+    
+    // Check file system permissions
+    const tempDir = path.join(os.tmpdir(), 'scan-temp');
+    try {
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+      fs.writeFileSync(path.join(tempDir, 'test.txt'), 'test');
+      fs.unlinkSync(path.join(tempDir, 'test.txt'));
+      console.log('✅ File System: Read/Write permissions available');
+    } catch (error) {
+      console.log('❌ File System: Permission error -', error.message);
+    }
+    
+    console.log('=== 🎯 SYSTEM READY FOR NEPERIA MODERNIZATION PROJECTS ===');
+    
+  } catch (error) {
+    console.error('❌ System readiness check failed:', error);
+  }
+}
+
 // Start the server
+console.log('🚀 Initializing Neperia Cybersecurity Analysis Tool v2.0...');
 startServer();
