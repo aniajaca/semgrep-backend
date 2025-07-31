@@ -1188,6 +1188,6 @@ async function checkSystemReadiness() {
   }
 }
 
-// Start the server
+// Start the serveR
 console.log('🚀 Initializing Neperia Cybersecurity Analysis Tool v2.0...');
 startServer();
