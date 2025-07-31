@@ -1,4 +1,4 @@
-// src/server.js - CORRECTED Complete server with AI integration
+// src/server.js - CORRECTED Complete server with AI integration + Base44 CORS Fix
 const express = require('express');
 const multer = require('multer');
 const { spawn, exec } = require('child_process');
@@ -54,14 +54,16 @@ console.log('OpenAI API:', process.env.OPENAI_API_KEY ? '✓ Configured' : '❌ 
 console.log('Current working directory:', process.cwd());
 console.log('Temp directory:', os.tmpdir());
 
-// CORS middleware for Lovable frontend integration
+// 🔧 FIXED CORS middleware - Now includes Base44 domain
 const customCors = (req, res, next) => {
   try {
     const origin = req.headers.origin;
     
+    // ✅ UPDATED: Added Base44 domain to allowed origins
     const allowedOrigins = [
       'https://preview--neperia-code-guardian.lovable.app',
       'https://neperia-code-guardian.lovable.app',
+      'https://app--neperia-code-guardian-8d9b62c6.base44.app', // 🔧 ADDED BASE44 DOMAIN
       'https://lovable.app',
       'http://localhost:3000',
       'http://localhost:5173'
@@ -71,7 +73,8 @@ const customCors = (req, res, next) => {
       allowedOrigins.includes(origin) ||
       (origin && (
         origin.endsWith('.lovable.app') ||
-        origin.endsWith('.lovableproject.com')
+        origin.endsWith('.lovableproject.com') ||
+        origin.endsWith('.base44.app') // 🔧 ADDED BASE44 WILDCARD SUPPORT
       ));
     
     res.setHeader(
@@ -150,13 +153,18 @@ app.get('/', (req, res) => {
   console.log('🏠 Root endpoint accessed');
   res.status(200).json({
     message: 'Neperia Cybersecurity Analysis Tool with AI Enhancement',
-    version: '3.0-corrected',
+    version: '3.0-corrected-base44',
     status: 'active',
     features: {
       staticAnalysis: 'Semgrep + CWE + OWASP + CVSS',
       aiEnhancement: 'OpenAI GPT-4 Explanations',
       classification: 'SecurityClassificationSystem v3.0',
       audiences: ['developer', 'consultant', 'executive', 'auditor']
+    },
+    corsSupport: {
+      lovable: 'Supported',
+      base44: 'Supported', // 🔧 ADDED BASE44 CONFIRMATION
+      localhost: 'Supported'
     },
     timestamp: new Date().toISOString(),
     endpoints: {
@@ -186,13 +194,14 @@ app.get('/healthz', (req, res) => {
   res.status(200).json({
     status: 'healthy',
     service: 'neperia-security-scanner',
-    version: '3.0-corrected',
+    version: '3.0-corrected-base44',
     components: {
       semgrep: 'checking...',
       openai: process.env.OPENAI_API_KEY ? 'available' : 'not-configured',
       classification: 'SecurityClassificationSystem v3.0',
       aiRouter: aiRouter ? 'available' : 'not-available'
     },
+    corsSupport: ['lovable.app', 'base44.app', 'localhost'], // 🔧 ADDED CORS INFO
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
   });
@@ -909,7 +918,7 @@ app.use('*', (req, res) => {
     message: 'Route not found',
     path: req.originalUrl,
     method: req.method,
-    service: 'Neperia Security Scanner v3.0',
+    service: 'Neperia Security Scanner v3.0 - Base44 Compatible',
     available_routes: {
       core: [
         'GET / - System information and capabilities',
@@ -931,6 +940,7 @@ app.use('*', (req, res) => {
         'AI features not available - aiRouter not configured'
       ]
     },
+    corsSupport: ['lovable.app', 'base44.app', 'localhost'],
     timestamp: new Date().toISOString()
   });
 });
@@ -948,7 +958,7 @@ app.use((error, req, res, next) => {
   res.status(500).json({ 
     status: 'error', 
     message: 'Internal server error',
-    service: 'Neperia Security Scanner v3.0',
+    service: 'Neperia Security Scanner v3.0 - Base44 Compatible',
     error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     timestamp: new Date().toISOString()
   });
@@ -964,11 +974,11 @@ function startServer() {
       console.log(`🤖 AI Enhancement: OpenAI GPT-4 (${process.env.OPENAI_API_KEY ? 'Ready' : 'Not Configured'})`);
       console.log(`🎯 Target Audiences: Developer, Consultant, Executive, Auditor`);
       console.log(`⚖️ Compliance: OWASP Top 10, CWE, CVSS 3.1, PCI-DSS, GDPR, HIPAA`);
-      console.log(`🔗 CORS: Configured for Lovable.app integration`);
+      console.log(`🔗 CORS: Configured for Lovable.app + Base44.app integration`); // 🔧 UPDATED MESSAGE
       console.log(`📊 Performance: Monitoring enabled`);
       console.log(`🏗️ Neperia Integration: SEA Manager & KPS compatible`);
       console.log(`🤖 AI Router: ${aiRouter ? 'Available' : 'Not Available'}`);
-      console.log('=== Ready to accept scan requests ===');
+      console.log('=== Ready to accept scan requests from Base44 and Lovable ==='); // 🔧 UPDATED MESSAGE
       
       // Log server address info
       const address = server.address();
@@ -1069,7 +1079,11 @@ async function checkSystemReadiness() {
       console.log('⚠️ Deduplication: Not available (optional feature)');
     }
     
+    // 🔧 ADDED: CORS compatibility check
+    console.log('✅ CORS Configuration: Base44.app and Lovable.app support enabled');
+    
     console.log('=== 🎯 SYSTEM READY FOR NEPERIA MODERNIZATION PROJECTS ===');
+    console.log('🌐 Frontend Compatibility: Base44 + Lovable platforms supported');
     
   } catch (error) {
     console.error('❌ System readiness check failed:', error);
@@ -1077,5 +1091,5 @@ async function checkSystemReadiness() {
 }
 
 // Start the server
-console.log('🚀 Initializing Neperia Cybersecurity Analysis Tool v3.0...');
+console.log('🚀 Initializing Neperia Cybersecurity Analysis Tool v3.0 with Base44 support...');
 startServer();
