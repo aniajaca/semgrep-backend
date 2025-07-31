@@ -1,21 +1,23 @@
-// src/SecurityClassificationSystem.js - Complete and correct implementation
+// src/SecurityClassificationSystem.js - Enhanced implementation with intelligent pattern matching
 const { getSeverityWeight, getSeverityLevel, classifySeverity } = require('./utils');
 
 /**
- * Enhanced Security Classification System with AI integration and contextual analysis
- * 🔧 STATIC: This class provides rule-based vulnerability classification
+ * Enhanced Security Classification System with intelligent CWE inference and proper vulnerability naming
+ * 🔧 STATIC: This class provides comprehensive rule-based vulnerability classification
+ * 🎯 FOCUS: Proper vulnerability naming instead of generic "Security Issue"
  */
 class SecurityClassificationSystem {
   constructor() {
     this.cweDatabase = this.initializeCWEDatabase();
     this.owaspMapping = this.initializeOWASPMapping();
+    this.rulePatternDatabase = this.initializeRulePatternDatabase();
     this.cvssCalculator = new CVSSCalculator();
-    console.log('🔧 STATIC: SecurityClassificationSystem v2.0 initialized');
+    console.log('🔧 STATIC: Enhanced SecurityClassificationSystem v3.0 initialized');
   }
 
   /**
-   * Classify a security finding with enhanced context and AI-ready metadata
-   * 🔧 STATIC: Rule-based classification with AI metadata preparation
+   * Classify a security finding with enhanced context and intelligent CWE inference
+   * 🔧 STATIC: Rule-based classification with intelligent pattern matching
    * @param {Object} finding - Raw finding from Semgrep
    * @returns {Object} Enhanced classified finding
    */
@@ -24,42 +26,47 @@ class SecurityClassificationSystem {
     
     console.log('🔧 STATIC: Classifying finding:', finding.check_id);
     
-    // Extract basic information
-    const basicInfo = this.extractBasicInfo(finding);
+    // Step 1: Extract enhanced information with intelligent CWE inference
+    const enhancedInfo = this.extractEnhancedInfo(finding);
     
-    // Get CWE information (🔧 STATIC)
-    const cweInfo = this.getCWEInfo(basicInfo.cweId);
+    // Step 2: Get CWE information with proper fallback
+    const cweInfo = this.getCWEInfoWithIntelligence(enhancedInfo);
     
-    // Map to OWASP category (🔧 STATIC)
+    // Step 3: Map to OWASP category
     const owaspCategory = this.mapToOWASP(cweInfo.category);
     
-    // Calculate CVSS score with environmental adjustments (🔧 STATIC)
+    // Step 4: Calculate CVSS score with environmental adjustments
     const cvssInfo = this.cvssCalculator.calculate(finding, context);
     
-    // Determine final severity (🔧 STATIC)
+    // Step 5: Determine final severity
     const finalSeverity = this.determineFinalSeverity(cvssInfo.adjustedScore);
     
-    // Generate AI-friendly metadata (🤖 AI PREPARATION)
+    // Step 6: Generate AI-friendly metadata
     const aiMetadata = this.generateAIMetadata(finding, context, cweInfo);
     
-    // Create business impact assessment (🔧 STATIC)
+    // Step 7: Create business impact assessment
     const businessImpact = this.assessBusinessImpact(finding, context, cvssInfo);
     
-    console.log(`🔧 STATIC: Classified as ${finalSeverity} severity (CVSS: ${cvssInfo.adjustedScore})`);
+    // Step 8: Generate proper human-readable title
+    const properTitle = this.generateProperTitle(finding, cweInfo);
+    
+    console.log(`🔧 STATIC: Classified as "${cweInfo.name}" with ${finalSeverity} severity (CVSS: ${cvssInfo.adjustedScore})`);
     
     return {
       // Core identification
       id: this.generateFindingId(finding),
-      ruleId: basicInfo.ruleId,
-      title: this.generateTitle(finding, cweInfo),
+      ruleId: enhancedInfo.ruleId,
+      title: properTitle,
       
-      // Classification (🔧 STATIC)
+      // Classification (🔧 STATIC) - ENHANCED WITH PROPER NAMES
       severity: finalSeverity,
+      confidence: enhancedInfo.confidence,
       cwe: {
         id: cweInfo.id,
         name: cweInfo.name,
         category: cweInfo.category,
-        description: cweInfo.description
+        description: cweInfo.description,
+        confidenceLevel: enhancedInfo.cweConfidence
       },
       owaspCategory,
       
@@ -80,7 +87,8 @@ class SecurityClassificationSystem {
           column: finding.start?.col || finding.scannerData?.location?.column || 0
         },
         rawMessage: finding.message || finding.title,
-        confidence: finding.extra?.confidence || 'medium'
+        confidence: finding.extra?.confidence || enhancedInfo.confidence,
+        vulnerabilityClass: finding.extra?.metadata?.vulnerability_class || [cweInfo.name]
       },
       
       // Code snippet and context (🔧 STATIC)
@@ -105,82 +113,540 @@ class SecurityClassificationSystem {
       // Compliance mapping (🔧 STATIC)
       complianceMapping: this.mapToCompliance(cweInfo, context),
       
+      // Classification metadata
+      classificationSource: enhancedInfo.source,
+      patternMatched: enhancedInfo.patternMatched,
+      
       // Timestamps and metadata
       classifiedAt: new Date().toISOString(),
-      classificationVersion: '2.0'
+      classificationVersion: '3.0'
     };
   }
 
   /**
-   * Extract basic information from raw finding
-   * 🔧 STATIC: Data extraction and normalization
+   * Extract enhanced information from raw finding with intelligent inference
+   * 🔧 STATIC: Advanced data extraction and CWE inference
    */
-  extractBasicInfo(finding) {
+  extractEnhancedInfo(finding) {
+    const ruleId = finding.check_id || finding.ruleId || 'unknown-rule';
+    
+    // Step 1: Try to extract CWE from Semgrep metadata (PRIORITY)
+    let cweId = null;
+    let confidence = 'medium';
+    let source = 'inferred';
+    let patternMatched = false;
+
+    // Check Semgrep metadata first (highest confidence)
+    if (finding.extra?.metadata?.cwe && Array.isArray(finding.extra.metadata.cwe)) {
+      const cweString = finding.extra.metadata.cwe[0];
+      const match = cweString.match(/CWE-(\d+)/i);
+      if (match) {
+        cweId = `CWE-${match[1]}`;
+        confidence = 'high';
+        source = 'semgrep-metadata';
+      }
+    }
+
+    // Step 2: Try vulnerability_class from Semgrep
+    if (!cweId && finding.extra?.metadata?.vulnerability_class) {
+      const vulnClass = finding.extra.metadata.vulnerability_class[0];
+      cweId = this.mapVulnerabilityClassToCWE(vulnClass);
+      if (cweId) {
+        confidence = 'high';
+        source = 'vulnerability-class';
+      }
+    }
+
+    // Step 3: Rule pattern matching (enhanced)
+    if (!cweId) {
+      const patternResult = this.intelligentRulePatternMatch(ruleId);
+      cweId = patternResult.cweId;
+      confidence = patternResult.confidence;
+      source = 'pattern-matching';
+      patternMatched = patternResult.patternFound;
+    }
+
+    // Step 4: Message analysis fallback
+    if (!cweId) {
+      cweId = this.inferCWEFromMessage(finding.message || finding.title || '');
+      confidence = 'low';
+      source = 'message-analysis';
+    }
+
     return {
-      ruleId: finding.check_id || finding.ruleId || 'unknown-rule',
-      cweId: this.extractCWEId(finding),
+      ruleId,
+      cweId: cweId || 'CWE-200',
+      confidence,
+      cweConfidence: confidence,
+      source,
+      patternMatched,
       message: finding.message || finding.title || 'No description available',
       severity: finding.severity || 'medium'
     };
   }
 
   /**
-   * Extract CWE ID from various possible formats
-   * 🔧 STATIC: Pattern matching and inference
+   * Map Semgrep vulnerability_class to CWE
+   * 🔧 STATIC: Direct mapping from Semgrep classifications
    */
-  extractCWEId(finding) {
-    // Try different ways to extract CWE
-    if (finding.cwe?.id) return finding.cwe.id;
-    if (finding.cwe && typeof finding.cwe === 'string') {
-      const match = finding.cwe.match(/CWE-(\d+)/i);
-      return match ? `CWE-${match[1]}` : finding.cwe;
-    }
-    if (finding.extra?.metadata?.cwe) return finding.extra.metadata.cwe;
-    
-    // Fallback: try to infer from rule ID or message
-    return this.inferCWEFromRule(finding.check_id || finding.ruleId);
+  mapVulnerabilityClassToCWE(vulnerabilityClass) {
+    const classMapping = {
+      'SQL Injection': 'CWE-89',
+      'Cross-Site Scripting (XSS)': 'CWE-79',
+      'Code Injection': 'CWE-94',
+      'Command Injection': 'CWE-78',
+      'Path Traversal': 'CWE-22',
+      'Cross-Site Request Forgery (CSRF)': 'CWE-352',
+      'Cryptographic Issues': 'CWE-327',
+      'Improper Validation': 'CWE-20',
+      'Authentication Issues': 'CWE-287',
+      'Authorization Issues': 'CWE-863',
+      'Information Disclosure': 'CWE-200',
+      'Insecure Storage': 'CWE-312',
+      'Insecure Communication': 'CWE-319',
+      'Session Management': 'CWE-613',
+      'Input Validation': 'CWE-20',
+      'File Upload': 'CWE-434',
+      'Deserialization': 'CWE-502',
+      'XML Issues': 'CWE-611',
+      'Hardcoded Secrets': 'CWE-798'
+    };
+
+    return classMapping[vulnerabilityClass] || null;
   }
 
   /**
-   * Infer CWE from rule patterns
-   * 🔧 STATIC: Rule-based CWE inference
+   * Intelligent rule pattern matching with comprehensive database
+   * 🔧 STATIC: Advanced pattern recognition
    */
-  inferCWEFromRule(ruleId) {
-    const rulePatterns = {
-      'sql-injection': 'CWE-89',
+  intelligentRulePatternMatch(ruleId) {
+    if (!ruleId) return { cweId: null, confidence: 'low', patternFound: false };
+
+    const lowerRuleId = ruleId.toLowerCase();
+    
+    // Direct rule mapping (highest confidence)
+    if (this.rulePatternDatabase.directMappings[ruleId]) {
+      return {
+        cweId: this.rulePatternDatabase.directMappings[ruleId],
+        confidence: 'very-high',
+        patternFound: true
+      };
+    }
+
+    // Pattern-based matching (high confidence)
+    for (const [pattern, cweId] of this.rulePatternDatabase.patterns) {
+      if (lowerRuleId.includes(pattern)) {
+        return {
+          cweId,
+          confidence: 'high',
+          patternFound: true
+        };
+      }
+    }
+
+    // Fuzzy matching for complex rule names (medium confidence)
+    const fuzzyResult = this.fuzzyPatternMatch(lowerRuleId);
+    if (fuzzyResult.cweId) {
+      return {
+        cweId: fuzzyResult.cweId,
+        confidence: 'medium',
+        patternFound: true
+      };
+    }
+
+    return { cweId: null, confidence: 'low', patternFound: false };
+  }
+
+  /**
+   * Initialize comprehensive rule pattern database
+   * 🔧 STATIC: Extensive mapping of Semgrep rules to CWE
+   */
+  initializeRulePatternDatabase() {
+    return {
+      // Direct rule mappings (exact matches from Semgrep)
+      directMappings: {
+        'python.lang.security.audit.formatted-sql-query.formatted-sql-query': 'CWE-89',
+        'python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query': 'CWE-89',
+        'javascript.express.security.audit.xss.template-string-in-response': 'CWE-79',
+        'javascript.browser.security.insecure-document-method.insecure-document-method': 'CWE-79',
+        'javascript.lang.security.detect-child-process.detect-child-process': 'CWE-78',
+        'python.lang.security.audit.subprocess-shell-true.subprocess-shell-true': 'CWE-78',
+        'javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage': 'CWE-352',
+        'python.lang.security.audit.md5-used-as-password.md5-used-as-password': 'CWE-327',
+        'javascript.lang.security.audit.md5-used-as-password.md5-used-as-password': 'CWE-327',
+        'python.lang.security.audit.hardcoded-password.hardcoded-password': 'CWE-798',
+        'javascript.lang.security.audit.hardcoded-secret.hardcoded-secret': 'CWE-798',
+        'python.lang.security.audit.path-traversal.path-traversal': 'CWE-22',
+        'javascript.browser.security.eval-detected.eval-detected': 'CWE-94',
+        'python.lang.security.audit.eval-use.eval-use': 'CWE-94'
+      },
+
+      // Pattern-based mappings (substring matching)
+      patterns: [
+        // SQL Injection patterns
+        ['sql-injection', 'CWE-89'],
+        ['sql.injection', 'CWE-89'],
+        ['sqlinjection', 'CWE-89'],
+        ['formatted-sql', 'CWE-89'],
+        ['sql-query', 'CWE-89'],
+        ['sqlalchemy-execute', 'CWE-89'],
+        ['raw-sql', 'CWE-89'],
+        ['concatenat.*sql', 'CWE-89'],
+
+        // XSS patterns
+        ['xss', 'CWE-79'],
+        ['cross-site-scripting', 'CWE-79'],
+        ['template-string-in-response', 'CWE-79'],
+        ['insecure-document-method', 'CWE-79'],
+        ['innerHTML', 'CWE-79'],
+        ['outerHTML', 'CWE-79'],
+        ['document.write', 'CWE-79'],
+
+        // Command Injection patterns
+        ['command-injection', 'CWE-78'],
+        ['child-process', 'CWE-78'],
+        ['subprocess', 'CWE-78'],
+        ['shell-true', 'CWE-78'],
+        ['os.system', 'CWE-78'],
+        ['exec', 'CWE-78'],
+
+        // Code Injection patterns
+        ['code-injection', 'CWE-94'],
+        ['eval-detected', 'CWE-94'],
+        ['eval-use', 'CWE-94'],
+        ['dynamic-code', 'CWE-94'],
+
+        // CSRF patterns
+        ['csrf', 'CWE-352'],
+        ['cross-site-request-forgery', 'CWE-352'],
+        ['csurf-middleware', 'CWE-352'],
+
+        // Cryptographic patterns
+        ['md5-used-as-password', 'CWE-327'],
+        ['weak-crypto', 'CWE-327'],
+        ['weak-hash', 'CWE-327'],
+        ['insecure-hash', 'CWE-327'],
+        ['weak-cipher', 'CWE-327'],
+        ['des-cipher', 'CWE-327'],
+
+        // Path Traversal patterns
+        ['path-traversal', 'CWE-22'],
+        ['directory-traversal', 'CWE-22'],
+        ['path-injection', 'CWE-22'],
+
+        // Hardcoded Credentials patterns
+        ['hardcoded-password', 'CWE-798'],
+        ['hardcoded-secret', 'CWE-798'],
+        ['hardcoded-key', 'CWE-798'],
+        ['embedded-credentials', 'CWE-798'],
+
+        // Deserialization patterns
+        ['deserialization', 'CWE-502'],
+        ['pickle-load', 'CWE-502'],
+        ['yaml-load', 'CWE-502'],
+        ['untrusted-deserialization', 'CWE-502'],
+
+        // XXE patterns
+        ['xxe', 'CWE-611'],
+        ['xml-external-entity', 'CWE-611'],
+        ['xml-parser', 'CWE-611'],
+
+        // Information Disclosure patterns
+        ['information-disclosure', 'CWE-200'],
+        ['sensitive-data', 'CWE-200'],
+        ['debug-info', 'CWE-200'],
+        ['stack-trace', 'CWE-200']
+      ]
+    };
+  }
+
+  /**
+   * Fuzzy pattern matching for complex rule names
+   * 🔧 STATIC: Advanced pattern recognition
+   */
+  fuzzyPatternMatch(ruleId) {
+    const fuzzyPatterns = [
+      { keywords: ['sql', 'query', 'format'], cweId: 'CWE-89', weight: 3 },
+      { keywords: ['sql', 'inject'], cweId: 'CWE-89', weight: 3 },
+      { keywords: ['cross', 'site', 'script'], cweId: 'CWE-79', weight: 3 },
+      { keywords: ['template', 'response'], cweId: 'CWE-79', weight: 2 },
+      { keywords: ['command', 'inject'], cweId: 'CWE-78', weight: 3 },
+      { keywords: ['process', 'exec'], cweId: 'CWE-78', weight: 2 },
+      { keywords: ['eval', 'dynamic'], cweId: 'CWE-94', weight: 2 },
+      { keywords: ['crypto', 'weak'], cweId: 'CWE-327', weight: 2 },
+      { keywords: ['hash', 'md5'], cweId: 'CWE-327', weight: 2 },
+      { keywords: ['password', 'hardcode'], cweId: 'CWE-798', weight: 3 },
+      { keywords: ['secret', 'hardcode'], cweId: 'CWE-798', weight: 3 },
+      { keywords: ['path', 'traversal'], cweId: 'CWE-22', weight: 3 },
+      { keywords: ['deserialize', 'untrust'], cweId: 'CWE-502', weight: 3 }
+    ];
+
+    let bestMatch = { cweId: null, score: 0 };
+
+    for (const pattern of fuzzyPatterns) {
+      let score = 0;
+      for (const keyword of pattern.keywords) {
+        if (ruleId.includes(keyword)) {
+          score += pattern.weight;
+        }
+      }
+
+      if (score > bestMatch.score && score >= pattern.weight) {
+        bestMatch = { cweId: pattern.cweId, score };
+      }
+    }
+
+    return bestMatch;
+  }
+
+  /**
+   * Infer CWE from message content
+   * 🔧 STATIC: Message analysis fallback
+   */
+  inferCWEFromMessage(message) {
+    const lowerMessage = message.toLowerCase();
+
+    const messagePatterns = {
+      'sql injection': 'CWE-89',
+      'parameterized queries': 'CWE-89',
+      'cross-site scripting': 'CWE-79',
       'xss': 'CWE-79',
-      'hardcoded-password': 'CWE-798',
-      'command-injection': 'CWE-78',
-      'path-traversal': 'CWE-22',
-      'weak-crypto': 'CWE-327',
-      'insecure-random': 'CWE-338',
-      'xxe': 'CWE-611',
+      'command injection': 'CWE-78',
+      'code injection': 'CWE-94',
+      'eval': 'CWE-94',
+      'path traversal': 'CWE-22',
+      'directory traversal': 'CWE-22',
+      'hardcoded': 'CWE-798',
+      'weak crypto': 'CWE-327',
+      'md5': 'CWE-327',
+      'csrf': 'CWE-352',
       'deserialization': 'CWE-502',
-      'csrf': 'CWE-352'
+      'xml external entity': 'CWE-611',
+      'xxe': 'CWE-611'
     };
 
-    for (const [pattern, cwe] of Object.entries(rulePatterns)) {
-      if (ruleId && ruleId.toLowerCase().includes(pattern)) {
+    for (const [pattern, cwe] of Object.entries(messagePatterns)) {
+      if (lowerMessage.includes(pattern)) {
         return cwe;
       }
     }
-    
-    return 'CWE-200'; // Generic information exposure
+
+    return 'CWE-200'; // Default to information exposure
   }
 
   /**
-   * Initialize CWE database with common vulnerabilities
-   * 🔧 STATIC: Vulnerability knowledge base
+   * Get CWE information with intelligent fallback
+   * 🔧 STATIC: Enhanced database lookup with proper naming
+   */
+  getCWEInfoWithIntelligence(enhancedInfo) {
+    const cweId = enhancedInfo.cweId;
+    
+    // Try exact match first
+    if (this.cweDatabase[cweId]) {
+      return this.cweDatabase[cweId];
+    }
+
+    // Enhanced fallback with better naming
+    const fallbackInfo = {
+      id: cweId || 'CWE-200',
+      name: this.generateCWEName(cweId, enhancedInfo),
+      category: this.inferCWECategory(cweId),
+      description: this.generateCWEDescription(cweId, enhancedInfo),
+      baseScore: this.inferBaseScore(cweId),
+      impact: this.inferImpact(cweId)
+    };
+
+    console.log(`🔧 STATIC: Generated fallback CWE info for ${cweId}: ${fallbackInfo.name}`);
+    return fallbackInfo;
+  }
+
+  /**
+   * Generate proper CWE name instead of "Security Issue"
+   * 🔧 STATIC: Intelligent naming based on CWE and context
+   */
+  generateCWEName(cweId, enhancedInfo) {
+    // Known CWE names
+    const knownNames = {
+      'CWE-89': 'SQL Injection',
+      'CWE-79': 'Cross-Site Scripting (XSS)',
+      'CWE-78': 'OS Command Injection',
+      'CWE-94': 'Code Injection',
+      'CWE-22': 'Path Traversal',
+      'CWE-352': 'Cross-Site Request Forgery (CSRF)',
+      'CWE-327': 'Weak Cryptography',
+      'CWE-798': 'Hardcoded Credentials',
+      'CWE-502': 'Deserialization of Untrusted Data',
+      'CWE-611': 'XML External Entity (XXE)',
+      'CWE-200': 'Information Exposure',
+      'CWE-20': 'Improper Input Validation',
+      'CWE-287': 'Improper Authentication',
+      'CWE-863': 'Incorrect Authorization',
+      'CWE-434': 'Unrestricted File Upload'
+    };
+
+    if (knownNames[cweId]) {
+      return knownNames[cweId];
+    }
+
+    // Infer from rule ID if possible
+    if (enhancedInfo.ruleId) {
+      const ruleId = enhancedInfo.ruleId.toLowerCase();
+      if (ruleId.includes('sql')) return 'SQL Injection';
+      if (ruleId.includes('xss')) return 'Cross-Site Scripting';
+      if (ruleId.includes('command') || ruleId.includes('exec')) return 'Command Injection';
+      if (ruleId.includes('path')) return 'Path Traversal';
+      if (ruleId.includes('crypto') || ruleId.includes('hash')) return 'Cryptographic Weakness';
+      if (ruleId.includes('hardcode')) return 'Hardcoded Credentials';
+    }
+
+    // Extract from CWE ID if it follows standard format
+    const match = cweId?.match(/CWE-(\d+)/);
+    if (match) {
+      return `Security Weakness (${cweId})`;
+    }
+
+    return 'Security Vulnerability';
+  }
+
+  /**
+   * Generate proper human-readable title
+   * 🔧 STATIC: Enhanced title generation
+   */
+  generateProperTitle(finding, cweInfo) {
+    const fileName = this.extractFileName(finding.path || finding.scannerData?.location?.file || 'unknown file');
+    const lineNumber = finding.start?.line || finding.scannerData?.location?.line;
+    
+    if (lineNumber) {
+      return `${cweInfo.name} in ${fileName}:${lineNumber}`;
+    } else {
+      return `${cweInfo.name} in ${fileName}`;
+    }
+  }
+
+  /**
+   * Extract clean file name from path
+   * 🔧 STATIC: File path processing
+   */
+  extractFileName(filePath) {
+    if (!filePath || filePath === 'unknown file') return 'unknown file';
+    
+    // Handle different path formats
+    const normalizedPath = filePath.replace(/\\/g, '/');
+    const parts = normalizedPath.split('/');
+    const fileName = parts[parts.length - 1];
+    
+    // Clean up temporary file paths
+    if (fileName.startsWith('upload_') || fileName.includes('tmp')) {
+      return 'uploaded file';
+    }
+    
+    return fileName || 'unknown file';
+  }
+
+  /**
+   * Infer CWE category for proper OWASP mapping
+   * 🔧 STATIC: Category inference
+   */
+  inferCWECategory(cweId) {
+    const categoryMapping = {
+      'CWE-89': 'Input Validation',
+      'CWE-79': 'Input Validation', 
+      'CWE-78': 'Input Validation',
+      'CWE-94': 'Input Validation',
+      'CWE-22': 'Input Validation',
+      'CWE-352': 'Authentication',
+      'CWE-327': 'Cryptographic Issues',
+      'CWE-798': 'Authentication',
+      'CWE-502': 'Input Validation',
+      'CWE-611': 'Input Validation',
+      'CWE-200': 'Information Disclosure',
+      'CWE-20': 'Input Validation',
+      'CWE-287': 'Authentication',
+      'CWE-863': 'Authorization'
+    };
+
+    return categoryMapping[cweId] || 'General';
+  }
+
+  /**
+   * Generate CWE description
+   * 🔧 STATIC: Description generation
+   */
+  generateCWEDescription(cweId, enhancedInfo) {
+    const descriptions = {
+      'CWE-89': 'Improper neutralization of special elements used in an SQL command',
+      'CWE-79': 'Improper neutralization of input during web page generation',
+      'CWE-78': 'Improper neutralization of special elements used in an OS command',
+      'CWE-94': 'Improper control of generation of code',
+      'CWE-22': 'Improper limitation of a pathname to a restricted directory',
+      'CWE-352': 'Cross-site request forgery vulnerability',
+      'CWE-327': 'Use of a broken or risky cryptographic algorithm',
+      'CWE-798': 'Use of hard-coded credentials',
+      'CWE-502': 'Deserialization of untrusted data',
+      'CWE-611': 'Improper restriction of XML external entity reference',
+      'CWE-200': 'Exposure of sensitive information to an unauthorized actor'
+    };
+
+    return descriptions[cweId] || `Security vulnerability detected: ${cweId}`;
+  }
+
+  /**
+   * Infer base CVSS score
+   * 🔧 STATIC: Score inference
+   */
+  inferBaseScore(cweId) {
+    const scores = {
+      'CWE-89': 9.8,
+      'CWE-78': 9.8,
+      'CWE-94': 9.3,
+      'CWE-502': 9.8,
+      'CWE-352': 8.8,
+      'CWE-611': 8.2,
+      'CWE-79': 6.1,
+      'CWE-798': 7.8,
+      'CWE-327': 7.4,
+      'CWE-22': 7.5,
+      'CWE-200': 5.3
+    };
+
+    return scores[cweId] || 5.0;
+  }
+
+  /**
+   * Infer impact level
+   * 🔧 STATIC: Impact inference
+   */
+  inferImpact(cweId) {
+    const impacts = {
+      'CWE-89': 'Critical',
+      'CWE-78': 'Critical', 
+      'CWE-94': 'Critical',
+      'CWE-502': 'Critical',
+      'CWE-352': 'High',
+      'CWE-611': 'High',
+      'CWE-798': 'High',
+      'CWE-327': 'High',
+      'CWE-22': 'High',
+      'CWE-79': 'Medium',
+      'CWE-200': 'Medium'
+    };
+
+    return impacts[cweId] || 'Medium';
+  }
+
+  /**
+   * Initialize comprehensive CWE database
+   * 🔧 STATIC: Extended vulnerability knowledge base
    */
   initializeCWEDatabase() {
     return {
       'CWE-79': {
         id: 'CWE-79',
-        name: 'Cross-site Scripting (XSS)',
+        name: 'Cross-Site Scripting (XSS)',
         category: 'Input Validation',
         description: 'Improper neutralization of input during web page generation',
         baseScore: 6.1,
-        impact: 'High'
+        impact: 'Medium'
       },
       'CWE-89': {
         id: 'CWE-89',
@@ -192,10 +658,18 @@ class SecurityClassificationSystem {
       },
       'CWE-78': {
         id: 'CWE-78',
-        name: 'Command Injection',
+        name: 'OS Command Injection',
         category: 'Input Validation',
         description: 'Improper neutralization of special elements used in an OS command',
         baseScore: 9.8,
+        impact: 'Critical'
+      },
+      'CWE-94': {
+        id: 'CWE-94',
+        name: 'Code Injection',
+        category: 'Input Validation',
+        description: 'Improper control of generation of code',
+        baseScore: 9.3,
         impact: 'Critical'
       },
       'CWE-22': {
@@ -253,22 +727,79 @@ class SecurityClassificationSystem {
         description: 'Improper restriction of XML external entity reference',
         baseScore: 8.2,
         impact: 'High'
+      },
+      'CWE-20': {
+        id: 'CWE-20',
+        name: 'Improper Input Validation',
+        category: 'Input Validation',
+        description: 'The product receives input or data, but does not validate it properly',
+        baseScore: 6.5,
+        impact: 'Medium'
+      },
+      'CWE-287': {
+        id: 'CWE-287',
+        name: 'Improper Authentication',
+        category: 'Authentication',
+        description: 'When an actor claims to have a given identity, the software does not prove or insufficiently proves that the claim is correct',
+        baseScore: 7.0,
+        impact: 'High'
+      },
+      'CWE-863': {
+        id: 'CWE-863',
+        name: 'Incorrect Authorization',
+        category: 'Authorization',
+        description: 'The software performs an authorization check when an actor attempts to access a resource, but it does not correctly perform the check',
+        baseScore: 7.5,
+        impact: 'High'
+      },
+      'CWE-434': {
+        id: 'CWE-434',
+        name: 'Unrestricted File Upload',
+        category: 'Input Validation',
+        description: 'The software allows the attacker to upload or transfer files of dangerous types',
+        baseScore: 8.1,
+        impact: 'High'
+      },
+      'CWE-319': {
+        id: 'CWE-319',
+        name: 'Cleartext Transmission',
+        category: 'Cryptographic Issues',
+        description: 'The software transmits sensitive or security-critical data in cleartext',
+        baseScore: 8.2,
+        impact: 'High'
+      },
+      'CWE-338': {
+        id: 'CWE-338',
+        name: 'Weak PRNG',
+        category: 'Cryptographic Issues',
+        description: 'Use of cryptographically weak pseudo-random number generator',
+        baseScore: 6.8,
+        impact: 'Medium'
+      },
+      'CWE-613': {
+        id: 'CWE-613',
+        name: 'Insufficient Session Expiration',
+        category: 'Session Management',
+        description: 'Insufficient session expiration by the application',
+        baseScore: 6.3,
+        impact: 'Medium'
+      },
+      'CWE-918': {
+        id: 'CWE-918',
+        name: 'Server-Side Request Forgery (SSRF)',
+        category: 'Input Validation',
+        description: 'The web server receives a URL or similar request from an upstream component and retrieves the contents of this URL',
+        baseScore: 8.5,
+        impact: 'High'
+      },
+      'CWE-134': {
+        id: 'CWE-134',
+        name: 'Format String Vulnerability',
+        category: 'Input Validation',
+        description: 'Use of externally-controlled format string',
+        baseScore: 7.3,
+        impact: 'High'
       }
-    };
-  }
-
-  /**
-   * Get CWE information with fallback
-   * 🔧 STATIC: Database lookup
-   */
-  getCWEInfo(cweId) {
-    return this.cweDatabase[cweId] || {
-      id: cweId || 'CWE-200',
-      name: 'Security Issue',
-      category: 'General',
-      description: 'Security vulnerability detected',
-      baseScore: 5.0,
-      impact: 'Medium'
     };
   }
 
@@ -280,8 +811,10 @@ class SecurityClassificationSystem {
     return {
       'Input Validation': 'A03:2021 – Injection',
       'Authentication': 'A07:2021 – Identification and Authentication Failures',
+      'Authorization': 'A01:2021 – Broken Access Control',
       'Cryptographic Issues': 'A02:2021 – Cryptographic Failures',
       'Information Disclosure': 'A01:2021 – Broken Access Control',
+      'Session Management': 'A07:2021 – Identification and Authentication Failures',
       'General': 'A06:2021 – Vulnerable and Outdated Components'
     };
   }
@@ -302,16 +835,12 @@ class SecurityClassificationSystem {
     const file = finding.path || finding.scannerData?.location?.file || 'unknown';
     const line = finding.start?.line || finding.scannerData?.location?.line || 0;
     const rule = finding.check_id || finding.ruleId || 'unknown';
-    return `${rule}-${file.replace(/[^a-zA-Z0-9]/g, '_')}-${line}`;
-  }
-
-  /**
-   * Generate human-readable title
-   * 🔧 STATIC: Title generation
-   */
-  generateTitle(finding, cweInfo) {
-    const location = finding.path || finding.scannerData?.location?.file || 'unknown file';
-    return `${cweInfo.name} in ${location}`;
+    
+    // Create a shorter, cleaner ID
+    const cleanFile = this.extractFileName(file).replace(/[^a-zA-Z0-9]/g, '_');
+    const cleanRule = rule.split('.').pop() || rule;
+    
+    return `${cleanRule}-${cleanFile}-${line}`;
   }
 
   /**
@@ -471,9 +1000,9 @@ class SecurityClassificationSystem {
   assessTechnicalComplexity(cweInfo) {
     const complexityMap = {
       'SQL Injection': 'high',
-      'Command Injection': 'high',
+      'OS Command Injection': 'high',
       'Deserialization of Untrusted Data': 'very-high',
-      'Cross-site Scripting (XSS)': 'medium',
+      'Cross-Site Scripting (XSS)': 'medium',
       'Hardcoded Credentials': 'low',
       'Information Exposure': 'low'
     };
@@ -589,6 +1118,16 @@ class SecurityClassificationSystem {
         immediate: 'Implement input validation and parameterized queries',
         shortTerm: 'Deploy database access controls and monitoring',
         longTerm: 'Implement comprehensive input sanitization framework'
+      },
+      'CWE-79': {
+        immediate: 'Implement output encoding and input validation',
+        shortTerm: 'Deploy Content Security Policy (CSP)',
+        longTerm: 'Implement comprehensive XSS prevention framework'
+      },
+      'CWE-78': {
+        immediate: 'Sanitize command inputs or use safer APIs',
+        shortTerm: 'Implement command injection prevention controls',
+        longTerm: 'Migrate to secure programming patterns'
       },
       'default': {
         immediate: 'Apply security patches and implement temporary mitigations',
@@ -784,12 +1323,22 @@ class CVSSCalculator {
       'CWE-89': 9.8,  // SQL Injection
       'CWE-78': 9.8,  // Command Injection  
       'CWE-502': 9.8, // Deserialization
-      'CWE-79': 6.1,  // XSS
-      'CWE-611': 8.2, // XXE
+      'CWE-94': 9.3,  // Code Injection
+      'CWE-918': 8.5, // SSRF
       'CWE-352': 8.8, // CSRF
+      'CWE-611': 8.2, // XXE
+      'CWE-434': 8.1, // File Upload
+      'CWE-319': 8.2, // Cleartext Transmission
       'CWE-798': 7.8, // Hardcoded Credentials
-      'CWE-327': 7.4, // Weak Crypto
       'CWE-22': 7.5,  // Path Traversal
+      'CWE-327': 7.4, // Weak Crypto
+      'CWE-134': 7.3, // Format String
+      'CWE-287': 7.0, // Authentication
+      'CWE-863': 7.5, // Authorization
+      'CWE-338': 6.8, // Weak PRNG
+      'CWE-20': 6.5,  // Input Validation
+      'CWE-613': 6.3, // Session Expiration
+      'CWE-79': 6.1,  // XSS
       'CWE-200': 5.3  // Information Disclosure
     };
     
