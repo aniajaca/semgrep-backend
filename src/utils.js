@@ -1,45 +1,42 @@
-// src/utils.js
+// utils.js
 
 /**
- * Assign a weight multiplier based on severity.
- * @param {string} severity - Textual severity ('Critical','High','Medium','Low').
- * @returns {number} Weight multiplier.
+ * Get numeric weight for severity level
  */
 function getSeverityWeight(severity) {
-  switch (severity.toLowerCase()) {
-    case 'critical': return 1.5;
-    case 'high':     return 1.2;
-    case 'medium':   return 1.0;
-    case 'low':      return 0.8;
-    default:         return 0.5;
-  }
+  const weights = {
+    'critical': 10,
+    'high': 7,
+    'medium': 4,
+    'low': 2,
+    'info': 1
+  };
+  return weights[severity?.toLowerCase()] || 1;
 }
 
 /**
- * Numeric level for severity to compare maxima.
- * @param {string} severity - Textual severity.
- * @returns {number} Numeric level (0–4).
+ * Get numeric level for severity comparison
  */
 function getSeverityLevel(severity) {
-  switch (severity.toLowerCase()) {
-    case 'critical': return 4;
-    case 'high':     return 3;
-    case 'medium':   return 2;
-    case 'low':      return 1;
-    default:         return 0;
-  }
+  const levels = {
+    'critical': 5,
+    'high': 4,
+    'medium': 3,
+    'low': 2,
+    'info': 1
+  };
+  return levels[severity?.toLowerCase()] || 0;
 }
 
 /**
- * Classify a numeric risk score into a severity label.
- * @param {number} score - Adjusted risk score (0.0–10.0).
- * @returns {string} Severity label ('Critical','High','Medium','Low').
+ * Classify severity based on CVSS score
  */
-function classifySeverity(score) {
-  if (score >= 9.0) return 'Critical';
-  if (score >= 7.0) return 'High';
-  if (score >= 4.0) return 'Medium';
-  return 'Low';
+function classifySeverity(cvssScore) {
+  if (cvssScore >= 9.0) return 'critical';
+  if (cvssScore >= 7.0) return 'high';
+  if (cvssScore >= 4.0) return 'medium';
+  if (cvssScore >= 0.1) return 'low';
+  return 'info';
 }
 
 module.exports = {
