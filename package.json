@@ -42,3 +42,19 @@
   },
   "homepage": "https://github.com/aniajaca/semgrep-backend#readme"
 }
+
+{
+  "name": "neperia-security-scanner",
+  "version": "1.0.0",
+  "description": "Neperia Security Scanner API",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,380 +1,473 @@
-// src/server.js - RAILWAY DEPLOYMENT FIX
+const express = require('express');
+// … your existing requires …
+const { deduplicateFindings } = require('./findingDeduplicator');
+const { calculateRiskScore }     = require('./riskCalculator');
+const { SecurityClassificationSystem } = require('./SecurityClassificationSystem.js');
+const classifier = new SecurityClassificationSystem();
+
+
 const express = require('express');
 const multer = require('multer');
 const { spawn, exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { performance } = require('perf_hooks'); 
-
-// ✅ RAILWAY FIX: Enhanced error handling for missing modules
-let SecurityClassificationSystem;
-let aiRouter = null;
-
-try {
-  const securityModule = require('./SecurityClassificationSystem');
-  SecurityClassificationSystem = securityModule.SecurityClassificationSystem;
-  console.log('✅ SecurityClassificationSystem loaded successfully');
-} catch (error) {
-  console.log('⚠️ SecurityClassificationSystem not available:', error.message);
-  // Create a fallback class for Railway deployment
-  SecurityClassificationSystem = class {
-    classifyFinding(finding) {
-      return {
-        ...finding,
-        severity: finding.severity || 'Medium',
-        cwe: finding.cwe || { id: 'CWE-200', name: 'Information Exposure' },
-        cvss: { baseScore: 5.0, adjustedScore: 5.0 }
-      };
-    }
-    aggregateRiskScore(findings) {
-      return { riskScore: 50, riskLevel: 'Medium' };
-    }
-  };
-}
-
-try {
-  aiRouter = require('./aiRouter');
-  console.log('✅ AI Router loaded successfully');
-} catch (error) {
-  console.log('⚠️ AI Router not available:', error.message);
-}
-
-require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-console.log('🚀 RAILWAY: Starting Neperia Security Scanner');
-console.log('🔧 Environment:', process.env.NODE_ENV || 'production');
-console.log('🌐 Port:', PORT);
-console.log('🐧 Platform:', process.platform);
-console.log('📁 Working Directory:', process.cwd());
-
-// ✅ RAILWAY FIX: Enhanced error handlers that don't exit
+// Global error handlers to prevent crashes
 process.on('uncaughtException', (error) => {
-  console.error('❌ RAILWAY: Uncaught Exception:', error.message);
+  console.error('Uncaught Exception:', error);
   console.error('Stack:', error.stack);
-  // Don't exit in Railway - let the platform handle restarts
+  // Don't exit immediately in production, let Railway handle restarts
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ RAILWAY: Unhandled Rejection:', reason);
-  // Don't exit in Railway
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit immediately in production
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
 });
 
-// ✅ RAILWAY FIX: Simplified CORS for Railway deployment
-const simpleCors = (req, res, next) => {
+// Enhanced startup logging
+console.log('=== SERVER STARTUP ===');
+console.log('Node version:', process.version);
+console.log('Platform:', process.platform);
+console.log('Environment:', process.env.NODE_ENV || 'development');
+console.log('Port:', PORT);
+console.log('Allowed Origin:', process.env.ALLOWED_ORIGIN || 'not set');
+console.log('Current working directory:', process.cwd());
+console.log('Temp directory:', os.tmpdir());
+
+// FIXED CORS middleware - properly configured for Lovable frontend
+const customCors = (req, res, next) => {
   try {
     const origin = req.headers.origin;
     
-    // Allow Railway healthchecks and known domains
+    // List of allowed origins
     const allowedOrigins = [
       'https://preview--neperia-code-guardian.lovable.app',
       'https://neperia-code-guardian.lovable.app',
-      'https://app--neperia-code-guardian-8d9b62c6.base44.app',
       'https://lovable.app',
       'http://localhost:3000',
-      'http://localhost:5173'
+      'http://localhost:5173' // Vite dev server
     ];
     
-    const isAllowed = !origin || // Railway healthcheck has no origin
-                     allowedOrigins.includes(origin) ||
-                     (origin && (origin.endsWith('.lovable.app') || origin.endsWith('.base44.app')));
+    // Check if origin is allowed or if it's a Lovable subdomain
+    const isAllowed = allowedOrigins.includes(origin) || 
+                     (origin && origin.includes('.lovable.app'));
     
-    res.setHeader('Access-Control-Allow-Origin', isAllowed ? (origin || '*') : '*');
+    if (isAllowed || !origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', 'https://preview--neperia-code-guardian.lovable.app');
+    }
+    
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+    
+    console.log(`CORS: Origin ${origin} -> ${isAllowed ? 'ALLOWED' : 'DEFAULT'}`);
     
     if (req.method === 'OPTIONS') {
+      console.log('Handling OPTIONS preflight request');
       return res.status(200).end();
     }
     
     next();
   } catch (error) {
-    console.error('❌ CORS error:', error.message);
-    next(); // Continue even if CORS fails
+    console.error('CORS middleware error:', error);
+    next(error);
   }
 };
 
-app.use(simpleCors);
-
-// ✅ RAILWAY FIX: Body parsing with error handling
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// ✅ RAILWAY FIX: Request logging for debugging
+// Request logging middleware
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
-  console.log(`${timestamp} ${req.method} ${req.path} - Origin: ${req.headers.origin || 'none'}`);
+  console.log(`${timestamp} - ${req.method} ${req.path} - Origin: ${req.headers.origin || 'none'}`);
+  console.log(`User-Agent: ${req.get('User-Agent') || 'none'}`);
+  console.log(`IP: ${req.ip}`);
   next();
 });
 
-// ✅ RAILWAY FIX: Simplified multer setup
-const upload = multer({ 
-  dest: '/tmp/uploads/',
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => cb(null, true)
-});
+// Apply CORS middleware FIRST
+app.use(customCors);
 
-// ✅ RAILWAY FIX: Essential healthcheck endpoint (MUST WORK)
-app.get('/healthz', (req, res) => {
-  console.log('🏥 RAILWAY: Healthcheck accessed');
-  
-  try {
-    res.status(200).json({
-      status: 'healthy',
-      service: 'neperia-security-scanner',
-      timestamp: new Date().toISOString(),
-      uptime: Math.floor(process.uptime()),
-      memory: process.memoryUsage(),
-      platform: process.platform,
-      nodeVersion: process.version
-    });
-  } catch (error) {
-    console.error('❌ RAILWAY: Healthcheck error:', error);
-    res.status(500).json({ status: 'error', error: error.message });
+// Body parsing middleware with error handling
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    try {
+      const uploadDir = path.join(os.tmpdir(), 'uploads');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+        console.log('Created upload directory:', uploadDir);
+      }
+      cb(null, uploadDir);
+    } catch (error) {
+      console.error('Error creating upload directory:', error);
+      cb(error);
+    }
+  },
+  filename: (req, file, cb) => {
+    try {
+      const timestamp = Date.now();
+      const originalName = file.originalname || 'uploaded_file';
+      const filename = `${timestamp}-${originalName}`;
+      cb(null, filename);
+    } catch (error) {
+      console.error('Error generating filename:', error);
+      cb(error);
+    }
   }
 });
 
-// ✅ RAILWAY FIX: Alternative health endpoint
-app.get('/health', (req, res) => {
-  console.log('🏥 RAILWAY: Health endpoint accessed');
-  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept all files for now, let Semgrep handle compatibility
+    cb(null, true);
+  }
 });
 
-// ✅ RAILWAY FIX: Root endpoint
+// Root route - simplified for Railway
 app.get('/', (req, res) => {
-  console.log('🏠 RAILWAY: Root endpoint accessed');
+  console.log('🏠 Root accessed');
   res.status(200).json({
-    message: 'Neperia Security Scanner API',
-    status: 'running',
-    version: '3.1-railway',
+    message: 'Cybersecurity Scanner API is running',
+    status: 'active',
+    timestamp: new Date().toISOString(),
     endpoints: {
+      'GET /': 'Root endpoint',
       'GET /healthz': 'Health check',
-      'GET /health': 'Alternative health check', 
-      'GET /semgrep-status': 'Semgrep availability',
-      'POST /scan': 'File upload scanning',
-      'POST /scan-code': 'Direct code scanning'
-    },
+      'GET /semgrep-status': 'Check Semgrep availability',
+      'POST /scan': 'File scanning endpoint',
+      'POST /scan-code': 'Direct code scanning endpoint'
+    }
+  });
+});
+
+// Health check endpoint - Railway compatible (simplified)
+app.get('/healthz', (req, res) => {
+  console.log('🏥 Health check accessed');
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  
+  // Set explicit headers for Railway
+  res.set({
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache'
+  });
+  
+  // Send JSON response for better frontend integration
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+// Alternative health check endpoint
+app.get('/health', (req, res) => {
+  console.log('🏥 /health accessed');
+  res.status(200).json({
+    status: 'healthy',
+    service: 'semgrep-scanner',
     timestamp: new Date().toISOString()
   });
 });
 
-// ✅ RAILWAY FIX: Semgrep status with timeout protection
-app.get('/semgrep-status', async (req, res) => {
-  console.log('🔧 RAILWAY: Checking Semgrep status');
-  
+// Debug endpoint for Railway troubleshooting
+app.get('/debug', (req, res) => {
   try {
-    const semgrepCheck = await checkSemgrepAvailability();
     res.json({
-      status: 'success',
-      semgrep: semgrepCheck,
-      timestamp: new Date().toISOString()
+      headers: req.headers,
+      ip: req.ip,
+      ips: req.ips,
+      method: req.method,
+      path: req.path,
+      query: req.query,
+      timestamp: new Date().toISOString(),
+      port: PORT,
+      environment: process.env.NODE_ENV,
+      railway: {
+        deploymentId: process.env.RAILWAY_DEPLOYMENT_ID,
+        projectId: process.env.RAILWAY_PROJECT_ID,
+        serviceId: process.env.RAILWAY_SERVICE_ID,
+        environment: process.env.RAILWAY_ENVIRONMENT,
+      }
     });
   } catch (error) {
-    console.error('❌ RAILWAY: Semgrep check failed:', error.message);
-    res.status(200).json({ // Return 200 to avoid healthcheck issues
-      status: 'warning',
-      semgrep: { available: false, error: error.message },
-      timestamp: new Date().toISOString()
-    });
+    console.error('Error in debug route:', error);
+    res.status(500).json({ status: 'error', message: 'Debug endpoint error' });
   }
 });
 
-// ✅ RAILWAY FIX: Enhanced code scanning endpoint
-app.post('/scan-code', async (req, res) => {
-  console.log('💻 RAILWAY: Code scan request received');
+// Semgrep status endpoint
+app.get('/semgrep-status', (req, res) => {
+  console.log('=== SEMGREP STATUS REQUEST ===');
   
-  const scanStartTime = performance.now();
-  
-  try {
-    const { code, filename = 'uploaded_code.py' } = req.body;
-
-    if (!code) {
-      return res.status(400).json({ 
-        status: 'error', 
-        message: 'No code provided',
-        expected: { code: 'string', filename: 'string (optional)' }
-      });
-    }
-
-    console.log(`💻 RAILWAY: Scanning ${filename} (${code.length} characters)`);
-
-    // Check if Semgrep is available
-    const semgrepAvailable = await checkSemgrepAvailability();
-    
-    if (!semgrepAvailable.available) {
-      console.log('⚠️ RAILWAY: Semgrep not available, using fallback analysis');
-      return res.json({
-        status: 'success',
-        service: 'Neperia Security Scanner (Fallback Mode)',
-        analysis: {
-          filename: filename,
-          codeLength: code.length,
-          findingsCount: 0,
-          message: 'Semgrep not available - fallback analysis performed'
-        },
-        findings: [],
-        riskScore: 0,
-        metadata: {
-          scanned_at: new Date().toISOString(),
-          mode: 'fallback',
-          semgrep_available: false
-        }
-      });
-    }
-
-    // Create temporary file for scanning
-    const tempDir = '/tmp';
-    const tempFile = path.join(tempDir, `${Date.now()}-${filename}`);
-    
-    try {
-      fs.writeFileSync(tempFile, code, 'utf8');
-      console.log(`📁 RAILWAY: Created temp file: ${tempFile}`);
-
-      // Run Semgrep scan
-      const semgrepResults = await runSemgrepScan(tempFile, code);
-      
-      // Enhanced classification
-      const classifier = new SecurityClassificationSystem();
-      const classifiedFindings = semgrepResults.results.map(finding => 
-        classifier.classifyFinding(finding)
-      );
-      
-      const riskAssessment = classifier.aggregateRiskScore(classifiedFindings, {});
-      
-      const scanEndTime = performance.now();
-      const scanDuration = (scanEndTime - scanStartTime).toFixed(2);
-      
-      console.log(`✅ RAILWAY: Scan completed in ${scanDuration}ms with ${classifiedFindings.length} findings`);
-
+  checkSemgrepAvailability()
+    .then(result => {
       res.json({
         status: 'success',
-        service: 'Neperia Security Scanner v3.1',
-        analysis: {
-          filename: filename,
-          codeLength: code.length,
-          findingsCount: classifiedFindings.length,
-          riskScore: riskAssessment.riskScore,
-          riskLevel: riskAssessment.riskLevel,
-          scanDuration: `${scanDuration}ms`
-        },
-        findings: classifiedFindings,
-        riskAssessment: riskAssessment,
-        metadata: {
-          scanned_at: new Date().toISOString(),
-          semgrep_version: semgrepAvailable.version,
-          classification_version: '3.1'
-        }
+        semgrep: result,
+        timestamp: new Date().toISOString()
       });
-      
-    } finally {
-      // Clean up temp file
-      if (fs.existsSync(tempFile)) {
-        fs.unlinkSync(tempFile);
-        console.log('🧹 RAILWAY: Cleaned up temp file');
-      }
+    })
+    .catch(error => {
+      res.status(500).json({
+        status: 'error',
+        message: 'Semgrep not available',
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+    });
+});
+
+// API info endpoint
+app.get('/api', (req, res) => {
+  try {
+    res.status(200).json({ 
+      status: 'success', 
+      message: 'API is running',
+      endpoints: {
+        'GET /': 'Root endpoint',
+        'GET /healthz': 'Health check',
+        'GET /health': 'Alternative health check',
+        'GET /semgrep-status': 'Check Semgrep availability',
+        'GET /debug': 'Debug information',
+        'POST /scan': 'File scanning endpoint',
+        'POST /scan-code': 'Direct code scanning endpoint'
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error in API info route:', error);
+    res.status(500).json({ status: 'error', message: 'Internal server error' });
+  }
+});
+
+// 🔧 ENHANCED: Code scanning endpoint with PERFORMANCE MONITORING
+app.post('/scan-code', async (req, res) => {
+  console.log('=== CODE SCAN REQUEST RECEIVED ===');
+  console.log('Headers:', req.headers);
+  console.log('Origin:', req.headers.origin);
+  
+  // 🔧 ADD PERFORMANCE MONITORING
+  const scanStartTime = performance.now();
+  const memBefore = process.memoryUsage();
+  
+  try {
+    const { code, language = 'javascript', filename = 'code.js' } = req.body;
+    
+    if (!code || typeof code !== 'string' || code.trim() === '') {
+      return res.status(400).json({ 
+        status: 'error', 
+        message: 'No code provided' 
+      });
+    }
+
+    console.log('Code length:', code.length);
+    console.log('Language:', language);
+    console.log('Filename:', filename);
+    console.log('Code preview:', code.substring(0, 200) + '...');
+
+    // Check if Semgrep is available before trying to scan
+    const semgrepAvailable = await checkSemgrepAvailability();
+    if (!semgrepAvailable.available) {
+      return res.status(503).json({
+        status: 'error',
+        message: 'Semgrep is not available',
+        details: semgrepAvailable.error
+      });
+    }
+
+    // Create temporary file with the code
+    const tempDir = path.join(os.tmpdir(), 'scan-temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
     }
     
-  } catch (error) {
-    console.error('❌ RAILWAY: Code scan error:', error.message);
+    const tempFilePath = path.join(tempDir, `${Date.now()}-${filename}`);
+    
+    // 🔧 CRITICAL FIX: Write the actual code to the file
+    fs.writeFileSync(tempFilePath, code, 'utf8');
+    
+    console.log('Created temp file:', tempFilePath);
+    console.log('File content length:', fs.readFileSync(tempFilePath, 'utf8').length);
+
+    // 🔧 MEASURE SEMGREP TIME
+    const semgrepStartTime = performance.now();
+    const semgrepResults = await runSemgrepScanWithCodeExtraction(tempFilePath, code);
+    const semgrepEndTime = performance.now();
+    
+    // 🔧 MEASURE CLASSIFICATION TIME (placeholder for when SecurityClassificationSystem is integrated)
+    const classificationStartTime = performance.now();
+    // TODO: Add SecurityClassificationSystem integration here
+    // const classifiedFindings = classifier.classifyFindings(semgrepResults.results);
+    const classificationEndTime = performance.now();
+    
+    // 🔧 FINAL PERFORMANCE METRICS
     const scanEndTime = performance.now();
-    const scanDuration = (scanEndTime - scanStartTime).toFixed(2);
+    const memAfter = process.memoryUsage();
+    
+    const performanceMetrics = {
+      totalScanTime: `${(scanEndTime - scanStartTime).toFixed(2)}ms`,
+      semgrepTime: `${(semgrepEndTime - semgrepStartTime).toFixed(2)}ms`,
+      classificationTime: `${(classificationEndTime - classificationStartTime).toFixed(2)}ms`,
+      memoryUsed: `${Math.round((memAfter.heapUsed - memBefore.heapUsed) / 1024 / 1024)}MB`,
+      totalMemory: `${Math.round(memAfter.heapTotal / 1024 / 1024)}MB`,
+      peakMemory: `${Math.round(memAfter.heapUsed / 1024 / 1024)}MB`
+    };
+    
+    console.log('🔧 PERFORMANCE METRICS:', performanceMetrics);
+    
+    // Clean up temp file
+    if (fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+      console.log('Cleaned up temp file');
+    }
+    
+    res.json({
+      status: 'success',
+      language: language,
+      findings: semgrepResults.results || [],
+      metadata: {
+        scanned_at: new Date().toISOString(),
+        code_length: code.length,
+        semgrep_version: semgrepAvailable.version,
+        findings_count: (semgrepResults.results || []).length,
+        performance: performanceMetrics  // 🔧 ADD PERFORMANCE DATA
+      }
+    });
+    
+  } catch (error) {
+    console.error('Code scan error:', error);
+    console.error('Stack trace:', error.stack);
+    
+    // Calculate error response time
+    const errorEndTime = performance.now();
+    const errorResponseTime = `${(errorEndTime - scanStartTime).toFixed(2)}ms`;
+    console.log('🔧 ERROR RESPONSE TIME:', errorResponseTime);
     
     res.status(500).json({ 
       status: 'error', 
       message: 'Code scan failed',
       error: error.message,
-      scanDuration: `${scanDuration}ms`,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      performance: {
+        errorResponseTime: errorResponseTime
+      }
     });
   }
 });
 
-// ✅ RAILWAY FIX: File upload scanning endpoint
+// 🔧 ENHANCED: File upload scan endpoint with PERFORMANCE MONITORING
 app.post('/scan', upload.single('file'), async (req, res) => {
-  console.log('📁 RAILWAY: File scan request received');
+  console.log('=== FILE SCAN REQUEST RECEIVED ===');
+  console.log('Headers:', req.headers);
+  console.log('Origin:', req.headers.origin);
+  
+  // 🔧 ADD PERFORMANCE MONITORING
+  const scanStartTime = performance.now();
+  const memBefore = process.memoryUsage();
   
   try {
     if (!req.file) {
       return res.status(400).json({ 
         status: 'error', 
-        message: 'No file uploaded'
+        message: 'No file uploaded' 
       });
     }
 
     const filePath = req.file.path;
-    const fileContent = fs.readFileSync(filePath, 'utf8');
-    
-    console.log(`📁 RAILWAY: Processing file: ${req.file.originalname} (${req.file.size} bytes)`);
+    console.log('File uploaded to:', filePath);
+    console.log('File details:', {
+      originalName: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype
+    });
 
-    // Check Semgrep availability
+    // Check if Semgrep is available before trying to scan
     const semgrepAvailable = await checkSemgrepAvailability();
-    
     if (!semgrepAvailable.available) {
-      // Clean up and return fallback
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      
-      return res.json({
-        status: 'success',
-        service: 'Neperia Security Scanner (Fallback Mode)',
-        filename: req.file.originalname,
-        analysis: {
-          fileSize: req.file.size,
-          findingsCount: 0,
-          message: 'Semgrep not available - fallback analysis performed'
-        },
-        findings: [],
-        riskScore: 0
+      // Clean up uploaded file
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      return res.status(503).json({
+        status: 'error',
+        message: 'Semgrep is not available',
+        details: semgrepAvailable.error
       });
     }
 
-    // Run Semgrep scan
-    const semgrepResults = await runSemgrepScan(filePath, fileContent);
+    // Read file content for code extraction
+    const fileReadStartTime = performance.now();
+    const fileContent = fs.readFileSync(filePath, 'utf8');
+    const fileReadEndTime = performance.now();
+
+    // 🔧 MEASURE SEMGREP TIME
+    const semgrepStartTime = performance.now();
+    const semgrepResults = await runSemgrepScanWithCodeExtraction(filePath, fileContent);
+    const semgrepEndTime = performance.now();
     
-    // Classification
-    const classifier = new SecurityClassificationSystem();
-    const classifiedFindings = semgrepResults.results.map(finding => 
-      classifier.classifyFinding(finding)
-    );
+    // 🔧 FINAL PERFORMANCE METRICS
+    const scanEndTime = performance.now();
+    const memAfter = process.memoryUsage();
     
-    const riskAssessment = classifier.aggregateRiskScore(classifiedFindings, {});
+    const performanceMetrics = {
+      totalScanTime: `${(scanEndTime - scanStartTime).toFixed(2)}ms`,
+      fileReadTime: `${(fileReadEndTime - fileReadStartTime).toFixed(2)}ms`,
+      semgrepTime: `${(semgrepEndTime - semgrepStartTime).toFixed(2)}ms`,
+      memoryUsed: `${Math.round((memAfter.heapUsed - memBefore.heapUsed) / 1024 / 1024)}MB`,
+      totalMemory: `${Math.round(memAfter.heapTotal / 1024 / 1024)}MB`
+    };
+    
+    console.log('🔧 PERFORMANCE METRICS:', performanceMetrics);
     
     // Clean up uploaded file
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
-      console.log('🧹 RAILWAY: Cleaned up uploaded file');
+      console.log('Cleaned up uploaded file');
     }
     
     res.json({
       status: 'success',
-      service: 'Neperia Security Scanner v3.1',
       filename: req.file.originalname,
-      analysis: {
-        fileSize: req.file.size,
-        findingsCount: classifiedFindings.length,
-        riskScore: riskAssessment.riskScore,
-        riskLevel: riskAssessment.riskLevel
-      },
-      findings: classifiedFindings,
-      riskAssessment: riskAssessment,
+      findings: semgrepResults.results || [],
       metadata: {
         scanned_at: new Date().toISOString(),
-        semgrep_version: semgrepAvailable.version
+        file_size: req.file.size,
+        semgrep_version: semgrepAvailable.version,
+        findings_count: (semgrepResults.results || []).length,
+        performance: performanceMetrics  // 🔧 ADD PERFORMANCE DATA
       }
     });
     
   } catch (error) {
-    console.error('❌ RAILWAY: File scan error:', error.message);
+    console.error('File scan error:', error);
+    console.error('Stack trace:', error.stack);
     
-    // Clean up on error
+    // Clean up uploaded file on error
     if (req.file && req.file.path && fs.existsSync(req.file.path)) {
       try {
         fs.unlinkSync(req.file.path);
+        console.log('Cleaned up uploaded file after error');
       } catch (cleanupError) {
-        console.error('❌ RAILWAY: Cleanup error:', cleanupError.message);
+        console.error('Error cleaning up file:', cleanupError);
       }
     }
     
@@ -387,142 +480,217 @@ app.post('/scan', upload.single('file'), async (req, res) => {
   }
 });
 
-// ✅ RAILWAY FIX: Mount AI router if available
-if (aiRouter) {
-  console.log('🤖 RAILWAY: Mounting AI endpoints');
-  app.use('/api', aiRouter);
-} else {
-  console.log('⚠️ RAILWAY: AI router not available');
-  app.get('/api', (req, res) => {
-    res.json({
-      status: 'info',
-      message: 'AI features not available in this deployment',
-      availableFeatures: ['Static code analysis', 'Vulnerability scanning']
-    });
-  });
-}
-
-// ✅ RAILWAY FIX: Helper Functions
-
-/**
- * Check Semgrep availability with timeout
- */
+// Function to check Semgrep availability
 function checkSemgrepAvailability() {
   return new Promise((resolve) => {
-    const timeout = setTimeout(() => {
-      resolve({ available: false, error: 'Timeout checking Semgrep' });
-    }, 5000); // 5 second timeout
-
     exec('semgrep --version', (error, stdout, stderr) => {
-      clearTimeout(timeout);
-      
       if (error) {
-        console.log('🔧 RAILWAY: Semgrep not available:', error.message);
-        resolve({ available: false, error: error.message });
+        console.error('Semgrep not available:', error.message);
+        resolve({ 
+          available: false, 
+          error: error.message,
+          stderr: stderr
+        });
       } else {
-        console.log('🔧 RAILWAY: Semgrep available:', stdout.trim());
-        resolve({ available: true, version: stdout.trim() });
+        console.log('Semgrep version:', stdout.trim());
+        resolve({ 
+          available: true, 
+          version: stdout.trim() 
+        });
       }
     });
   });
 }
 
-/**
- * Run Semgrep scan with enhanced error handling
- */
-async function runSemgrepScan(filePath, fileContent) {
-  console.log('🔧 RAILWAY: Running Semgrep scan');
-  
+// 🔧 ENHANCED: Semgrep scan function with proper code extraction and PERFORMANCE MONITORING
+function runSemgrepScanWithCodeExtraction(filePath, originalCode) {
   return new Promise((resolve, reject) => {
+    console.log('=== STARTING SEMGREP SCAN WITH CODE EXTRACTION ===');
+    console.log('File path:', filePath);
+    
+    // Verify file exists and has content
+    if (!fs.existsSync(filePath)) {
+      return reject(new Error('File not found: ' + filePath));
+    }
+    
+    const fileContent = fs.readFileSync(filePath, 'utf8');
+    console.log('File content length:', fileContent.length);
+    console.log('Original code length:', originalCode.length);
+    
     const semgrepArgs = [
       '--json',
       '--config=auto',
       '--skip-unknown-extensions',
       '--timeout=30',
+      '--verbose',
       filePath
     ];
-
-    console.log(`🔧 RAILWAY: Executing: semgrep ${semgrepArgs.join(' ')}`);
     
-    const semgrep = spawn('semgrep', semgrepArgs, {
+    console.log('Semgrep command:', 'semgrep', semgrepArgs.join(' '));
+    
+    const semgrepProcessStartTime = performance.now();
+    const semgrepProcess = spawn('semgrep', semgrepArgs, {
       stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: 30000 // 30 second timeout
+      env: { ...process.env, PATH: process.env.PATH }
     });
-
+    
     let stdout = '';
     let stderr = '';
-
-    semgrep.stdout.on('data', (data) => {
+    
+    semgrepProcess.stdout.on('data', (data) => {
       stdout += data.toString();
     });
-
-    semgrep.stderr.on('data', (data) => {
+    
+    semgrepProcess.stderr.on('data', (data) => {
       stderr += data.toString();
     });
-
-    semgrep.on('close', (code) => {
-      console.log(`🔧 RAILWAY: Semgrep exited with code ${code}`);
+    
+    semgrepProcess.on('close', (code) => {
+      const semgrepProcessEndTime = performance.now();
+      const semgrepProcessTime = semgrepProcessEndTime - semgrepProcessStartTime;
       
-      if (code !== 0 && code !== 1) { // Code 1 is OK (findings found)
-        console.error('❌ RAILWAY: Semgrep stderr:', stderr);
-        return reject(new Error(`Semgrep failed with code ${code}`));
+      console.log('=== SEMGREP SCAN COMPLETED ===');
+      console.log('Exit code:', code);
+      console.log('Process time:', `${semgrepProcessTime.toFixed(2)}ms`);
+      console.log('Stdout length:', stdout.length);
+      console.log('Stderr length:', stderr.length);
+      
+      if (stderr) {
+        console.log('Stderr preview:', stderr.substring(0, 500));
       }
-
-      try {
-        const results = JSON.parse(stdout);
-        console.log(`🔧 RAILWAY: Semgrep found ${results.results?.length || 0} findings`);
-
-        // Fix code extraction
-        if (results.results && results.results.length > 0 && fileContent) {
-          const codeLines = fileContent.split('\n');
+      
+      if (code === 0 || code === 1) {
+        // Code 0 = no findings, Code 1 = findings found (both are success)
+        try {
+          const parseStartTime = performance.now();
+          const results = stdout ? JSON.parse(stdout) : { results: [] };
+          const parseEndTime = performance.now();
           
-          results.results = results.results.map(finding => {
-            const lineNumber = finding.start?.line || 1;
-            const vulnerableLine = codeLines[lineNumber - 1] || 'Line not found';
+          console.log('JSON parse time:', `${(parseEndTime - parseStartTime).toFixed(2)}ms`);
+          console.log('Parsed results successfully, findings:', results.results?.length || 0);
+          
+          // 🔧 CRITICAL FIX: Enhance findings with actual code
+          if (results.results && results.results.length > 0) {
+            const enhancementStartTime = performance.now();
+            const codeLines = originalCode.split('\n');
             
-            finding.extra = finding.extra || {};
-            finding.extra.lines = vulnerableLine.trim();
-            finding.extractedCode = vulnerableLine.trim();
+            results.results = results.results.map(finding => {
+              // Extract the actual vulnerable code line
+              const lineNumber = finding.start?.line || 1;
+              const vulnerableLine = codeLines[lineNumber - 1] || '';
+              
+              console.log(`Processing finding at line ${lineNumber}:`, vulnerableLine.substring(0, 100));
+              
+              // 🔧 COMPLETELY REPLACE the "requires login" placeholder
+              finding.extra = finding.extra || {};
+              finding.extra.lines = vulnerableLine.trim();
+              finding.extra.rendered_text = vulnerableLine.trim();
+              finding.extra.original_code = vulnerableLine.trim();
+              
+              // 🔧 ADD EXTRACTED CODE FIELD FOR FRONTEND
+              finding.extractedCode = vulnerableLine.trim();
+              
+              // Remove any "requires login" placeholders
+              if (finding.extra.fingerprint === "requires login") {
+                finding.extra.fingerprint = `line-${lineNumber}-${finding.check_id}`;
+              }
+              
+              // Add context lines if available (3 lines before and after)
+              const startLine = Math.max(0, lineNumber - 2);
+              const endLine = Math.min(codeLines.length, lineNumber + 2);
+              const contextLines = codeLines.slice(startLine, endLine);
+              finding.extra.context = contextLines.join('\n');
+              
+              console.log('Enhanced finding:', {
+                ruleId: finding.check_id,
+                line: lineNumber,
+                extractedCode: vulnerableLine.trim(),
+                message: finding.message
+              });
+              
+              return finding;
+            });
             
-            return finding;
+            const enhancementEndTime = performance.now();
+            console.log('Finding enhancement time:', `${(enhancementEndTime - enhancementStartTime).toFixed(2)}ms`);
+          }
+          
+          // Add performance metadata to results
+          results.performance = {
+            semgrepProcessTime: `${semgrepProcessTime.toFixed(2)}ms`,
+            jsonParseTime: `${(parseEndTime - parseStartTime).toFixed(2)}ms`,
+            findingsCount: results.results?.length || 0
+          };
+          
+          resolve(results);
+        } catch (parseError) {
+          console.error('Failed to parse Semgrep output:', parseError);
+          console.error('Raw output preview:', stdout.substring(0, 500));
+          resolve({ 
+            results: [], 
+            raw_output: stdout.substring(0, 1000),
+            parse_error: parseError.message 
           });
         }
-
-        resolve(results);
-      } catch (parseError) {
-        console.error('❌ RAILWAY: JSON parse error:', parseError.message);
-        reject(new Error(`Failed to parse Semgrep JSON: ${parseError.message}`));
+      } else {
+        // Other exit codes indicate errors
+        const errorMessage = `Semgrep failed with exit code ${code}: ${stderr}`;
+        console.error('Semgrep error:', errorMessage);
+        reject(new Error(errorMessage));
       }
     });
-
-    semgrep.on('error', (error) => {
-      console.error('❌ RAILWAY: Semgrep spawn error:', error.message);
-      reject(new Error(`Failed to spawn Semgrep: ${error.message}`));
+    
+    semgrepProcess.on('error', (error) => {
+      console.error('Semgrep spawn error:', error);
+      reject(error);
+    });
+    
+    // Set a timeout to prevent hanging
+    const timeout = setTimeout(() => {
+      console.error('Semgrep scan timeout');
+      semgrepProcess.kill('SIGTERM');
+      reject(new Error('Semgrep scan timeout'));
+    }, 45000); // 45 second timeout
+    
+    semgrepProcess.on('close', () => {
+      clearTimeout(timeout);
     });
   });
 }
 
-// ✅ RAILWAY FIX: 404 handler
+// Legacy function for backward compatibility
+function runSemgrepScan(filePath) {
+  const fileContent = fs.readFileSync(filePath, 'utf8');
+  return runSemgrepScanWithCodeExtraction(filePath, fileContent);
+}
+
+// Catch-all for undefined routes (this should be last)
 app.use('*', (req, res) => {
-  console.log(`❌ RAILWAY: 404 - ${req.method} ${req.originalUrl}`);
+  console.log('=== 404 REQUEST ===');
+  console.log('Path:', req.originalUrl);
+  console.log('Method:', req.method);
+  console.log('Headers:', req.headers);
+  
   res.status(404).json({ 
     status: 'error', 
     message: 'Route not found',
     path: req.originalUrl,
-    availableEndpoints: [
+    method: req.method,
+    available_routes: [
       'GET /',
-      'GET /healthz', 
-      'GET /health',
-      'GET /semgrep-status',
+      'GET /healthz',
+      'GET /semgrep-status', 
       'POST /scan',
       'POST /scan-code'
-    ]
+    ],
+    timestamp: new Date().toISOString()
   });
 });
 
-// ✅ RAILWAY FIX: Error handling middleware
+// Error handling middleware
 app.use((error, req, res, next) => {
-  console.error('❌ RAILWAY: Unhandled error:', error.message);
+  console.error('=== UNHANDLED ERROR ===');
+  console.error('Error:', error);
   console.error('Stack:', error.stack);
   
   if (res.headersSent) {
@@ -532,66 +700,73 @@ app.use((error, req, res, next) => {
   res.status(500).json({ 
     status: 'error', 
     message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? error.message : 'Server error',
     timestamp: new Date().toISOString()
   });
 });
 
-// ✅ RAILWAY FIX: Server startup with proper error handling
+// Function to start server with proper error handling
 function startServer() {
   try {
     const server = app.listen(PORT, '0.0.0.0', () => {
-      console.log('🚀 RAILWAY: ==========================================');
-      console.log('🚀 RAILWAY: Neperia Security Scanner STARTED');
-      console.log('🚀 RAILWAY: ==========================================');
-      console.log(`🌐 RAILWAY: Server running on port ${PORT}`);
-      console.log(`🔧 RAILWAY: Static Analysis: ${SecurityClassificationSystem ? 'Available' : 'Fallback'}`);
-      console.log(`🤖 RAILWAY: AI Enhancement: ${aiRouter ? 'Available' : 'Not Available'}`);
-      console.log('🏥 RAILWAY: Health endpoints: /healthz and /health');
-      console.log('💻 RAILWAY: Scan endpoints: /scan and /scan-code');
-      console.log('🚀 RAILWAY: ==========================================');
+      console.log('=== SERVER STARTED SUCCESSFULLY ===');
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`Allowed origins: Lovable subdomains + localhost`);
+      console.log(`Server listening on: 0.0.0.0:${PORT}`);
+      console.log('Server ready to accept connections');
       
-      // Test Semgrep availability on startup
-      checkSemgrepAvailability().then(result => {
-        console.log(`🔧 RAILWAY: Semgrep Status: ${result.available ? 'Available' : 'Not Available'}`);
-        if (result.available) {
-          console.log(`🔧 RAILWAY: Semgrep Version: ${result.version}`);
-        }
-      });
+      // Log server address info
+      const address = server.address();
+      console.log('Server address info:', address);
+      
+      // Check Semgrep availability on startup
+      checkSemgrepAvailability()
+        .then(result => {
+          if (result.available) {
+            console.log('✅ Semgrep is available:', result.version);
+          } else {
+            console.log('❌ Semgrep is not available:', result.error);
+          }
+        })
+        .catch(error => {
+          console.error('Error checking Semgrep:', error);
+        });
     });
     
     server.on('error', (error) => {
-      console.error('❌ RAILWAY: Server error:', error.message);
+      console.error('=== SERVER ERROR ===');
+      console.error('Server error:', error);
       if (error.code === 'EADDRINUSE') {
-        console.error(`❌ RAILWAY: Port ${PORT} is already in use`);
-        process.exit(1);
+        console.error(`Port ${PORT} is already in use`);
       }
     });
     
-    // Graceful shutdown for Railway
+    server.on('connection', (socket) => {
+      console.log('New connection established from:', socket.remoteAddress);
+    });
+    
+    // Graceful shutdown handlers
     process.on('SIGTERM', () => {
-      console.log('🛑 RAILWAY: SIGTERM received, shutting down gracefully');
+      console.log('SIGTERM received, shutting down gracefully');
       server.close(() => {
-        console.log('✅ RAILWAY: Server closed');
+        console.log('Server closed');
         process.exit(0);
       });
     });
 
     process.on('SIGINT', () => {
-      console.log('🛑 RAILWAY: SIGINT received, shutting down gracefully');
+      console.log('SIGINT received, shutting down gracefully');
       server.close(() => {
-        console.log('✅ RAILWAY: Server closed');
+        console.log('Server closed');
         process.exit(0);
       });
     });
     
   } catch (error) {
-    console.error('❌ RAILWAY: Failed to start server:', error.message);
-    console.error('Stack:', error.stack);
+    console.error('Failed to start server:', error);
     process.exit(1);
   }
 }
 
-// ✅ RAILWAY FIX: Start server
-console.log('🚀 RAILWAY: Initializing Neperia Security Scanner...');
+// Start the server
 startServer();
