@@ -134,38 +134,10 @@ async function runSemgrepScanWithCodeExtraction(filePath, originalCode) {
   });
 }
 
-// Helper: Map real Semgrep check_id to a known CWE if not already found
-function mapCheckIdToCWE(checkId) {
-  if (!checkId) return null;
-  // Add your mappings here — you can expand this list as needed!
-  const mapping = {
-    'python.lang.security.hardcoded-password': 'CWE-798',
-    'javascript.lang.security.hardcoded-password': 'CWE-798',
-    'node.crypto.createHash.md5': 'CWE-327',
-    'python.lang.security.sql-injection': 'CWE-89',
-    'javascript.lang.security.sql-injection': 'CWE-89',
-    'javascript.lang.security.eval-use': 'CWE-94',
-    // Add more mappings here based on Semgrep output
-  };
-  // fallback: try matching by substring
-  for (const pattern in mapping) {
-    if (checkId.includes(pattern)) return mapping[pattern];
-  }
-  // fallback to generic pattern
-  if (checkId.includes('md5')) return 'CWE-327';
-  if (checkId.includes('password')) return 'CWE-798';
-  if (checkId.includes('sql-injection')) return 'CWE-89';
-  if (checkId.includes('eval')) return 'CWE-94';
-  if (checkId.includes('xss')) return 'CWE-79';
-  if (checkId.includes('command-injection')) return 'CWE-78';
-  if (checkId.includes('path-traversal')) return 'CWE-22';
-  return null;
-}
-
-// Helper: Parse Semgrep results and log check_ids for mapping
+// Helper: Parse Semgrep results
 function parseSemgrepResults(results) {
   if (!results || !results.results) return [];
-  const findings = results.results.map(finding => ({
+  return results.results.map(finding => ({
     check_id: finding.check_id,
     path: finding.path,
     start: finding.start || { line: 0, col: 0 },
@@ -175,10 +147,6 @@ function parseSemgrepResults(results) {
     extra: finding.extra || {},
     code: finding.extractedCode || finding.extra?.lines || ''
   }));
-
-  // ** Print out check_ids for easy copy-paste mapping **
-  console.log('CHECK_IDS:', findings.map(f => f.check_id));
-  return findings;
 }
 
 // Mock findings (local fallback)
@@ -288,21 +256,6 @@ app.post('/scan-code', async (req, res) => {
         console.error('Cleanup error:', cleanupError);
       }
     }
-
-    // ------ [THIS IS THE IMPORTANT PART!] ------
-    // Before classifying, patch findings with real CWE from Semgrep check_id
-    parsedFindings.forEach(finding => {
-      // Only patch if no direct CWE in extra.metadata
-      if (!finding.extra?.metadata?.cwe) {
-        const mappedCWE = mapCheckIdToCWE(finding.check_id);
-        if (mappedCWE) {
-          finding.extra = finding.extra || {};
-          finding.extra.metadata = finding.extra.metadata || {};
-          finding.extra.metadata.cwe = mappedCWE;
-        }
-      }
-    });
-    // -------------------------------------------
 
     console.log('Found', parsedFindings.length, 'raw findings');
 
