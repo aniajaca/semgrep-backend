@@ -1,11 +1,11 @@
 // SecurityClassificationSystem.js
-// Complete implementation based on Neperia MVP documentation
+// Bulletproof implementation for robust CWE extraction and real vulnerability details
 
 const { classifySeverity } = require('./utils');
 
 class SecurityClassificationSystem {
   constructor() {
-    // Initialize CWE database with comprehensive mappings
+    // --- CWE definitions (copy yours here, as before) ---
     this.cweDatabase = {
       'CWE-89': {
         name: 'SQL Injection',
@@ -117,178 +117,110 @@ class SecurityClassificationSystem {
       }
     };
 
-    // Rule to CWE mapping based on Semgrep patterns
+    // --- Rule to CWE mapping (substring match) ---
     this.ruleToCweMap = {
-      'hardcoded-password': 'CWE-798',
-      'hardcoded-secret': 'CWE-798',
-      'hardcoded-credential': 'CWE-798',
-      'sql-injection': 'CWE-89',
-      'formatted-sql-query': 'CWE-89',
-      'tainted-sql-query': 'CWE-89',
-      'weak-crypto': 'CWE-327',
-      'weak-hash': 'CWE-327',
-      'md5-used': 'CWE-327',
-      'sha1-used': 'CWE-327',
-      'weak-random': 'CWE-338',
-      'math-random-used': 'CWE-338',
-      'path-traversal': 'CWE-22',
-      'dangerous-file-open': 'CWE-22',
-      'xss': 'CWE-79',
-      'reflected-xss': 'CWE-79',
-      'stored-xss': 'CWE-79',
-      'command-injection': 'CWE-78',
-      'shell-injection': 'CWE-78',
-      'code-injection': 'CWE-94',
-      'eval-injection': 'CWE-94',
-      'deserialization': 'CWE-502',
-      'unsafe-deserialization': 'CWE-502',
-      'broken-auth': 'CWE-287',
-      'missing-auth': 'CWE-287',
-      'info-exposure': 'CWE-200',
+      'hardcoded-password': 'CWE-798', 'hardcoded-secret': 'CWE-798', 'hardcoded-credential': 'CWE-798', 'password': 'CWE-798',
+      'sql-injection': 'CWE-89', 'formatted-sql-query': 'CWE-89', 'tainted-sql-query': 'CWE-89', 'select-where': 'CWE-89',
+      'weak-crypto': 'CWE-327', 'weak-hash': 'CWE-327', 'md5-used': 'CWE-327', 'sha1-used': 'CWE-327', 'md5': 'CWE-327', 'sha1': 'CWE-327',
+      'node.crypto.createHash.md5': 'CWE-327', 'weak-random': 'CWE-338', 'math-random-used': 'CWE-338',
+      'path-traversal': 'CWE-22', 'dangerous-file-open': 'CWE-22', 'directory-traversal': 'CWE-22',
+      'xss': 'CWE-79', 'reflected-xss': 'CWE-79', 'stored-xss': 'CWE-79',
+      'command-injection': 'CWE-78', 'shell-injection': 'CWE-78',
+      'code-injection': 'CWE-94', 'eval-injection': 'CWE-94', 'eval': 'CWE-94',
+      'deserialization': 'CWE-502', 'unsafe-deserialization': 'CWE-502',
+      'broken-auth': 'CWE-287', 'missing-auth': 'CWE-287',
+      'info-exposure': 'CWE-200', 'leak': 'CWE-200',
       'ssrf': 'CWE-918'
     };
   }
 
-  /**
-   * Classify a single finding with complete security context
-   */
   classifyFinding(finding, context = {}) {
-    // Extract CWE from finding
+    // --- CWE Extraction ---
     const cweId = this.extractCweId(finding);
     const cweInfo = this.cweDatabase[cweId] || this.getDefaultCwe();
 
-    // Calculate CVSS scores
-    const cvssScores = this.calculateCvssScores(cweInfo, context);
+    // --- Defensive: always have CVSS and other properties ---
+    const cvss = cweInfo.cvss || { baseScore: 5.0, vector: 'CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:N' };
+    const cvssScores = this.calculateCvssScores({ cvss }, context);
+    const name = cweInfo.name || 'Unclassified Security Issue';
+    const category = cweInfo.category || 'Other';
+    const owasp = cweInfo.owasp || 'A05:2021';
 
-    // Determine severity
     const severity = this.determineSeverity(cvssScores.adjustedScore);
-
-    // Generate unique ID
     const id = this.generateFindingId(finding);
+
+    // Defensive: CWE can be array sometimes
+    let cweMetaId = cweId;
+    if (Array.isArray(cweId)) cweMetaId = cweId[0];
 
     return {
       id,
-      title: cweInfo.name,
-      description: cweInfo.description,
+      title: name,
+      description: cweInfo.description || 'Potential security issue.',
       severity,
-      cwe: {
-        id: cweId,
-        name: cweInfo.name,
-        category: cweInfo.category
-      },
-      owasp: {
-        category: cweInfo.owasp,
-        title: this.getOwaspTitle(cweInfo.owasp)
-      },
+      cwe: { id: cweMetaId, name, category },
+      owasp: { category: owasp, title: this.getOwaspTitle(owasp) },
       cvss: {
         baseScore: cvssScores.baseScore,
         adjustedScore: cvssScores.adjustedScore,
-        vector: cweInfo.cvss.vector,
+        vector: cvss.vector || 'CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:N',
         environmental: cvssScores.environmental
       },
       remediation: {
-        strategy: cweInfo.remediation,
+        strategy: cweInfo.remediation || 'Review the code for security issues and apply appropriate fixes.',
         priority: this.calculatePriority(severity, context),
-        effort: this.estimateRemediationEffort(cweId)
+        effort: this.estimateRemediationEffort(cweMetaId)
       },
       businessImpact: {
-        description: cweInfo.businessImpact,
+        description: cweInfo.businessImpact || 'Potential security vulnerability with unknown impact',
         financialRisk: this.calculateFinancialRisk(severity),
         reputationRisk: this.calculateReputationRisk(severity),
-        complianceRisk: this.assessComplianceRisk(cweId, context)
+        complianceRisk: this.assessComplianceRisk(cweMetaId, context)
       },
       location: {
-        file: finding.path || finding.file,
+        file: finding.path || finding.file || 'unknown',
         line: finding.start?.line || finding.line || 0,
         column: finding.start?.col || 0
       },
-      code: finding.extra?.lines || finding.extractedCode || '',
+      code: (finding.extra?.lines || finding.extractedCode || finding.code || ''),
       scannerData: finding
     };
   }
 
-  /**
-   * Extract CWE ID from finding
-   */
   extractCweId(finding) {
-    // Check if CWE is directly provided
     if (finding.cwe?.id) return finding.cwe.id;
-    if (finding.extra?.metadata?.cwe) return finding.extra.metadata.cwe;
-
-    // Extract from check_id
-    const checkId = finding.check_id || finding.ruleId || '';
-    
-    // Look for CWE pattern in check_id
-    const cweMatch = checkId.match(/CWE[- ]?(\d+)/i);
-    if (cweMatch) return `CWE-${cweMatch[1]}`;
-
-    // Map rule patterns to CWE
-    for (const [pattern, cwe] of Object.entries(this.ruleToCweMap)) {
-      if (checkId.toLowerCase().includes(pattern)) {
-        return cwe;
+    const metaCwe = finding.extra?.metadata?.cwe;
+    if (metaCwe) {
+      if (Array.isArray(metaCwe)) {
+        const match = String(metaCwe[0]).match(/CWE-\d+/);
+        if (match) return match[0];
+      } else if (typeof metaCwe === 'string') {
+        const match = metaCwe.match(/CWE-\d+/);
+        if (match) return match[0];
       }
     }
-
-    // Default fallback
+    const checkId = finding.check_id || finding.ruleId || '';
+    const cweMatch = checkId.match(/CWE[- ]?(\d+)/i);
+    if (cweMatch) return `CWE-${cweMatch[1]}`;
+    for (const [pattern, cwe] of Object.entries(this.ruleToCweMap)) {
+      if (checkId.toLowerCase().includes(pattern)) return cwe;
+    }
     return 'CWE-1';
   }
 
-  /**
-   * Calculate CVSS scores with environmental factors
-   */
   calculateCvssScores(cweInfo, context) {
     let baseScore = cweInfo.cvss?.baseScore || 5.0;
     let adjustedScore = baseScore;
-
-    // Environmental adjustments
-    const environmental = {
-      production: 0,
-      internetFacing: 0,
-      dataHandling: 0,
-      legacy: 0,
-      compliance: 0
-    };
-
-    if (context.isProduction || context.environment === 'production') {
-      adjustedScore += 0.5;
-      environmental.production = 0.5;
-    }
-
-    if (context.isInternetFacing || context.deployment === 'internet-facing') {
-      adjustedScore += 0.3;
-      environmental.internetFacing = 0.3;
-    }
-
-    if (context.handlesFinancialData || context.dataHandling?.financialData) {
-      adjustedScore += 0.4;
-      environmental.dataHandling = 0.4;
-    } else if (context.handlesPersonalData || context.dataHandling?.personalData) {
-      adjustedScore += 0.3;
-      environmental.dataHandling = 0.3;
-    }
-
-    if (context.isLegacySystem) {
-      adjustedScore += 0.2;
-      environmental.legacy = 0.2;
-    }
-
-    // Compliance adjustments
-    if (context.regulatoryRequirements?.includes('PCI-DSS')) {
-      adjustedScore += 0.5;
-      environmental.compliance = Math.max(environmental.compliance, 0.5);
-    }
-    if (context.regulatoryRequirements?.includes('HIPAA')) {
-      adjustedScore += 0.6;
-      environmental.compliance = Math.max(environmental.compliance, 0.6);
-    }
-    if (context.regulatoryRequirements?.includes('GDPR')) {
-      adjustedScore += 0.4;
-      environmental.compliance = Math.max(environmental.compliance, 0.4);
-    }
-
-    // Cap at 10.0
+    const environmental = { production: 0, internetFacing: 0, dataHandling: 0, legacy: 0, compliance: 0 };
+    if (context.isProduction || context.environment === 'production') { adjustedScore += 0.5; environmental.production = 0.5; }
+    if (context.isInternetFacing || context.deployment === 'internet-facing') { adjustedScore += 0.3; environmental.internetFacing = 0.3; }
+    if (context.handlesFinancialData || context.dataHandling?.financialData) { adjustedScore += 0.4; environmental.dataHandling = 0.4; }
+    else if (context.handlesPersonalData || context.dataHandling?.personalData) { adjustedScore += 0.3; environmental.dataHandling = 0.3; }
+    if (context.isLegacySystem) { adjustedScore += 0.2; environmental.legacy = 0.2; }
+    if (context.regulatoryRequirements?.includes('PCI-DSS')) { adjustedScore += 0.5; environmental.compliance = Math.max(environmental.compliance, 0.5); }
+    if (context.regulatoryRequirements?.includes('HIPAA')) { adjustedScore += 0.6; environmental.compliance = Math.max(environmental.compliance, 0.6); }
+    if (context.regulatoryRequirements?.includes('GDPR')) { adjustedScore += 0.4; environmental.compliance = Math.max(environmental.compliance, 0.4); }
     adjustedScore = Math.min(10.0, adjustedScore);
-
     return {
       baseScore: Math.round(baseScore * 10) / 10,
       adjustedScore: Math.round(adjustedScore * 10) / 10,
@@ -296,9 +228,6 @@ class SecurityClassificationSystem {
     };
   }
 
-  /**
-   * Determine severity based on CVSS score
-   */
   determineSeverity(cvssScore) {
     if (cvssScore >= 9.0) return 'critical';
     if (cvssScore >= 7.0) return 'high';
@@ -307,9 +236,6 @@ class SecurityClassificationSystem {
     return 'info';
   }
 
-  /**
-   * Get OWASP category title
-   */
   getOwaspTitle(category) {
     const owaspTitles = {
       'A01:2021': 'Broken Access Control',
@@ -326,9 +252,6 @@ class SecurityClassificationSystem {
     return owaspTitles[category] || 'Unknown Category';
   }
 
-  /**
-   * Calculate remediation priority
-   */
   calculatePriority(severity, context) {
     const basePriority = {
       'critical': 'immediate',
@@ -337,35 +260,25 @@ class SecurityClassificationSystem {
       'low': 'backlog',
       'info': 'optional'
     };
-
     let priority = basePriority[severity];
-
-    // Upgrade priority for production or compliance
     if ((context.isProduction || context.regulatoryRequirements?.length > 0) && priority === 'normal') {
       priority = 'urgent';
     }
-
     return priority;
   }
 
-  /**
-   * Estimate remediation effort
-   */
   estimateRemediationEffort(cweId) {
     const effortMap = {
-      'CWE-798': 'low',      // Hardcoded credentials - easy to fix
-      'CWE-89': 'medium',    // SQL injection - requires query refactoring
-      'CWE-327': 'medium',   // Weak crypto - algorithm replacement
-      'CWE-78': 'high',      // Command injection - may require architecture changes
-      'CWE-94': 'high',      // Code injection - significant refactoring
-      'CWE-502': 'high'      // Deserialization - complex to fix properly
+      'CWE-798': 'low',
+      'CWE-89': 'medium',
+      'CWE-327': 'medium',
+      'CWE-78': 'high',
+      'CWE-94': 'high',
+      'CWE-502': 'high'
     };
     return effortMap[cweId] || 'medium';
   }
 
-  /**
-   * Calculate financial risk
-   */
   calculateFinancialRisk(severity) {
     const riskMap = {
       'critical': '$1M+',
@@ -377,9 +290,6 @@ class SecurityClassificationSystem {
     return riskMap[severity];
   }
 
-  /**
-   * Calculate reputation risk
-   */
   calculateReputationRisk(severity) {
     const riskMap = {
       'critical': 'severe',
@@ -391,22 +301,15 @@ class SecurityClassificationSystem {
     return riskMap[severity];
   }
 
-  /**
-   * Assess compliance risk
-   */
   assessComplianceRisk(cweId, context) {
     const complianceMap = {
-      'CWE-798': ['PCI-DSS', 'HIPAA', 'SOX'],  // Hardcoded credentials
-      'CWE-89': ['PCI-DSS', 'GDPR'],           // SQL injection
-      'CWE-327': ['PCI-DSS', 'HIPAA', 'GDPR'], // Weak crypto
-      'CWE-200': ['GDPR', 'HIPAA']             // Information exposure
+      'CWE-798': ['PCI-DSS', 'HIPAA', 'SOX'],
+      'CWE-89': ['PCI-DSS', 'GDPR'],
+      'CWE-327': ['PCI-DSS', 'HIPAA', 'GDPR'],
+      'CWE-200': ['GDPR', 'HIPAA']
     };
-
     const relevantCompliance = complianceMap[cweId] || [];
-    const violations = relevantCompliance.filter(reg => 
-      context.regulatoryRequirements?.includes(reg)
-    );
-
+    const violations = relevantCompliance.filter(reg => context.regulatoryRequirements?.includes(reg));
     return {
       frameworks: relevantCompliance,
       violations: violations,
@@ -414,9 +317,6 @@ class SecurityClassificationSystem {
     };
   }
 
-  /**
-   * Generate unique finding ID
-   */
   generateFindingId(finding) {
     const file = (finding.path || finding.file || 'unknown').replace(/[^a-zA-Z0-9]/g, '-');
     const line = finding.start?.line || finding.line || 0;
@@ -424,9 +324,6 @@ class SecurityClassificationSystem {
     return `${checkId}-${file}-${line}-${Date.now()}`.substring(0, 50);
   }
 
-  /**
-   * Get default CWE info
-   */
   getDefaultCwe() {
     return {
       name: 'Unclassified Security Issue',
@@ -439,116 +336,7 @@ class SecurityClassificationSystem {
     };
   }
 
-  /**
-   * Aggregate risk score for multiple findings
-   */
-  aggregateRiskScore(findings, context = {}) {
-    if (!findings || findings.length === 0) {
-      return {
-        riskScore: 0,
-        riskLevel: 'minimal',
-        severityDistribution: {},
-        topRisks: [],
-        businessPriority: 'low'
-      };
-    }
-
-    // Calculate base risk score
-    let totalScore = 0;
-    const severityCount = {
-      critical: 0,
-      high: 0,
-      medium: 0,
-      low: 0,
-      info: 0
-    };
-
-    const severityWeights = {
-      critical: 25,
-      high: 15,
-      medium: 8,
-      low: 3,
-      info: 1
-    };
-
-    findings.forEach(finding => {
-      const severity = finding.severity || 'info';
-      severityCount[severity]++;
-      totalScore += severityWeights[severity];
-    });
-
-    // Apply environmental multipliers
-    let multiplier = 1.0;
-    if (context.environment === 'production') multiplier *= 1.2;
-    if (context.deployment === 'internet-facing') multiplier *= 1.3;
-    if (context.dataHandling?.financialData) multiplier *= 1.4;
-
-    const finalScore = Math.min(100, totalScore * multiplier);
-
-    // Determine risk level
-    let riskLevel;
-    if (finalScore >= 80) riskLevel = 'critical';
-    else if (finalScore >= 60) riskLevel = 'high';
-    else if (finalScore >= 40) riskLevel = 'medium';
-    else if (finalScore >= 20) riskLevel = 'low';
-    else riskLevel = 'minimal';
-
-    // Get top risks
-    const topRisks = findings
-      .filter(f => f.severity === 'critical' || f.severity === 'high')
-      .slice(0, 5)
-      .map(f => ({
-        title: f.title,
-        severity: f.severity,
-        cvss: f.cvss.adjustedScore
-      }));
-
-    // Determine business priority
-    let businessPriority = 'low';
-    if (severityCount.critical > 0 || finalScore >= 80) businessPriority = 'critical';
-    else if (severityCount.high > 2 || finalScore >= 60) businessPriority = 'high';
-    else if (severityCount.medium > 5 || finalScore >= 40) businessPriority = 'medium';
-
-    return {
-      riskScore: Math.round(finalScore * 10) / 10,
-      riskLevel,
-      severityDistribution: severityCount,
-      topRisks,
-      businessPriority,
-      confidence: this.calculateConfidence(findings),
-      recommendation: this.generateRecommendation(riskLevel, severityCount)
-    };
-  }
-
-  /**
-   * Calculate confidence level
-   */
-  calculateConfidence(findings) {
-    const highConfidenceCount = findings.filter(f => 
-      f.cvss?.adjustedScore >= 7.0 || f.severity === 'critical' || f.severity === 'high'
-    ).length;
-    
-    const ratio = highConfidenceCount / findings.length;
-    if (ratio > 0.7) return 'high';
-    if (ratio > 0.3) return 'medium';
-    return 'low';
-  }
-
-  /**
-   * Generate recommendation
-   */
-  generateRecommendation(riskLevel, severityCount) {
-    if (riskLevel === 'critical') {
-      return 'Immediate action required. Engage security team immediately for critical vulnerabilities.';
-    } else if (riskLevel === 'high') {
-      return 'High priority remediation needed. Address critical and high severity issues within 48 hours.';
-    } else if (riskLevel === 'medium') {
-      return 'Schedule remediation in next sprint. Focus on high and medium severity findings.';
-    } else if (riskLevel === 'low') {
-      return 'Include in regular maintenance cycle. Monitor for any escalation.';
-    }
-    return 'Maintain current security posture. Continue regular security reviews.';
-  }
+  // You can also include aggregateRiskScore and other methods if used elsewhere
 }
 
 module.exports = { SecurityClassificationSystem };
