@@ -17,6 +17,11 @@ const { calculateRiskScore } = require('./riskCalculator');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// For Railway deployment
+if (process.env.RAILWAY_ENVIRONMENT) {
+  console.log('Running on Railway with port:', PORT);
+}
+
 // Middleware
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -96,12 +101,49 @@ async function checkSemgrepAvailability() {
   return new Promise((resolve) => {
     exec('semgrep --version', (error, stdout, stderr) => {
       if (error) {
+        console.log('⚠️  Semgrep not available, using mock data');
         resolve({ available: false, error: error.message });
       } else {
         resolve({ available: true, version: stdout.trim() });
       }
     });
   });
+}
+
+// Mock findings for when Semgrep isn't available
+function getMockFindings(code) {
+  const findings = [];
+  
+  // Simple pattern matching for common vulnerabilities
+  if (code.includes('password') && code.includes('"')) {
+    findings.push({
+      severity: 'high',
+      title: 'Hardcoded Password',
+      description: 'Password appears to be hardcoded',
+      path: 'code.js',
+      file: 'code.js',
+      start: { line: 1 },
+      cwe: { id: 'CWE-798' },
+      owasp: { category: 'A07:2021' },
+      cvss: { baseScore: 7.5 }
+    });
+  }
+  
+  if (code.includes('SELECT') && code.includes('+')) {
+    findings.push({
+      severity: 'high',
+      title: 'SQL Injection',
+      description: 'Potential SQL injection vulnerability',
+      path: 'code.js',
+      file: 'code.js',
+      start: { line: 1 },
+      cwe: { id: 'CWE-89' },
+      owasp: { category: 'A03:2021' },
+      cvss: { baseScore: 8.0 }
+    });
+  }
+  
+  return findings;
 }
 
 // Helper function to parse Semgrep results
@@ -306,6 +348,11 @@ app.get('/health', (req, res) => {
     uptime: process.uptime(),
     memory: process.memoryUsage()
   });
+});
+
+// Railway health check endpoint
+app.get('/healthz', (req, res) => {
+  res.status(200).send('OK');
 });
 
 // Simple test endpoint - no Semgrep needed
