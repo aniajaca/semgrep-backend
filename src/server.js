@@ -50,7 +50,8 @@ console.log('Temp directory:', os.tmpdir());
 const customCors = (req, res, next) => {
   try {
     const origin = req.headers.origin;
-    
+
+    // 1. Add your deployed domain here!
     const allowedOrigins = [
       'https://preview--neperia-code-guardian.lovable.app',
       'http://app--neperia-code-guardian-8d9b62c6.base44.app',
@@ -59,27 +60,38 @@ const customCors = (req, res, next) => {
       'https://neperia-code-guardian.lovable.app',
       'https://lovable.app',
       'http://localhost:3000',
-      'http://localhost:5173'
+      'http://localhost:5173',
+      // Your LovableProject deploy:
+      'https://356d1a6f-4978-4c1f-974e-f19cf43a8d1c.lovableproject.com'
     ];
-    
-    const isAllowed = allowedOrigins.includes(origin) || 
-                     (origin && (origin.includes('.lovable.app') || origin.includes('.base44.app')));
-    
+
+    // 2. Wildcard for *.lovableproject.com, *.lovable.app, *.base44.app
+    const isAllowed =
+      allowedOrigins.includes(origin) ||
+      (origin &&
+        (
+          origin.endsWith('.lovableproject.com') ||
+          origin.includes('.lovable.app') ||
+          origin.includes('.base44.app')
+        )
+      );
+
     if (isAllowed || !origin) {
       res.setHeader('Access-Control-Allow-Origin', origin || '*');
     } else {
+      // Default fallback (optional)
       res.setHeader('Access-Control-Allow-Origin', 'https://preview--neperia-code-guardian.lovable.app');
     }
-    
+
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Max-Age', '86400');
-    
+
     if (req.method === 'OPTIONS') {
       return res.sendStatus(204);
     }
-    
+
     next();
   } catch (error) {
     console.error('CORS error:', error);
