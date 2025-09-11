@@ -78,52 +78,119 @@ class ASTVulnerabilityScanner {
   // Parse JavaScript/TypeScript code into AST
   parseCode(code, language = 'javascript') {
     try {
+      console.log('Attempting to parse code...');
       const ast = Parser.parse(code, {
-        sourceType: 'module',
+        sourceType: 'unambiguous', // Auto-detect module vs script
         plugins: [
           'jsx',
           'typescript',
           'decorators-legacy',
           'dynamicImport',
           'classProperties',
-          'asyncGenerators'
+          'asyncGenerators',
+          'objectRestSpread',
+          'optionalChaining',
+          'nullishCoalescingOperator',
+          'exportDefaultFrom',
+          'exportNamespaceFrom',
+          'throwExpressions',
+          'classPrivateProperties',
+          'classPrivateMethods'
         ],
-        errorRecovery: true
+        errorRecovery: true,
+        allowReturnOutsideFunction: true,
+        allowImportExportEverywhere: true,
+        allowAwaitOutsideFunction: true,
+        allowSuperOutsideMethod: true,
+        allowUndeclaredExports: true
       });
+      console.log('✅ Parse successful, AST generated');
       return ast;
     } catch (error) {
-      console.error('Parse error:', error);
+      console.error('❌ Parse error:', error.message);
+      console.error('First 500 chars of code:', code.substring(0, 500));
+      
+      // Try alternative parsing strategy
+      try {
+        console.log('Trying alternative parse with script mode...');
+        const ast = Parser.parse(code, {
+          sourceType: 'script',
+          allowReturnOutsideFunction: true,
+          errorRecovery: true
+        });
+        console.log('✅ Alternative parse successful');
+        return ast;
+      } catch (altError) {
+        console.error('❌ Alternative parse also failed:', altError.message);
+      }
+      
+      // Add a finding to show parsing failed
+      this.addFinding({
+        type: 'PARSE_ERROR',
+        severity: 'info',
+        line: 0,
+        message: `Code parsing failed: ${error.message}`,
+        code: code.substring(0, 200)
+      });
       return null;
     }
   }
 
   // Main scanning function
   scan(code, filename = 'code.js', language = 'javascript') {
+    console.log(`🔍 Starting scan of ${filename}, code length: ${code.length}`);
     this.reset();
     this.currentFile = filename;
 
     const ast = this.parseCode(code, language);
     if (!ast) {
+      console.log('❌ No AST generated, returning empty findings');
       return this.findings;
     }
 
-    // Run all detection methods
+    console.log('🔎 AST generated, running detectors...');
+    
+    // Run all detection methods with logging
+    console.log('  - Detecting SQL Injection...');
     this.detectSQLInjection(ast, code);
+    
+    console.log('  - Detecting XSS...');
     this.detectXSS(ast, code);
+    
+    console.log('  - Detecting Hardcoded Secrets...');
     this.detectHardcodedSecrets(ast, code);
+    
+    console.log('  - Detecting Command Injection...');
     this.detectCommandInjection(ast, code);
+    
+    console.log('  - Detecting Insecure Crypto...');
     this.detectInsecureCrypto(ast, code);
+    
+    console.log('  - Detecting Path Traversal...');
     this.detectPathTraversal(ast, code);
+    
+    console.log('  - Detecting Insecure Deserialization...');
     this.detectInsecureDeserialization(ast, code);
+    
+    console.log('  - Detecting Weak Randomness...');
     this.detectWeakRandomness(ast, code);
+    
+    console.log('  - Detecting Insecure File Operations...');
     this.detectInsecureFileOperations(ast, code);
+    
+    console.log('  - Detecting Authentication Issues...');
     this.detectAuthenticationIssues(ast, code);
 
+    console.log(`✅ Scan complete, found ${this.findings.length} vulnerabilities`);
+    if (this.findings.length > 0) {
+      console.log('Findings:', this.findings.map(f => `${f.type} (${f.severity})`).join(', '));
+    }
     return this.findings;
   }
 
   // SQL Injection Detection
   detectSQLInjection(ast, code) {
+    let sqlFindings = 0;
     traverse(ast, {
       CallExpression: (path) => {
         const node = path.node;
@@ -148,6 +215,7 @@ class ASTVulnerabilityScanner {
                 message: 'Potential SQL injection: Query uses string concatenation',
                 code: this.getCodeSnippet(code, node.loc)
               });
+              sqlFindings++;
             }
             
             // Check for template literals with expressions
@@ -167,16 +235,19 @@ class ASTVulnerabilityScanner {
                   message: 'Potential SQL injection: Query uses template literals with variables',
                   code: this.getCodeSnippet(code, node.loc)
                 });
+                sqlFindings++;
               }
             }
           }
         }
       }
     });
+    if (sqlFindings > 0) console.log(`    Found ${sqlFindings} SQL injection vulnerabilities`);
   }
 
   // XSS Detection
   detectXSS(ast, code) {
+    let xssFindings = 0;
     traverse(ast, {
       MemberExpression: (path) => {
         const node = path.node;
@@ -192,6 +263,7 @@ class ASTVulnerabilityScanner {
               message: 'Potential XSS: Direct innerHTML assignment',
               code: this.getCodeSnippet(code, node.loc)
             });
+            xssFindings++;
           }
         }
         
@@ -205,6 +277,7 @@ class ASTVulnerabilityScanner {
             message: 'Potential XSS: document.write usage',
             code: this.getCodeSnippet(code, node.loc)
           });
+          xssFindings++;
         }
       },
       
@@ -219,13 +292,16 @@ class ASTVulnerabilityScanner {
             message: 'Code injection risk: eval() usage detected',
             code: this.getCodeSnippet(code, node.loc)
           });
+          xssFindings++;
         }
       }
     });
+    if (xssFindings > 0) console.log(`    Found ${xssFindings} XSS/Code injection vulnerabilities`);
   }
 
   // Hardcoded Secrets Detection
   detectHardcodedSecrets(ast, code) {
+    let secretFindings = 0;
     traverse(ast, {
       VariableDeclarator: (path) => {
         const node = path.node;
@@ -250,6 +326,7 @@ class ASTVulnerabilityScanner {
                 message: `Hardcoded credential detected: ${node.id.name}`,
                 code: this.getCodeSnippet(code, node.loc)
               });
+              secretFindings++;
             }
           }
         }
@@ -261,7 +338,7 @@ class ASTVulnerabilityScanner {
         
         if (typeof key === 'string') {
           const keyLower = key.toLowerCase();
-          const secretPatterns = ['password', 'secret', 'apikey', 'token'];
+          const secretPatterns = ['password', 'secret', 'apikey', 'token', 'api_key', 'jwt'];
           
           const isSecret = secretPatterns.some(pattern => keyLower.includes(pattern));
           
@@ -273,21 +350,37 @@ class ASTVulnerabilityScanner {
               message: `Hardcoded credential in object: ${key}`,
               code: this.getCodeSnippet(code, node.loc)
             });
+            secretFindings++;
           }
         }
       }
     });
+    if (secretFindings > 0) console.log(`    Found ${secretFindings} hardcoded secrets`);
   }
 
   // Command Injection Detection
   detectCommandInjection(ast, code) {
+    let cmdFindings = 0;
     traverse(ast, {
       CallExpression: (path) => {
         const node = path.node;
         
-        // Check for dangerous functions
-        const dangerousFuncs = ['exec', 'execSync', 'spawn', 'spawnSync', 'execFile'];
+        // Check for dangerous functions - both as direct calls and as method calls
+        const dangerousFuncs = ['exec', 'execSync', 'spawn', 'spawnSync', 'execFile', 'system'];
         
+        // Check direct function calls
+        if (t.isIdentifier(node.callee) && dangerousFuncs.includes(node.callee.name)) {
+          this.addFinding({
+            type: 'COMMAND_INJECTION',
+            severity: 'critical',
+            line: node.loc?.start.line || 0,
+            message: `Potential command injection: ${node.callee.name} usage`,
+            code: this.getCodeSnippet(code, node.loc)
+          });
+          cmdFindings++;
+        }
+        
+        // Check method calls (e.g., child_process.exec)
         if (t.isMemberExpression(node.callee)) {
           const method = node.callee.property.name;
           if (dangerousFuncs.includes(method)) {
@@ -295,26 +388,30 @@ class ASTVulnerabilityScanner {
             const hasVariable = node.arguments.some(arg => 
               t.isIdentifier(arg) || 
               t.isMemberExpression(arg) ||
-              (t.isTemplateLiteral(arg) && arg.expressions.length > 0)
+              (t.isTemplateLiteral(arg) && arg.expressions.length > 0) ||
+              (t.isBinaryExpression(arg) && arg.operator === '+')
             );
             
-            if (hasVariable) {
+            if (hasVariable || node.arguments.length > 0) {
               this.addFinding({
                 type: 'COMMAND_INJECTION',
                 severity: 'critical',
                 line: node.loc?.start.line || 0,
-                message: `Potential command injection: ${method} with variable input`,
+                message: `Potential command injection: ${method} with dynamic input`,
                 code: this.getCodeSnippet(code, node.loc)
               });
+              cmdFindings++;
             }
           }
         }
       }
     });
+    if (cmdFindings > 0) console.log(`    Found ${cmdFindings} command injection vulnerabilities`);
   }
 
   // Insecure Cryptography Detection
   detectInsecureCrypto(ast, code) {
+    let cryptoFindings = 0;
     traverse(ast, {
       CallExpression: (path) => {
         const node = path.node;
@@ -337,6 +434,7 @@ class ASTVulnerabilityScanner {
                   message: `Weak cryptographic algorithm: ${algorithm}`,
                   code: this.getCodeSnippet(code, node.loc)
                 });
+                cryptoFindings++;
               }
             }
           }
@@ -347,33 +445,29 @@ class ASTVulnerabilityScanner {
             t.isIdentifier(node.callee.object, { name: 'Math' }) &&
             t.isIdentifier(node.callee.property, { name: 'random' })) {
           
-          // Check if it's being used for token/id generation
-          const parent = path.getFunctionParent();
-          if (parent) {
-            const funcName = parent.node.id?.name?.toLowerCase() || '';
-            if (funcName.includes('token') || funcName.includes('id') || 
-                funcName.includes('key') || funcName.includes('password')) {
-              this.addFinding({
-                type: 'WEAK_RANDOM',
-                severity: 'medium',
-                line: node.loc?.start.line || 0,
-                message: 'Weak random number generation for security-sensitive operation',
-                code: this.getCodeSnippet(code, node.loc)
-              });
-            }
-          }
+          // Always flag Math.random() as potentially insecure
+          this.addFinding({
+            type: 'WEAK_RANDOM',
+            severity: 'medium',
+            line: node.loc?.start.line || 0,
+            message: 'Weak random number generation (Math.random) - use crypto.randomBytes for security',
+            code: this.getCodeSnippet(code, node.loc)
+          });
+          cryptoFindings++;
         }
       }
     });
+    if (cryptoFindings > 0) console.log(`    Found ${cryptoFindings} crypto/randomness issues`);
   }
 
   // Path Traversal Detection
   detectPathTraversal(ast, code) {
+    let pathFindings = 0;
     traverse(ast, {
       CallExpression: (path) => {
         const node = path.node;
         const fsOps = ['readFile', 'readFileSync', 'writeFile', 'writeFileSync', 
-                       'unlink', 'unlinkSync', 'readdir', 'readdirSync'];
+                       'unlink', 'unlinkSync', 'readdir', 'readdirSync', 'open', 'openSync'];
         
         if (t.isMemberExpression(node.callee)) {
           const method = node.callee.property.name;
@@ -384,7 +478,8 @@ class ASTVulnerabilityScanner {
             // Check if path contains user input
             if (pathArg && (t.isIdentifier(pathArg) || 
                 t.isMemberExpression(pathArg) ||
-                t.isTemplateLiteral(pathArg))) {
+                t.isTemplateLiteral(pathArg) ||
+                (t.isBinaryExpression(pathArg) && pathArg.operator === '+'))) {
               this.addFinding({
                 type: 'PATH_TRAVERSAL',
                 severity: 'high',
@@ -392,15 +487,18 @@ class ASTVulnerabilityScanner {
                 message: 'Potential path traversal vulnerability',
                 code: this.getCodeSnippet(code, node.loc)
               });
+              pathFindings++;
             }
           }
         }
       }
     });
+    if (pathFindings > 0) console.log(`    Found ${pathFindings} path traversal vulnerabilities`);
   }
 
   // Insecure Deserialization Detection
   detectInsecureDeserialization(ast, code) {
+    let deserialFindings = 0;
     traverse(ast, {
       CallExpression: (path) => {
         const node = path.node;
@@ -419,64 +517,54 @@ class ASTVulnerabilityScanner {
               message: 'Potential insecure deserialization of untrusted data',
               code: this.getCodeSnippet(code, node.loc)
             });
+            deserialFindings++;
           }
         }
       }
     });
+    if (deserialFindings > 0) console.log(`    Found ${deserialFindings} deserialization issues`);
   }
 
-  // Weak Randomness Detection
+  // Weak Randomness Detection (already covered in crypto, but kept for compatibility)
   detectWeakRandomness(ast, code) {
-    traverse(ast, {
-      CallExpression: (path) => {
-        const node = path.node;
-        
-        if (t.isMemberExpression(node.callee) &&
-            t.isIdentifier(node.callee.object, { name: 'Math' }) &&
-            t.isIdentifier(node.callee.property, { name: 'random' })) {
-          
-          this.addFinding({
-            type: 'WEAK_RANDOM',
-            severity: 'medium',
-            line: node.loc?.start.line || 0,
-            message: 'Use of Math.random() for potentially security-sensitive operation',
-            code: this.getCodeSnippet(code, node.loc)
-          });
-        }
-      }
-    });
+    // This is already handled in detectInsecureCrypto
+    // Keeping empty for compatibility
   }
 
   // Insecure File Operations
   detectInsecureFileOperations(ast, code) {
+    let fileFindings = 0;
     traverse(ast, {
       CallExpression: (path) => {
         const node = path.node;
         
         // Check for chmod with weak permissions
         if (t.isMemberExpression(node.callee) &&
-            node.callee.property.name === 'chmod') {
+            (node.callee.property.name === 'chmod' || node.callee.property.name === 'chmodSync')) {
           
           const modeArg = node.arguments[1];
           if (t.isNumericLiteral(modeArg) || t.isStringLiteral(modeArg)) {
             const mode = modeArg.value;
-            if (mode === 0o777 || mode === '777') {
+            if (mode === 0o777 || mode === '777' || mode === 0o666 || mode === '666') {
               this.addFinding({
                 type: 'INSECURE_FILE_PERMISSION',
                 severity: 'medium',
                 line: node.loc?.start.line || 0,
-                message: 'Insecure file permissions (777)',
+                message: `Insecure file permissions (${mode})`,
                 code: this.getCodeSnippet(code, node.loc)
               });
+              fileFindings++;
             }
           }
         }
       }
     });
+    if (fileFindings > 0) console.log(`    Found ${fileFindings} insecure file operations`);
   }
 
   // Authentication Issues Detection
   detectAuthenticationIssues(ast, code) {
+    let authFindings = 0;
     traverse(ast, {
       // Check for missing authentication checks
       FunctionDeclaration: (path) => {
@@ -485,7 +573,7 @@ class ASTVulnerabilityScanner {
         
         // Look for route handlers that might need auth
         if (funcName.includes('route') || funcName.includes('handler') ||
-            funcName.includes('endpoint')) {
+            funcName.includes('endpoint') || funcName.includes('controller')) {
           
           let hasAuthCheck = false;
           path.traverse({
@@ -494,7 +582,7 @@ class ASTVulnerabilityScanner {
               if (t.isIdentifier(callee)) {
                 const name = callee.name.toLowerCase();
                 if (name.includes('auth') || name.includes('verify') || 
-                    name.includes('check')) {
+                    name.includes('check') || name.includes('permission')) {
                   hasAuthCheck = true;
                 }
               }
@@ -509,10 +597,12 @@ class ASTVulnerabilityScanner {
               message: 'Potentially missing authentication check in route handler',
               code: this.getCodeSnippet(code, node.loc)
             });
+            authFindings++;
           }
         }
       }
     });
+    if (authFindings > 0) console.log(`    Found ${authFindings} authentication issues`);
   }
 
   // Helper function to get code snippet
@@ -539,7 +629,8 @@ class ASTVulnerabilityScanner {
       'PATH_TRAVERSAL': { id: 'CWE-22', name: 'Path Traversal', owasp: 'A01:2021' },
       'INSECURE_DESERIALIZATION': { id: 'CWE-502', name: 'Deserialization of Untrusted Data', owasp: 'A08:2021' },
       'INSECURE_FILE_PERMISSION': { id: 'CWE-732', name: 'Incorrect Permission Assignment', owasp: 'A01:2021' },
-      'MISSING_AUTHENTICATION': { id: 'CWE-306', name: 'Missing Authentication for Critical Function', owasp: 'A07:2021' }
+      'MISSING_AUTHENTICATION': { id: 'CWE-306', name: 'Missing Authentication for Critical Function', owasp: 'A07:2021' },
+      'PARSE_ERROR': { id: 'CWE-0', name: 'Parse Error', owasp: 'N/A' }
     };
 
     const cwe = cweMapping[finding.type] || { id: 'CWE-Unknown', name: finding.type, owasp: 'Unknown' };
@@ -563,7 +654,8 @@ function calculateRiskScore(findings) {
     critical: 10,
     high: 7,
     medium: 4,
-    low: 1
+    low: 1,
+    info: 0
   };
 
   let totalScore = 0;
@@ -574,6 +666,31 @@ function calculateRiskScore(findings) {
   // Normalize to 0-100 scale
   return Math.min(100, totalScore);
 }
+
+// Test endpoint for debugging
+app.get('/test-scanner', (req, res) => {
+  console.log('=== TEST SCANNER ENDPOINT ===');
+  const testCode = `
+    const password = "admin123";
+    const apiKey = "sk-12345";
+    eval("console.log('test')");
+    Math.random();
+    document.innerHTML = userInput;
+    db.query("SELECT * FROM users WHERE id = " + userId);
+    exec("rm -rf " + userPath);
+    crypto.createHash('md5');
+  `;
+  
+  const findings = scanner.scan(testCode, 'test.js', 'javascript');
+  
+  res.json({
+    message: 'Scanner test',
+    code: testCode,
+    findings: findings,
+    findingsCount: findings.length,
+    success: findings.length > 0
+  });
+});
 
 // Health check endpoints - PLACE BEFORE OTHER ROUTES
 app.get('/health', (req, res) => {
@@ -601,6 +718,7 @@ app.get('/', (req, res) => {
     endpoints: {
       '/scan-code': 'POST - Scan code for vulnerabilities using AST',
       '/scan': 'POST - Upload file for scanning',
+      '/test-scanner': 'GET - Test scanner functionality',
       '/health': 'GET - Health check',
       '/healthz': 'GET - Railway health check'
     },
@@ -633,7 +751,15 @@ app.post('/scan-code', async (req, res) => {
   try {
     const { code, language = 'javascript', filename = 'code.js' } = req.body;
     
+    console.log('📥 Code received:', {
+      length: code?.length,
+      firstLine: code?.split('\n')[0]?.substring(0, 100),
+      language,
+      filename
+    });
+    
     if (!code || typeof code !== 'string' || code.trim() === '') {
+      console.log('❌ No code provided');
       return res.status(400).json({ 
         status: 'error', 
         message: 'No code provided' 
@@ -647,6 +773,8 @@ app.post('/scan-code', async (req, res) => {
     
     const endTime = Date.now();
     const scanTime = endTime - startTime;
+    
+    console.log(`📊 Scan results: ${findings.length} findings in ${scanTime}ms`);
     
     // Calculate risk score
     const riskScore = calculateRiskScore(findings);
@@ -677,7 +805,7 @@ app.post('/scan-code', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Scan error:', error);
+    console.error('❌ Scan error:', error);
     res.status(500).json({ 
       status: 'error', 
       message: 'Scan failed',
@@ -688,8 +816,11 @@ app.post('/scan-code', async (req, res) => {
 
 // File upload endpoint
 app.post('/scan', upload.single('file'), async (req, res) => {
+  console.log('=== FILE SCAN REQUEST RECEIVED ===');
+  
   try {
     if (!req.file) {
+      console.log('❌ No file uploaded');
       return res.status(400).json({ 
         status: 'error', 
         message: 'No file uploaded' 
@@ -699,9 +830,13 @@ app.post('/scan', upload.single('file'), async (req, res) => {
     const code = req.file.buffer.toString('utf8');
     const filename = req.file.originalname;
     const language = path.extname(filename).slice(1) || 'javascript';
+    
+    console.log(`📎 File: ${filename}, Size: ${req.file.size} bytes, Language: ${language}`);
 
     const findings = scanner.scan(code, filename, language);
     const riskScore = calculateRiskScore(findings);
+    
+    console.log(`📊 File scan results: ${findings.length} findings`);
 
     res.json({
       status: 'success',
@@ -717,7 +852,7 @@ app.post('/scan', upload.single('file'), async (req, res) => {
     });
 
   } catch (error) {
-    console.error('File scan error:', error);
+    console.error('❌ File scan error:', error);
     res.status(500).json({ 
       status: 'error', 
       message: 'File scan failed',
@@ -728,7 +863,7 @@ app.post('/scan', upload.single('file'), async (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  console.error('❌ Server Error:', err);
   res.status(500).json({
     status: 'error',
     message: 'Internal server error',
@@ -738,6 +873,7 @@ app.use((err, req, res, next) => {
 
 // Handle 404
 app.use((req, res) => {
+  console.log(`❓ 404 - Path not found: ${req.path}`);
   res.status(404).json({
     status: 'error',
     message: 'Endpoint not found',
@@ -768,6 +904,7 @@ const server = app.listen(PORT, HOST, (err) => {
   
   console.log('✅ Server is listening on:', server.address());
   console.log(`✅ Health check available at: http://${HOST}:${PORT}/health`);
+  console.log(`✅ Test scanner at: http://${HOST}:${PORT}/test-scanner`);
   console.log(`Railway URL: https://semgrep-backend-production.up.railway.app`);
 });
 
