@@ -2,7 +2,7 @@
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
-const { Parser } = require('@babel/parser');
+const parser = require('@babel/parser');
 const traverse = require('@babel/traverse').default;
 const t = require('@babel/types');
 const fs = require('fs');
@@ -79,7 +79,7 @@ class ASTVulnerabilityScanner {
   parseCode(code, language = 'javascript') {
     try {
       console.log('Attempting to parse code...');
-      const ast = Parser.parse(code, {
+      const ast = parser.parse(code, {
         sourceType: 'unambiguous', // Auto-detect module vs script
         plugins: [
           'jsx',
@@ -113,7 +113,7 @@ class ASTVulnerabilityScanner {
       // Try alternative parsing strategy
       try {
         console.log('Trying alternative parse with script mode...');
-        const ast = Parser.parse(code, {
+        const ast = parser.parse(code, {
           sourceType: 'script',
           allowReturnOutsideFunction: true,
           errorRecovery: true
