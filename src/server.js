@@ -90,6 +90,40 @@ class ASTVulnerabilityScanner {
     return t.isIdentifier(p) ? p.name : (t.isStringLiteral(p) ? p.value : null);
   }
 
+  // Helper to check if path argument is dynamic
+  isDynamicPathArg(arg) {
+    if (!arg) return false;
+
+    // Identifier or object.property (including optional chaining)
+    if (t.isIdentifier(arg) || t.isMemberExpression(arg) || t.isOptionalMemberExpression(arg)) {
+      return true;
+    }
+
+    // Template literal with expressions only
+    if (t.isTemplateLiteral(arg) && arg.expressions.length > 0) {
+      return true;
+    }
+
+    // Binary expression with + operator
+    if (t.isBinaryExpression(arg) && arg.operator === '+') {
+      return true;
+    }
+
+    // path.join/resolve/normalize with dynamic arguments
+    if (t.isCallExpression(arg)) {
+      if (this.isMember(arg.callee)) {
+        const obj = arg.callee.object;
+        const prop = arg.callee.property;
+        const name = t.isIdentifier(prop) ? prop.name : (t.isStringLiteral(prop) ? prop.value : null);
+        if (t.isIdentifier(obj, { name: 'path' }) && ['join', 'resolve', 'normalize'].includes(name)) {
+          return arg.arguments.some(a => this.isDynamicPathArg(a));
+        }
+      }
+    }
+
+    return false;
+  }
+
   // Parse JavaScript/TypeScript code into AST
   parseCode(code, language = 'javascript') {
     try {
@@ -550,7 +584,7 @@ class ASTVulnerabilityScanner {
     if (cryptoFindings > 0) console.log(`    Found ${cryptoFindings} crypto/randomness issues`);
   }
 
-  // Path Traversal Detection
+  // Fixed Path Traversal Detection
   detectPathTraversal(ast, code) {
     let pathFindings = 0;
     const fsOps = ['readFile', 'readFileSync', 'writeFile', 'writeFileSync', 
@@ -560,31 +594,25 @@ class ASTVulnerabilityScanner {
       CallExpression: (path) => {
         const node = path.node;
         
-        if (this.isMember(node.callee)) {
-          const method = this.getPropName(node.callee);
-          
-          if (fsOps.includes(method)) {
-            const pathArg = node.arguments[0];
-            
-            // Check if path contains user input
-            if (pathArg && (t.isIdentifier(pathArg) || 
-                t.isMemberExpression(pathArg) ||
-                t.isOptionalMemberExpression(pathArg) ||a
-                t.isTemplateLiteral(pathArg) ||
-                t.isBinaryExpression(pathArg, { operator: '+' }))) {
-              this.addFinding({
-                type: 'PATH_TRAVERSAL',
-                severity: 'high',
-                line: node.loc?.start.line || 0,
-                message: 'Potential path traversal vulnerability',
-                code: this.getCodeSnippet(code, node.loc)
-              });
-              pathFindings++;
-            }
-          }
+        if (!this.isMember(node.callee)) return;
+        
+        const method = this.getPropName(node.callee);
+        if (!fsOps.includes(method)) return;
+        
+        const pathArg = node.arguments[0];
+        if (this.isDynamicPathArg(pathArg)) {
+          this.addFinding({
+            type: 'PATH_TRAVERSAL',
+            severity: 'high',
+            line: node.loc?.start.line || 0,
+            message: 'Potential path traversal vulnerability (dynamic file path)',
+            code: this.getCodeSnippet(code, node.loc)
+          });
+          pathFindings++;
         }
       }
     });
+    
     if (pathFindings > 0) console.log(`    Found ${pathFindings} path traversal vulnerabilities`);
   }
 
@@ -764,6 +792,8 @@ app.get('/test-scanner', (req, res) => {
     db?.query(\`SELECT * FROM users WHERE id = \${userId}\`);
     exec("rm -rf " + userPath);
     crypto.createHash('md5');
+    fs.readFile(userInput);
+    fs.readFile(path.join(__dirname, userInput));
   `;
   
   // Create new scanner instance for this request
@@ -1018,4 +1048,6 @@ process.on('SIGTERM', () => {
     console.log('Server closed');
     process.exit(0);
   });
-});// Force rebuild: Thu Sep 11 23:10:12 CEST 2025
+});
+
+// Force rebuild: Thu Sep 12 2025
