@@ -1,7 +1,7 @@
 # Use Node.js 18 slim image
 FROM node:18-slim
 
-# Install Python and Semgrep (optional - remove if not using Semgrep)
+# Install Python and Semgrep (optional - you can remove this since using AST now)
 RUN apt-get update && apt-get install -y \
     python3-venv \
     curl \
@@ -13,22 +13,21 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Copy package.json (not package-lock.json since you might not have it)
-COPY package.json ./
+# Copy package files
+COPY package*.json ./
 
-# Install dependencies using npm install instead of npm ci
-# npm ci requires package-lock.json, npm install doesn't
+# Install dependencies
 RUN npm install --production
 
-# Copy source code
+# Copy all source code
 COPY . .
 
-# Expose port (Railway will override this)
+# Expose port
 EXPOSE 3000
 
 # Set environment variables
 ENV NODE_ENV=production
 ENV PATH="/opt/semgrep-venv/bin:${PATH}"
 
-# Start the application
-CMD ["node", "server.js"]
+# CRITICAL FIX: Point to the correct location of server.js
+CMD ["node", "src/server.js"]
