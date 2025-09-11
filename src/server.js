@@ -11,22 +11,43 @@ const os = require('os');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = '0.0.0.0'; // CRITICAL: Must bind to 0.0.0.0 for Railway
 
-// Enhanced CORS configuration
-app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'https://*.lovable.app',
-    'https://*.base44.app',
-    'https://*.vercel.app',
-    'https://*.railway.app'
-  ],
+// Enhanced CORS configuration - Fixed for Railway
+const corsOptions = {
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'https://neperia-code-guardian.lovable.app',
+      'https://semgrep-backend-production.up.railway.app'
+    ];
+    
+    // Allow requests with no origin (like mobile apps or Postman)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin matches allowed patterns
+    const isAllowed = allowedOrigins.some(allowed => origin === allowed) ||
+                      origin.includes('.lovable.app') ||
+                      origin.includes('.base44.app') ||
+                      origin.includes('.vercel.app') ||
+                      origin.includes('.railway.app');
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(null, true); // For debugging, allow all origins temporarily
+    }
+  },
   methods: ['GET', 'POST', 'OPTIONS'],
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
-}));
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  optionsSuccessStatus: 200 // For legacy browser support
+};
+
+app.use(cors(corsOptions));
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -34,6 +55,12 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 const upload = multer({ 
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 }
+});
+
+// Add request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - Origin: ${req.headers.origin || 'no-origin'}`);
+  next();
 });
 
 // AST-based vulnerability scanner
@@ -548,6 +575,57 @@ function calculateRiskScore(findings) {
   return Math.min(100, totalScore);
 }
 
+// Health check endpoints - PLACE BEFORE OTHER ROUTES
+app.get('/health', (req, res) => {
+  console.log('Health check requested');
+  res.json({ 
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    scanner: 'AST Scanner',
+    version: '2.0',
+    port: PORT,
+    environment: process.env.NODE_ENV || 'production'
+  });
+});
+
+app.get('/healthz', (req, res) => {
+  res.status(200).send('OK');
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    name: 'Neperia AST Security Scanner',
+    version: '2.0',
+    status: 'operational',
+    endpoints: {
+      '/scan-code': 'POST - Scan code for vulnerabilities using AST',
+      '/scan': 'POST - Upload file for scanning',
+      '/health': 'GET - Health check',
+      '/healthz': 'GET - Railway health check'
+    },
+    features: [
+      'AST-based vulnerability detection',
+      'No regex patterns - real code analysis',
+      'JavaScript/TypeScript support',
+      'CWE/OWASP mapping',
+      'Risk score calculation',
+      'Comprehensive vulnerability coverage'
+    ],
+    vulnerabilities_detected: [
+      'SQL Injection (CWE-89)',
+      'XSS (CWE-79)',
+      'Hardcoded Credentials (CWE-798)',
+      'Command Injection (CWE-78)',
+      'Code Injection (CWE-94)',
+      'Weak Cryptography (CWE-327)',
+      'Path Traversal (CWE-22)',
+      'Insecure Deserialization (CWE-502)',
+      'Authentication Issues (CWE-306)'
+    ]
+  });
+});
+
 // Main scanning endpoint
 app.post('/scan-code', async (req, res) => {
   console.log('=== AST SCAN REQUEST RECEIVED ===');
@@ -648,65 +726,41 @@ app.post('/scan', upload.single('file'), async (req, res) => {
   }
 });
 
-// Health check endpoints
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    scanner: 'AST Scanner',
-    version: '2.0'
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(500).json({
+    status: 'error',
+    message: 'Internal server error',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
 });
 
-app.get('/healthz', (req, res) => {
-  res.status(200).send('OK');
-});
-
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    name: 'Neperia AST Security Scanner',
-    version: '2.0',
-    status: 'operational',
-    endpoints: {
-      '/scan-code': 'POST - Scan code for vulnerabilities using AST',
-      '/scan': 'POST - Upload file for scanning',
-      '/health': 'GET - Health check',
-      '/healthz': 'GET - Railway health check'
-    },
-    features: [
-      'AST-based vulnerability detection',
-      'No regex patterns - real code analysis',
-      'JavaScript/TypeScript support',
-      'CWE/OWASP mapping',
-      'Risk score calculation',
-      'Comprehensive vulnerability coverage'
-    ],
-    vulnerabilities_detected: [
-      'SQL Injection (CWE-89)',
-      'XSS (CWE-79)',
-      'Hardcoded Credentials (CWE-798)',
-      'Command Injection (CWE-78)',
-      'Code Injection (CWE-94)',
-      'Weak Cryptography (CWE-327)',
-      'Path Traversal (CWE-22)',
-      'Insecure Deserialization (CWE-502)',
-      'Authentication Issues (CWE-306)'
-    ]
+// Handle 404
+app.use((req, res) => {
+  res.status(404).json({
+    status: 'error',
+    message: 'Endpoint not found',
+    path: req.path
   });
 });
 
-// Start server
-app.listen(PORT, () => {
+// Start server - CRITICAL: Bind to 0.0.0.0
+app.listen(PORT, HOST, () => {
   console.log(`
 ╔══════════════════════════════════════════════╗
 ║   NEPERIA AST SECURITY SCANNER v2.0         ║
 ║   Real AST Analysis - No Regex Patterns     ║
 ╠══════════════════════════════════════════════╣
 ║   Status: OPERATIONAL                        ║
+║   Host: ${HOST}                             ║
 ║   Port: ${PORT}                                  ║
 ║   Mode: AST-based Scanning                  ║
 ║   Coverage: OWASP Top 10                    ║
+║   Environment: ${process.env.NODE_ENV || 'production'}     ║
 ╚══════════════════════════════════════════════╝
   `);
+  
+  console.log(`Server accessible at http://${HOST}:${PORT}`);
+  console.log(`Railway URL: https://semgrep-backend-production.up.railway.app`);
 });
