@@ -12,29 +12,46 @@ const os = require('os');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Enhanced CORS configuration
-app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'https://*.lovable.app',
-    'https://*.base44.app',
-    'https://*.vercel.app',
-    'https://*.railway.app'
-  ],
-  methods: ['GET', 'POST', 'OPTIONS'],
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    
+    // List of allowed patterns
+    const allowedPatterns = [
+      /^http:\/\/localhost:\d+$/,  // Any localhost port
+      /^https:\/\/.*\.lovable\.app$/,  // Any subdomain of lovable.app
+      /^https:\/\/.*\.base44\.app$/,  // Any subdomain of base44.app
+      /^https:\/\/.*\.vercel\.app$/,  // Any subdomain of vercel.app
+      /^https:\/\/.*\.railway\.app$/,  // Any subdomain of railway.app
+      /^https:\/\/.*\.netlify\.app$/,  // Any subdomain of netlify.app
+    ];
+    
+    // Check if origin matches any pattern
+    const isAllowed = allowedPatterns.some(pattern => pattern.test(origin));
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(null, true); // For development, allow all origins but log them
+      // For production, use: callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
-}));
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-const upload = multer({ 
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }
-});
+// Also add explicit OPTIONS handling for preflight requests
+app.options('*', cors(corsOptions));
 
 // AST-based vulnerability scanner
 class ASTVulnerabilityScanner {

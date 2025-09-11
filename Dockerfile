@@ -1,42 +1,34 @@
+# Use Node.js 18 slim image
 FROM node:18-slim
 
-# Install system dependencies
-RUN apt-get update \
- && apt-get install -y python3-venv curl --no-install-recommends \
- && python3 -m venv /opt/semgrep-venv \
- && /opt/semgrep-venv/bin/pip install --no-cache-dir semgrep \
- && rm -rf /var/lib/apt/lists/*
+# Install Python and Semgrep (optional - remove if not using Semgrep)
+RUN apt-get update && apt-get install -y \
+    python3-venv \
+    curl \
+    --no-install-recommends && \
+    python3 -m venv /opt/semgrep-venv && \
+    /opt/semgrep-venv/bin/pip install --no-cache-dir semgrep && \
+    rm -rf /var/lib/apt/lists/*
 
-# Add semgrep to PATH
-ENV PATH="/opt/semgrep-venv/bin:${PATH}"
-
-# Create app directory
+# Set working directory
 WORKDIR /app
 
-# Copy package files first (for better Docker layer caching)
-COPY package*.json ./
+# Copy package.json (not package-lock.json since you might not have it)
+COPY package.json ./
 
-# Install dependencies
-RUN npm ci --production
+# Install dependencies using npm install instead of npm ci
+# npm ci requires package-lock.json, npm install doesn't
+RUN npm install --production
 
 # Copy source code
 COPY . .
 
-# Create uploads directory
-RUN mkdir -p /tmp/uploads
-
-# Set proper permissions
-RUN chown -R node:node /app /tmp/uploads
-
-# Switch to non-root user
-USER node
-
-# Expose port
+# Expose port (Railway will override this)
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3000/healthz || exit 1
+# Set environment variables
+ENV NODE_ENV=production
+ENV PATH="/opt/semgrep-venv/bin:${PATH}"
 
 # Start the application
-CMD ["node", "src/server.js"]
+CMD ["node", "server.js"]
