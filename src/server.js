@@ -75,6 +75,21 @@ class ASTVulnerabilityScanner {
     this.currentFile = '';
   }
 
+  // Helper functions to handle both regular and optional chaining
+  isMember(n) {
+    return t.isMemberExpression(n) || t.isOptionalMemberExpression(n);
+  }
+
+  isCall(n) {
+    return t.isCallExpression(n) || t.isOptionalCallExpression(n);
+  }
+
+  getPropName(member) {
+    if (!this.isMember(member)) return null;
+    const p = member.property;
+    return t.isIdentifier(p) ? p.name : (t.isStringLiteral(p) ? p.value : null);
+  }
+
   // Parse JavaScript/TypeScript code into AST
   parseCode(code, language = 'javascript') {
     try {
@@ -172,9 +187,6 @@ class ASTVulnerabilityScanner {
     console.log('  - Detecting Insecure Deserialization...');
     this.detectInsecureDeserialization(ast, code);
     
-    console.log('  - Detecting Weak Randomness...');
-    this.detectWeakRandomness(ast, code);
-    
     console.log('  - Detecting Insecure File Operations...');
     this.detectInsecureFileOperations(ast, code);
     
@@ -188,64 +200,94 @@ class ASTVulnerabilityScanner {
     return this.findings;
   }
 
-  // SQL Injection Detection
+  // Fixed SQL Injection Detection
   detectSQLInjection(ast, code) {
     let sqlFindings = 0;
+    const dbMethods = ['query', 'execute', 'exec', 'run', 'all', 'get'];
+    
     traverse(ast, {
       CallExpression: (path) => {
         const node = path.node;
-        
-        // Check for database query methods
-        const dbMethods = ['query', 'execute', 'exec', 'run', 'all', 'get'];
         const callee = node.callee;
         
-        if (t.isMemberExpression(callee) && 
-            dbMethods.includes(callee.property.name)) {
-          
-          // Check if query uses string concatenation or template literals with variables
-          const firstArg = node.arguments[0];
-          
-          if (firstArg) {
-            // Check for binary expression (string concatenation)
-            if (t.isBinaryExpression(firstArg) && firstArg.operator === '+') {
-              this.addFinding({
-                type: 'SQL_INJECTION',
-                severity: 'high',
-                line: node.loc?.start.line || 0,
-                message: 'Potential SQL injection: Query uses string concatenation',
-                code: this.getCodeSnippet(code, node.loc)
-              });
-              sqlFindings++;
-            }
-            
-            // Check for template literals with expressions
-            if (t.isTemplateLiteral(firstArg) && firstArg.expressions.length > 0) {
-              let hasUserInput = false;
-              firstArg.expressions.forEach(expr => {
-                if (t.isIdentifier(expr) || t.isMemberExpression(expr)) {
-                  hasUserInput = true;
-                }
-              });
-              
-              if (hasUserInput) {
-                this.addFinding({
-                  type: 'SQL_INJECTION',
-                  severity: 'high',
-                  line: node.loc?.start.line || 0,
-                  message: 'Potential SQL injection: Query uses template literals with variables',
-                  code: this.getCodeSnippet(code, node.loc)
-                });
-                sqlFindings++;
-              }
-            }
+        if (!this.isMember(callee)) return;
+        
+        const method = this.getPropName(callee);
+        if (!method || !dbMethods.includes(method)) return;
+        
+        const firstArg = node.arguments[0];
+        if (!firstArg) return;
+        
+        // Check for string concatenation
+        if (t.isBinaryExpression(firstArg, { operator: '+' })) {
+          this.addFinding({
+            type: 'SQL_INJECTION',
+            severity: 'high',
+            line: node.loc?.start.line || 0,
+            message: 'Potential SQL injection: Query uses string concatenation',
+            code: this.getCodeSnippet(code, node.loc)
+          });
+          sqlFindings++;
+        }
+        
+        // Check for template literals
+        if (t.isTemplateLiteral(firstArg) && firstArg.expressions.length > 0) {
+          this.addFinding({
+            type: 'SQL_INJECTION',
+            severity: 'high',
+            line: node.loc?.start.line || 0,
+            message: 'Potential SQL injection: Query uses template literals with variables',
+            code: this.getCodeSnippet(code, node.loc)
+          });
+          sqlFindings++;
+        }
+        
+        // Check for tagged templates (SQL`...${x}`)
+        if (t.isTaggedTemplateExpression(firstArg)) {
+          if (firstArg.quasi.expressions?.length) {
+            this.addFinding({
+              type: 'SQL_INJECTION',
+              severity: 'high',
+              line: node.loc?.start.line || 0,
+              message: 'Potential SQL injection: Tagged template with expressions',
+              code: this.getCodeSnippet(code, node.loc)
+            });
+            sqlFindings++;
           }
+        }
+      },
+      
+      OptionalCallExpression: (path) => {
+        // Handle optional chaining: db?.query()
+        const node = path.node;
+        const callee = node.callee;
+        
+        if (!this.isMember(callee)) return;
+        
+        const method = this.getPropName(callee);
+        if (!method || !dbMethods.includes(method)) return;
+        
+        const firstArg = node.arguments[0];
+        if (!firstArg) return;
+        
+        if (t.isBinaryExpression(firstArg, { operator: '+' }) || 
+            (t.isTemplateLiteral(firstArg) && firstArg.expressions.length > 0)) {
+          this.addFinding({
+            type: 'SQL_INJECTION',
+            severity: 'high',
+            line: node.loc?.start.line || 0,
+            message: 'Potential SQL injection in optional chain',
+            code: this.getCodeSnippet(code, node.loc)
+          });
+          sqlFindings++;
         }
       }
     });
+    
     if (sqlFindings > 0) console.log(`    Found ${sqlFindings} SQL injection vulnerabilities`);
   }
 
-  // XSS Detection
+  // Enhanced XSS Detection
   detectXSS(ast, code) {
     let xssFindings = 0;
     traverse(ast, {
@@ -267,6 +309,21 @@ class ASTVulnerabilityScanner {
           }
         }
         
+        // Detect outerHTML
+        if (t.isIdentifier(node.property) && node.property.name === 'outerHTML') {
+          const parent = path.parent;
+          if (t.isAssignmentExpression(parent)) {
+            this.addFinding({
+              type: 'XSS',
+              severity: 'high',
+              line: node.loc?.start.line || 0,
+              message: 'Potential XSS: Direct outerHTML assignment',
+              code: this.getCodeSnippet(code, node.loc)
+            });
+            xssFindings++;
+          }
+        }
+        
         // Detect document.write
         if (t.isIdentifier(node.object, { name: 'document' }) &&
             t.isIdentifier(node.property, { name: 'write' })) {
@@ -281,9 +338,10 @@ class ASTVulnerabilityScanner {
         }
       },
       
-      // Detect eval usage
       CallExpression: (path) => {
         const node = path.node;
+        
+        // Detect eval usage
         if (t.isIdentifier(node.callee, { name: 'eval' })) {
           this.addFinding({
             type: 'CODE_INJECTION',
@@ -293,6 +351,25 @@ class ASTVulnerabilityScanner {
             code: this.getCodeSnippet(code, node.loc)
           });
           xssFindings++;
+        }
+        
+        // Detect insertAdjacentHTML
+        if (this.isMember(node.callee)) {
+          const method = this.getPropName(node.callee);
+          if (method === 'insertAdjacentHTML') {
+            const arg = node.arguments[1];
+            if (arg && (t.isIdentifier(arg) || t.isMemberExpression(arg) || 
+                (t.isTemplateLiteral(arg) && arg.expressions.length))) {
+              this.addFinding({
+                type: 'XSS',
+                severity: 'high',
+                line: node.loc?.start.line || 0,
+                message: 'Potential XSS: insertAdjacentHTML with dynamic content',
+                code: this.getCodeSnippet(code, node.loc)
+              });
+              xssFindings++;
+            }
+          }
         }
       }
     });
@@ -358,54 +435,68 @@ class ASTVulnerabilityScanner {
     if (secretFindings > 0) console.log(`    Found ${secretFindings} hardcoded secrets`);
   }
 
-  // Command Injection Detection
+  // Fixed Command Injection Detection
   detectCommandInjection(ast, code) {
     let cmdFindings = 0;
+    const dangerous = new Set(['exec', 'execSync', 'spawn', 'spawnSync', 'execFile', 'system']);
+    
     traverse(ast, {
       CallExpression: (path) => {
         const node = path.node;
+        let method = null;
         
-        // Check for dangerous functions - both as direct calls and as method calls
-        const dangerousFuncs = ['exec', 'execSync', 'spawn', 'spawnSync', 'execFile', 'system'];
+        // Direct function call: exec(...)
+        if (t.isIdentifier(node.callee) && dangerous.has(node.callee.name)) {
+          method = node.callee.name;
+        } 
+        // Method call: child_process.exec(...) or cp?.exec(...)
+        else if (this.isMember(node.callee)) {
+          const name = this.getPropName(node.callee);
+          if (dangerous.has(name)) method = name;
+        }
         
-        // Check direct function calls
-        if (t.isIdentifier(node.callee) && dangerousFuncs.includes(node.callee.name)) {
+        if (!method) return;
+        
+        // Check for dynamic input
+        const hasDynamic = node.arguments.some(arg =>
+          t.isIdentifier(arg) || 
+          t.isMemberExpression(arg) ||
+          t.isOptionalMemberExpression(arg) ||
+          (t.isTemplateLiteral(arg) && arg.expressions.length) ||
+          (t.isBinaryExpression(arg, { operator: '+' }))
+        );
+        
+        if (hasDynamic || node.arguments.length > 0) {
           this.addFinding({
             type: 'COMMAND_INJECTION',
             severity: 'critical',
             line: node.loc?.start.line || 0,
-            message: `Potential command injection: ${node.callee.name} usage`,
+            message: `Potential command injection: ${method} with dynamic input`,
             code: this.getCodeSnippet(code, node.loc)
           });
           cmdFindings++;
         }
+      },
+      
+      OptionalCallExpression: (path) => {
+        const node = path.node;
         
-        // Check method calls (e.g., child_process.exec)
-        if (t.isMemberExpression(node.callee)) {
-          const method = node.callee.property.name;
-          if (dangerousFuncs.includes(method)) {
-            // Check if arguments contain variables (potential user input)
-            const hasVariable = node.arguments.some(arg => 
-              t.isIdentifier(arg) || 
-              t.isMemberExpression(arg) ||
-              (t.isTemplateLiteral(arg) && arg.expressions.length > 0) ||
-              (t.isBinaryExpression(arg) && arg.operator === '+')
-            );
-            
-            if (hasVariable || node.arguments.length > 0) {
-              this.addFinding({
-                type: 'COMMAND_INJECTION',
-                severity: 'critical',
-                line: node.loc?.start.line || 0,
-                message: `Potential command injection: ${method} with dynamic input`,
-                code: this.getCodeSnippet(code, node.loc)
-              });
-              cmdFindings++;
-            }
+        if (this.isMember(node.callee)) {
+          const name = this.getPropName(node.callee);
+          if (dangerous.has(name)) {
+            this.addFinding({
+              type: 'COMMAND_INJECTION',
+              severity: 'critical',
+              line: node.loc?.start.line || 0,
+              message: `Potential command injection: ${name} with optional chaining`,
+              code: this.getCodeSnippet(code, node.loc)
+            });
+            cmdFindings++;
           }
         }
       }
     });
+    
     if (cmdFindings > 0) console.log(`    Found ${cmdFindings} command injection vulnerabilities`);
   }
 
@@ -417,8 +508,8 @@ class ASTVulnerabilityScanner {
         const node = path.node;
         
         // Check for weak hash algorithms
-        if (t.isMemberExpression(node.callee)) {
-          const method = node.callee.property.name;
+        if (this.isMember(node.callee)) {
+          const method = this.getPropName(node.callee);
           
           if (method === 'createHash') {
             const firstArg = node.arguments[0];
@@ -440,12 +531,11 @@ class ASTVulnerabilityScanner {
           }
         }
         
-        // Check for Math.random() in security context
-        if (t.isMemberExpression(node.callee) &&
+        // Check for Math.random()
+        if (this.isMember(node.callee) &&
             t.isIdentifier(node.callee.object, { name: 'Math' }) &&
             t.isIdentifier(node.callee.property, { name: 'random' })) {
           
-          // Always flag Math.random() as potentially insecure
           this.addFinding({
             type: 'WEAK_RANDOM',
             severity: 'medium',
@@ -463,14 +553,15 @@ class ASTVulnerabilityScanner {
   // Path Traversal Detection
   detectPathTraversal(ast, code) {
     let pathFindings = 0;
+    const fsOps = ['readFile', 'readFileSync', 'writeFile', 'writeFileSync', 
+                   'unlink', 'unlinkSync', 'readdir', 'readdirSync', 'open', 'openSync'];
+    
     traverse(ast, {
       CallExpression: (path) => {
         const node = path.node;
-        const fsOps = ['readFile', 'readFileSync', 'writeFile', 'writeFileSync', 
-                       'unlink', 'unlinkSync', 'readdir', 'readdirSync', 'open', 'openSync'];
         
-        if (t.isMemberExpression(node.callee)) {
-          const method = node.callee.property.name;
+        if (this.isMember(node.callee)) {
+          const method = this.getPropName(node.callee);
           
           if (fsOps.includes(method)) {
             const pathArg = node.arguments[0];
@@ -478,8 +569,9 @@ class ASTVulnerabilityScanner {
             // Check if path contains user input
             if (pathArg && (t.isIdentifier(pathArg) || 
                 t.isMemberExpression(pathArg) ||
+                t.isOptionalMemberExpression(pathArg) ||
                 t.isTemplateLiteral(pathArg) ||
-                (t.isBinaryExpression(pathArg) && pathArg.operator === '+'))) {
+                (t.isBinaryExpression(pathArg, { operator: '+' }))) {
               this.addFinding({
                 type: 'PATH_TRAVERSAL',
                 severity: 'high',
@@ -504,7 +596,7 @@ class ASTVulnerabilityScanner {
         const node = path.node;
         
         // Check for JSON.parse with unvalidated input
-        if (t.isMemberExpression(node.callee) &&
+        if (this.isMember(node.callee) &&
             t.isIdentifier(node.callee.object, { name: 'JSON' }) &&
             t.isIdentifier(node.callee.property, { name: 'parse' })) {
           
@@ -525,12 +617,6 @@ class ASTVulnerabilityScanner {
     if (deserialFindings > 0) console.log(`    Found ${deserialFindings} deserialization issues`);
   }
 
-  // Weak Randomness Detection (already covered in crypto, but kept for compatibility)
-  detectWeakRandomness(ast, code) {
-    // This is already handled in detectInsecureCrypto
-    // Keeping empty for compatibility
-  }
-
   // Insecure File Operations
   detectInsecureFileOperations(ast, code) {
     let fileFindings = 0;
@@ -539,21 +625,23 @@ class ASTVulnerabilityScanner {
         const node = path.node;
         
         // Check for chmod with weak permissions
-        if (t.isMemberExpression(node.callee) &&
-            (node.callee.property.name === 'chmod' || node.callee.property.name === 'chmodSync')) {
+        if (this.isMember(node.callee)) {
+          const method = this.getPropName(node.callee);
           
-          const modeArg = node.arguments[1];
-          if (t.isNumericLiteral(modeArg) || t.isStringLiteral(modeArg)) {
-            const mode = modeArg.value;
-            if (mode === 0o777 || mode === '777' || mode === 0o666 || mode === '666') {
-              this.addFinding({
-                type: 'INSECURE_FILE_PERMISSION',
-                severity: 'medium',
-                line: node.loc?.start.line || 0,
-                message: `Insecure file permissions (${mode})`,
-                code: this.getCodeSnippet(code, node.loc)
-              });
-              fileFindings++;
+          if (method === 'chmod' || method === 'chmodSync') {
+            const modeArg = node.arguments[1];
+            if (t.isNumericLiteral(modeArg) || t.isStringLiteral(modeArg)) {
+              const mode = modeArg.value;
+              if (mode === 0o777 || mode === '777' || mode === 0o666 || mode === '666') {
+                this.addFinding({
+                  type: 'INSECURE_FILE_PERMISSION',
+                  severity: 'medium',
+                  line: node.loc?.start.line || 0,
+                  message: `Insecure file permissions (${mode})`,
+                  code: this.getCodeSnippet(code, node.loc)
+                });
+                fileFindings++;
+              }
             }
           }
         }
@@ -566,7 +654,6 @@ class ASTVulnerabilityScanner {
   detectAuthenticationIssues(ast, code) {
     let authFindings = 0;
     traverse(ast, {
-      // Check for missing authentication checks
       FunctionDeclaration: (path) => {
         const node = path.node;
         const funcName = node.id?.name?.toLowerCase() || '';
@@ -645,9 +732,6 @@ class ASTVulnerabilityScanner {
   }
 }
 
-// Create scanner instance
-const scanner = new ASTVulnerabilityScanner();
-
 // Calculate risk score based on findings
 function calculateRiskScore(findings) {
   const severityScores = {
@@ -677,10 +761,13 @@ app.get('/test-scanner', (req, res) => {
     Math.random();
     document.innerHTML = userInput;
     db.query("SELECT * FROM users WHERE id = " + userId);
+    db?.query(\`SELECT * FROM users WHERE id = \${userId}\`);
     exec("rm -rf " + userPath);
     crypto.createHash('md5');
   `;
   
+  // Create new scanner instance for this request
+  const scanner = new ASTVulnerabilityScanner();
   const findings = scanner.scan(testCode, 'test.js', 'javascript');
   
   res.json({
@@ -692,7 +779,7 @@ app.get('/test-scanner', (req, res) => {
   });
 });
 
-// Health check endpoints - PLACE BEFORE OTHER ROUTES
+// Health check endpoints
 app.get('/health', (req, res) => {
   console.log('Health check requested');
   res.json({ 
@@ -728,7 +815,9 @@ app.get('/', (req, res) => {
       'JavaScript/TypeScript support',
       'CWE/OWASP mapping',
       'Risk score calculation',
-      'Comprehensive vulnerability coverage'
+      'Comprehensive vulnerability coverage',
+      'Optional chaining support',
+      'Tagged template detection'
     ],
     vulnerabilities_detected: [
       'SQL Injection (CWE-89)',
@@ -768,7 +857,8 @@ app.post('/scan-code', async (req, res) => {
 
     const startTime = Date.now();
     
-    // Perform AST-based scanning
+    // Create new scanner instance for this request (prevents concurrency issues)
+    const scanner = new ASTVulnerabilityScanner();
     const findings = scanner.scan(code, filename, language);
     
     const endTime = Date.now();
@@ -833,6 +923,8 @@ app.post('/scan', upload.single('file'), async (req, res) => {
     
     console.log(`📎 File: ${filename}, Size: ${req.file.size} bytes, Language: ${language}`);
 
+    // Create new scanner instance for this request (prevents concurrency issues)
+    const scanner = new ASTVulnerabilityScanner();
     const findings = scanner.scan(code, filename, language);
     const riskScore = calculateRiskScore(findings);
     
@@ -848,6 +940,17 @@ app.post('/scan', upload.single('file'), async (req, res) => {
         scanned_at: new Date().toISOString(),
         file_size: req.file.size,
         findings_count: findings.length
+      },
+      riskAssessment: {
+        riskScore: riskScore,
+        riskLevel: riskScore > 70 ? 'Critical' : 
+                   riskScore > 40 ? 'High' : 
+                   riskScore > 20 ? 'Medium' : 
+                   riskScore > 0 ? 'Low' : 'Minimal',
+        criticalFindings: findings.filter(f => f.severity === 'critical').length,
+        highFindings: findings.filter(f => f.severity === 'high').length,
+        mediumFindings: findings.filter(f => f.severity === 'medium').length,
+        lowFindings: findings.filter(f => f.severity === 'low').length
       }
     });
 
