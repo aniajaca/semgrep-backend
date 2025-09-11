@@ -569,9 +569,9 @@ class ASTVulnerabilityScanner {
             // Check if path contains user input
             if (pathArg && (t.isIdentifier(pathArg) || 
                 t.isMemberExpression(pathArg) ||
-                t.isOptionalMemberExpression(pathArg) ||
+                t.isOptionalMemberExpression(pathArg) ||a
                 t.isTemplateLiteral(pathArg) ||
-                (t.isBinaryExpression(pathArg, { operator: '+' }))) {
+                t.isBinaryExpression(pathArg, { operator: '+' }))) {
               this.addFinding({
                 type: 'PATH_TRAVERSAL',
                 severity: 'high',
@@ -588,7 +588,7 @@ class ASTVulnerabilityScanner {
     if (pathFindings > 0) console.log(`    Found ${pathFindings} path traversal vulnerabilities`);
   }
 
-  // Insecure Deserialization Detection
+  // Insecure Deserialization Detections
   detectInsecureDeserialization(ast, code) {
     let deserialFindings = 0;
     traverse(ast, {
