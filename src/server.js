@@ -746,7 +746,12 @@ app.use((req, res) => {
 });
 
 // Start server - CRITICAL: Bind to 0.0.0.0
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, (err) => {
+  if (err) {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  }
+  
   console.log(`
 ╔══════════════════════════════════════════════╗
 ║   NEPERIA AST SECURITY SCANNER v2.0         ║
@@ -754,13 +759,23 @@ app.listen(PORT, HOST, () => {
 ╠══════════════════════════════════════════════╣
 ║   Status: OPERATIONAL                        ║
 ║   Host: ${HOST}                             ║
-║   Port: ${PORT}                                  ║
+║   Port: ${PORT}                              ║
 ║   Mode: AST-based Scanning                  ║
 ║   Coverage: OWASP Top 10                    ║
 ║   Environment: ${process.env.NODE_ENV || 'production'}     ║
 ╚══════════════════════════════════════════════╝
   `);
   
-  console.log(`Server accessible at http://${HOST}:${PORT}`);
+  console.log('✅ Server is listening on:', server.address());
+  console.log(`✅ Health check available at: http://${HOST}:${PORT}/health`);
   console.log(`Railway URL: https://semgrep-backend-production.up.railway.app`);
+});
+
+// Add graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, closing server...');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
 });
