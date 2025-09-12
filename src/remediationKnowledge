@@ -1,0 +1,134 @@
+// Create a new file: src/remediationKnowledge.js
+const remediations = {
+  SQL_INJECTION: {
+    title: "Use Parameterized Queries",
+    description: "Never concatenate user input directly into SQL queries",
+    steps: [
+      "Replace string concatenation with parameterized queries",
+      "Use prepared statements with bound parameters",
+      "Validate and sanitize all user inputs",
+      "Apply principle of least privilege to database users"
+    ],
+    codeExample: {
+      vulnerable: "db.query(`SELECT * FROM users WHERE id = ${userId}`)",
+      secure: "db.query('SELECT * FROM users WHERE id = ?', [userId])"
+    },
+    references: [
+      "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+      "https://portswigger.net/web-security/sql-injection"
+    ]
+  },
+  
+  XSS: {
+    title: "Sanitize Output and Use Safe APIs",
+    description: "Encode data before inserting into HTML and avoid dangerous APIs",
+    steps: [
+      "Use textContent instead of innerHTML when possible",
+      "HTML-encode all user input before display",
+      "Implement Content Security Policy (CSP)",
+      "Use framework auto-escaping features"
+    ],
+    codeExample: {
+      vulnerable: "element.innerHTML = userInput",
+      secure: "element.textContent = userInput"
+    },
+    references: [
+      "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html",
+      "https://developer.mozilla.org/en-US/docs/Web/Security/Types_of_attacks#cross-site_scripting_xss"
+    ]
+  },
+  
+  HARDCODED_SECRET: {
+    title: "Use Environment Variables or Secret Management",
+    description: "Never commit secrets to source code",
+    steps: [
+      "Move secrets to environment variables (.env files)",
+      "Use secret management services (AWS Secrets Manager, HashiCorp Vault)",
+      "Rotate compromised credentials immediately",
+      "Add .env to .gitignore"
+    ],
+    codeExample: {
+      vulnerable: "const apiKey = 'sk-1234567890'",
+      secure: "const apiKey = process.env.API_KEY"
+    },
+    references: [
+      "https://12factor.net/config",
+      "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html"
+    ]
+  },
+  
+  COMMAND_INJECTION: {
+    title: "Avoid Shell Commands or Use Safe APIs",
+    description: "Never pass user input to system commands",
+    steps: [
+      "Use language-specific libraries instead of shell commands",
+      "If shell is necessary, use parameterized commands",
+      "Whitelist allowed commands and arguments",
+      "Run with minimal privileges"
+    ],
+    codeExample: {
+      vulnerable: "exec(`ls ${userPath}`)",
+      secure: "fs.readdir(path.resolve(userPath))"
+    },
+    references: [
+      "https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html"
+    ]
+  },
+  
+  WEAK_CRYPTO: {
+    title: "Use Strong Cryptographic Algorithms",
+    description: "Replace weak algorithms with secure alternatives",
+    steps: [
+      "Replace MD5/SHA1 with SHA-256 or SHA-3",
+      "Use bcrypt/scrypt/argon2 for password hashing",
+      "Ensure adequate key lengths (AES-256, RSA-2048+)",
+      "Use crypto.randomBytes() for random values"
+    ],
+    codeExample: {
+      vulnerable: "crypto.createHash('md5')",
+      secure: "crypto.createHash('sha256')"
+    },
+    references: [
+      "https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html"
+    ]
+  },
+  
+  PATH_TRAVERSAL: {
+    title: "Validate and Sanitize File Paths",
+    description: "Prevent directory traversal attacks",
+    steps: [
+      "Use path.resolve() to normalize paths",
+      "Validate paths stay within intended directory",
+      "Reject paths containing '..' or absolute paths",
+      "Use a whitelist of allowed files/directories"
+    ],
+    codeExample: {
+      vulnerable: "fs.readFile(userInput)",
+      secure: "fs.readFile(path.join(SAFE_DIR, path.basename(userInput)))"
+    },
+    references: [
+      "https://owasp.org/www-community/attacks/Path_Traversal"
+    ]
+  },
+  
+  VULNERABLE_DEPENDENCY: {
+    title: "Update Vulnerable Dependencies",
+    description: "Upgrade to patched versions or find alternatives",
+    steps: [
+      "Run 'npm audit fix' to auto-update where possible",
+      "Check breaking changes before major version updates",
+      "Consider alternative packages if no fix available",
+      "Use tools like Dependabot for automated updates"
+    ],
+    codeExample: {
+      vulnerable: "\"lodash\": \"4.17.11\"",
+      secure: "\"lodash\": \"4.17.21\""
+    },
+    references: [
+      "https://docs.npmjs.com/cli/v8/commands/npm-audit",
+      "https://owasp.org/www-project-dependency-check/"
+    ]
+  }
+};
+
+module.exports = remediations;

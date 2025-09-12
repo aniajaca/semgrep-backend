@@ -9,6 +9,30 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+// Import remediation knowledge if file exists
+let remediationKnowledge = {};
+try {
+  remediationKnowledge = require('./remediationKnowledge');
+  console.log('✅ Remediation knowledge loaded');
+} catch (e) {
+  console.log('⚠️ Remediation knowledge file not found, using basic defaults');
+  // Basic fallback remediations
+  remediationKnowledge = {
+    SQL_INJECTION: {
+      title: "Use Parameterized Queries",
+      description: "Never concatenate user input directly into SQL queries",
+      steps: ["Use prepared statements", "Validate input", "Use ORM libraries"],
+      references: ["https://owasp.org/www-community/attacks/SQL_Injection"]
+    },
+    XSS: {
+      title: "Sanitize Output",
+      description: "Encode data before inserting into HTML",
+      steps: ["Use textContent instead of innerHTML", "HTML-encode user input", "Implement CSP"],
+      references: ["https://owasp.org/www-community/attacks/xss/"]
+    }
+  };
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0'; // CRITICAL: Must bind to 0.0.0.0 for Railway
@@ -731,31 +755,47 @@ class ASTVulnerabilityScanner {
     return lines.slice(startLine, endLine).join('\n');
   }
 
-  // Add finding with CWE and OWASP mapping
+  // Enhanced addFinding with remediation
   addFinding(finding) {
     const cweMapping = {
-      'SQL_INJECTION': { id: 'CWE-89', name: 'SQL Injection', owasp: 'A03:2021' },
-      'XSS': { id: 'CWE-79', name: 'Cross-site Scripting', owasp: 'A03:2021' },
-      'HARDCODED_SECRET': { id: 'CWE-798', name: 'Use of Hard-coded Credentials', owasp: 'A07:2021' },
-      'COMMAND_INJECTION': { id: 'CWE-78', name: 'OS Command Injection', owasp: 'A03:2021' },
-      'CODE_INJECTION': { id: 'CWE-94', name: 'Code Injection', owasp: 'A03:2021' },
-      'WEAK_CRYPTO': { id: 'CWE-327', name: 'Use of Broken or Risky Cryptographic Algorithm', owasp: 'A02:2021' },
-      'WEAK_RANDOM': { id: 'CWE-330', name: 'Use of Insufficiently Random Values', owasp: 'A02:2021' },
-      'PATH_TRAVERSAL': { id: 'CWE-22', name: 'Path Traversal', owasp: 'A01:2021' },
-      'INSECURE_DESERIALIZATION': { id: 'CWE-502', name: 'Deserialization of Untrusted Data', owasp: 'A08:2021' },
-      'INSECURE_FILE_PERMISSION': { id: 'CWE-732', name: 'Incorrect Permission Assignment', owasp: 'A01:2021' },
-      'MISSING_AUTHENTICATION': { id: 'CWE-306', name: 'Missing Authentication for Critical Function', owasp: 'A07:2021' },
+      'SQL_INJECTION': { id: 'CWE-89', name: 'SQL Injection', owasp: 'A03:2021 - Injection' },
+      'XSS': { id: 'CWE-79', name: 'Cross-site Scripting', owasp: 'A03:2021 - Injection' },
+      'HARDCODED_SECRET': { id: 'CWE-798', name: 'Use of Hard-coded Credentials', owasp: 'A07:2021 - Identification and Authentication Failures' },
+      'COMMAND_INJECTION': { id: 'CWE-78', name: 'OS Command Injection', owasp: 'A03:2021 - Injection' },
+      'CODE_INJECTION': { id: 'CWE-94', name: 'Code Injection', owasp: 'A03:2021 - Injection' },
+      'WEAK_CRYPTO': { id: 'CWE-327', name: 'Use of Broken or Risky Cryptographic Algorithm', owasp: 'A02:2021 - Cryptographic Failures' },
+      'WEAK_RANDOM': { id: 'CWE-330', name: 'Use of Insufficiently Random Values', owasp: 'A02:2021 - Cryptographic Failures' },
+      'PATH_TRAVERSAL': { id: 'CWE-22', name: 'Path Traversal', owasp: 'A01:2021 - Broken Access Control' },
+      'INSECURE_DESERIALIZATION': { id: 'CWE-502', name: 'Deserialization of Untrusted Data', owasp: 'A08:2021 - Software and Data Integrity Failures' },
+      'INSECURE_FILE_PERMISSION': { id: 'CWE-732', name: 'Incorrect Permission Assignment', owasp: 'A01:2021 - Broken Access Control' },
+      'MISSING_AUTHENTICATION': { id: 'CWE-306', name: 'Missing Authentication for Critical Function', owasp: 'A07:2021 - Identification and Authentication Failures' },
       'PARSE_ERROR': { id: 'CWE-0', name: 'Parse Error', owasp: 'N/A' }
     };
 
     const cwe = cweMapping[finding.type] || { id: 'CWE-Unknown', name: finding.type, owasp: 'Unknown' };
     
+    // Get detailed remediation from knowledge base
+    const remediation = remediationKnowledge[finding.type] || {
+      title: "Review and apply security best practices",
+      description: "Consult security documentation for this vulnerability type",
+      steps: ["Review OWASP guidelines", "Apply secure coding practices"],
+      references: ["https://owasp.org"]
+    };
+    
     this.findings.push({
       ...finding,
+      line: finding.line || 0,  // Ensure line is always set
       cwe: cwe,
       owasp: cwe.owasp,
       file: this.currentFile,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      remediation: {
+        title: remediation.title || "Apply security best practices",
+        description: remediation.description || "",
+        steps: remediation.steps || [],
+        codeExample: remediation.codeExample || null,
+        references: remediation.references || []
+      }
     });
   }
 }
@@ -847,7 +887,8 @@ app.get('/', (req, res) => {
       'Risk score calculation',
       'Comprehensive vulnerability coverage',
       'Optional chaining support',
-      'Tagged template detection'
+      'Tagged template detection',
+      'Detailed remediation guidance'
     ],
     vulnerabilities_detected: [
       'SQL Injection (CWE-89)',
@@ -1049,5 +1090,3 @@ process.on('SIGTERM', () => {
     process.exit(0);
   });
 });
-
-// Force rebuild: Thu Sep 12 2025
