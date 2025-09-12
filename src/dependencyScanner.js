@@ -480,31 +480,20 @@ class DependencyScanner {
       severityCount[severity]++;
     });
 
-    // Calculate risk score
-    const riskScore = 
-      severityCount.critical * 40 +
-      severityCount.high * 20 +
-      severityCount.medium * 10 +
-      severityCount.low * 5;
-
-    // Determine risk level
-    let riskLevel;
-    if (riskScore >= 100) riskLevel = 'CRITICAL';
-    else if (riskScore >= 50) riskLevel = 'HIGH';
-    else if (riskScore >= 20) riskLevel = 'MEDIUM';
-    else if (riskScore > 0) riskLevel = 'LOW';
-    else riskLevel = 'MINIMAL';
+    // Use the SAME calculation function to avoid duplicates
+    const riskCalc = calculateDependencyRiskScore(vulnerabilities);
 
     return {
-      riskScore,
-      riskLevel,
+      riskScore: riskCalc.score,  // Use the score from the single source
+      riskLevel: riskCalc.level.toUpperCase(),  // Convert to uppercase for consistency
       totalVulnerabilities: vulnerabilities.length,
       totalOutdated: outdatedPackages.length,
       totalWarnings: warnings.length,
       severityDistribution: severityCount,
       needsImmediateAction: severityCount.critical > 0 || severityCount.high > 2,
       recommendation: this.generateDetailedRecommendation(severityCount, outdatedPackages, warnings),
-      actionItems: this.generateActionItems(vulnerabilities, outdatedPackages)
+      actionItems: this.generateActionItems(vulnerabilities, outdatedPackages),
+      riskDetails: riskCalc.details  // Include the details for frontend
     };
   }
 
@@ -815,8 +804,8 @@ if (require.main === module) {
       'express': '4.16.0',
       'lodash': '4.17.11',
       'axios': '0.19.0',
-      'moment': '',
-      'jquery': undefined
+      'moment': '2.24.0',
+      'jquery': '3.4.0'
     },
     devDependencies: {
       'webpack': '5.0.0',
