@@ -1,5 +1,0 @@
-{
-  "code": "// Hardcoded secrets\nconst API_KEY = \"sk-1234567890abcdef\";\nconst DATABASE_URL = \"postgres://admin:password123@localhost/db\";\n\n// XSS vulnerability\nfunction renderUserData(userData) {\n    document.getElementById('content').innerHTML = userData; // Direct HTML injection\n}\n\n// Command injection\nconst { exec } = require('child_process');\nfunction processFile(filename) {\n    exec(`cat ${filename}`, (error, stdout) => { // User input in command\n        console.log(stdout);\n    });\n}\n\n// Insecure random\nfunction generateSessionId() {\n    return Math.random().toString(36); // Weak randomness\n}\n\n// Path traversal\nconst fs = require('fs');\nfunction readFile(userPath) {\n    return fs.readFileSync(`/data/${userPath}`); // No path validation\n}\n\n// Prototype pollution\nfunction merge(target, source) {\n    for (let key in source) {\n        target[key] = source[key]; // Dangerous assignment\n    }\n}",
-  "language": "javascript",
-  "filename": "test_lovable.js"
-}

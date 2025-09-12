@@ -1,6 +1,6 @@
 // riskCalculator.js
 
-const { getSeverityWeight } = require('./utils');
+const { getSeverityWeight } = require('./OLD/utils');
 
 /**
  * Example: complexity = (# distinct files) / (# findings) + 1

@@ -1,4 +1,4 @@
-// server.js - Enhanced with real AST-based scanning
+// server.js - Enhanced with real AST-based scanning and dependency scanning
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
@@ -8,6 +8,9 @@ const t = require('@babel/types');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+
+// Import dependency scanner
+const { DependencyScanner, addDependencyScanEndpoint, calculateDependencyRiskScore } = require('./dependencyScanner');
 
 // Import remediation knowledge if file exists
 let remediationKnowledge = {};
@@ -391,7 +394,7 @@ class ASTVulnerabilityScanner {
             line: node.loc?.start.line || 0,
             message: 'Potential XSS: document.write usage',
             code: this.getCodeSnippet(code, node.loc)
-          });
+            });
           xssFindings++;
         }
       },
@@ -875,6 +878,7 @@ app.get('/', (req, res) => {
     endpoints: {
       '/scan-code': 'POST - Scan code for vulnerabilities using AST',
       '/scan': 'POST - Upload file for scanning',
+      '/scan-dependencies': 'POST - Scan package.json for vulnerable dependencies',
       '/test-scanner': 'GET - Test scanner functionality',
       '/health': 'GET - Health check',
       '/healthz': 'GET - Railway health check'
@@ -883,6 +887,7 @@ app.get('/', (req, res) => {
       'AST-based vulnerability detection',
       'No regex patterns - real code analysis',
       'JavaScript/TypeScript support',
+      'Dependency vulnerability scanning',
       'CWE/OWASP mapping',
       'Risk score calculation',
       'Comprehensive vulnerability coverage',
@@ -899,7 +904,8 @@ app.get('/', (req, res) => {
       'Weak Cryptography (CWE-327)',
       'Path Traversal (CWE-22)',
       'Insecure Deserialization (CWE-502)',
-      'Authentication Issues (CWE-306)'
+      'Authentication Issues (CWE-306)',
+      'Vulnerable Dependencies'
     ]
   });
 });
@@ -1035,6 +1041,9 @@ app.post('/scan', upload.single('file'), async (req, res) => {
   }
 });
 
+// Add dependency scanning endpoint
+addDependencyScanEndpoint(app);
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('❌ Server Error:', err);
@@ -1071,7 +1080,7 @@ const server = app.listen(PORT, HOST, (err) => {
 ║   Host: ${HOST}                             ║
 ║   Port: ${PORT}                              ║
 ║   Mode: AST-based Scanning                  ║
-║   Coverage: OWASP Top 10                    ║
+║   Coverage: OWASP Top 10 + Dependencies     ║
 ║   Environment: ${process.env.NODE_ENV || 'production'}     ║
 ╚══════════════════════════════════════════════╝
   `);
@@ -1079,6 +1088,7 @@ const server = app.listen(PORT, HOST, (err) => {
   console.log('✅ Server is listening on:', server.address());
   console.log(`✅ Health check available at: http://${HOST}:${PORT}/health`);
   console.log(`✅ Test scanner at: http://${HOST}:${PORT}/test-scanner`);
+  console.log(`✅ Dependency scanner at: POST http://${HOST}:${PORT}/scan-dependencies`);
   console.log(`Railway URL: https://semgrep-backend-production.up.railway.app`);
 });
 
