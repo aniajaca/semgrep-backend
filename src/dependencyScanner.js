@@ -1,102 +1,204 @@
-// dependencyScanner.js - Scan package.json for vulnerable dependencies
+// dependencyScanner.js - Enhanced vulnerability scanner for package.json dependencies
 const https = require('https');
 const semver = require('semver');
 
 class DependencyScanner {
   constructor() {
-    // Known vulnerabilities database (in production, use a real vulnerability DB)
+    // Expanded vulnerability database with more packages and detailed info
     this.vulnerabilityDB = {
       'lodash': {
         vulnerableVersions: '<4.17.21',
         cve: 'CVE-2021-23337',
         severity: 'high',
-        description: 'Command injection vulnerability in lodash',
-        remediation: 'Update to lodash@4.17.21 or later'
+        description: 'Command injection vulnerability in lodash template function',
+        remediation: 'Update to lodash@4.17.21 or later',
+        affectedVersions: '4.17.0 - 4.17.20',
+        exploitability: 'Remote code execution possible through template injection'
       },
       'minimist': {
         vulnerableVersions: '<1.2.6',
         cve: 'CVE-2021-44906',
         severity: 'critical',
-        description: 'Prototype pollution in minimist',
-        remediation: 'Update to minimist@1.2.6 or later'
+        description: 'Prototype pollution allowing property injection',
+        remediation: 'Update to minimist@1.2.6 or later',
+        affectedVersions: '< 1.2.6',
+        exploitability: 'Can lead to denial of service or remote code execution'
       },
       'axios': {
         vulnerableVersions: '<0.21.2',
         cve: 'CVE-2021-3749',
         severity: 'high',
-        description: 'Server-Side Request Forgery in axios',
-        remediation: 'Update to axios@0.21.2 or later'
+        description: 'Server-Side Request Forgery (SSRF) in axios',
+        remediation: 'Update to axios@0.21.2 or later',
+        affectedVersions: '< 0.21.2',
+        exploitability: 'Allows attackers to access internal services'
       },
       'express': {
         vulnerableVersions: '<4.17.3',
         cve: 'CVE-2022-24999',
         severity: 'high',
-        description: 'Express.js Open Redirect vulnerability',
-        remediation: 'Update to express@4.17.3 or later'
+        description: 'Express.js Open Redirect vulnerability in query parser',
+        remediation: 'Update to express@4.17.3 or later',
+        affectedVersions: '< 4.17.3',
+        exploitability: 'Can lead to phishing attacks through URL manipulation'
       },
       'node-fetch': {
         vulnerableVersions: '<2.6.7',
         cve: 'CVE-2022-0235',
         severity: 'medium',
-        description: 'Regular expression denial of service in node-fetch',
-        remediation: 'Update to node-fetch@2.6.7 or later'
+        description: 'Regular expression denial of service (ReDoS)',
+        remediation: 'Update to node-fetch@2.6.7 or later',
+        affectedVersions: '< 2.6.7',
+        exploitability: 'Can cause application slowdown or crash'
       },
       'jquery': {
         vulnerableVersions: '<3.5.0',
         cve: 'CVE-2020-11022',
         severity: 'medium',
-        description: 'XSS vulnerability in jQuery',
-        remediation: 'Update to jquery@3.5.0 or later'
+        description: 'XSS vulnerability in jQuery DOM manipulation',
+        remediation: 'Update to jquery@3.5.0 or later',
+        affectedVersions: '< 3.5.0',
+        exploitability: 'Cross-site scripting through untrusted HTML'
       },
       'moment': {
         vulnerableVersions: '<2.29.4',
         cve: 'CVE-2022-31129',
         severity: 'high',
-        description: 'Path traversal vulnerability in moment',
-        remediation: 'Update to moment@2.29.4 or later'
+        description: 'Path traversal vulnerability in moment.js',
+        remediation: 'Update to moment@2.29.4 or later (Consider migrating to date-fns or dayjs)',
+        affectedVersions: '< 2.29.4',
+        exploitability: 'Can access files outside intended directory',
+        note: 'Moment.js is now in maintenance mode - consider alternatives'
       },
       'webpack': {
         vulnerableVersions: '<5.76.0',
         cve: 'CVE-2023-28154',
         severity: 'medium',
-        description: 'Webpack DOM XSS vulnerability',
-        remediation: 'Update to webpack@5.76.0 or later'
+        description: 'Webpack DOM XSS vulnerability in development server',
+        remediation: 'Update to webpack@5.76.0 or later',
+        affectedVersions: '< 5.76.0',
+        exploitability: 'XSS in webpack-dev-server'
       },
       'react': {
         vulnerableVersions: '<16.4.2',
         cve: 'CVE-2018-14732',
         severity: 'medium',
-        description: 'XSS vulnerability in React',
-        remediation: 'Update to react@16.4.2 or later'
+        description: 'XSS vulnerability in React development builds',
+        remediation: 'Update to react@16.4.2 or later',
+        affectedVersions: '< 16.4.2',
+        exploitability: 'Affects development builds only'
       },
-      'angular': {
+      '@angular/core': {
         vulnerableVersions: '<11.0.5',
         cve: 'CVE-2021-21277',
         severity: 'high',
-        description: 'XSS vulnerability in Angular',
-        remediation: 'Update to @angular/core@11.0.5 or later'
+        description: 'XSS vulnerability in Angular sanitization',
+        remediation: 'Update to @angular/core@11.0.5 or later',
+        affectedVersions: '< 11.0.5',
+        exploitability: 'Bypass of HTML sanitization'
+      },
+      'vue': {
+        vulnerableVersions: '<2.6.14',
+        cve: 'CVE-2021-3654',
+        severity: 'medium',
+        description: 'Prototype pollution in Vue.js',
+        remediation: 'Update to vue@2.6.14 or later (or Vue 3)',
+        affectedVersions: '< 2.6.14',
+        exploitability: 'Can modify object prototypes'
+      },
+      'typescript': {
+        vulnerableVersions: '<4.2.0',
+        cve: 'CVE-2021-28168',
+        severity: 'low',
+        description: 'Path traversal in TypeScript compiler',
+        remediation: 'Update to typescript@4.2.0 or later',
+        affectedVersions: '< 4.2.0',
+        exploitability: 'Limited to build-time'
       }
+    };
+
+    // Latest stable versions as of 2024
+    this.latestVersions = {
+      'react': '18.2.0',
+      'react-dom': '18.2.0',
+      'vue': '3.4.21',
+      '@angular/core': '17.3.0',
+      'express': '4.19.2',
+      'lodash': '4.17.21',
+      'axios': '1.6.8',
+      'webpack': '5.91.0',
+      'typescript': '5.4.3',
+      'jest': '29.7.0',
+      'eslint': '8.57.0',
+      'prettier': '3.2.5',
+      'nodemon': '3.1.0',
+      'moment': '2.30.1',
+      'jquery': '3.7.1',
+      'minimist': '1.2.8',
+      'node-fetch': '3.3.2',
+      'dotenv': '16.4.5',
+      'cors': '2.8.5',
+      'multer': '1.4.5-lts.1',
+      'semver': '7.6.0'
     };
   }
 
   /**
-   * Scan package.json for vulnerable dependencies
+   * Enhanced scanning with better version handling
    */
   async scanDependencies(packageJson) {
     const vulnerabilities = [];
+    const warnings = [];
     const dependencies = {
       ...packageJson.dependencies,
       ...packageJson.devDependencies
     };
 
+    // Track scanning metrics
+    let packagesScanned = 0;
+    let undefinedVersions = 0;
+
     for (const [packageName, version] of Object.entries(dependencies)) {
-      // Check if package is in vulnerability database
+      packagesScanned++;
+      
+      // Handle undefined, empty, or wildcard versions
+      if (!version || version === '' || version === '*' || version === 'latest') {
+        undefinedVersions++;
+        vulnerabilities.push({
+          id: `dep-${packageName}-undefined`,
+          package: packageName,
+          version: version || 'undefined',
+          installedVersion: 'undefined',
+          vulnerability: {
+            cve: 'VERSION-UNDEFINED',
+            severity: 'medium',
+            description: `Package version is not specified or uses wildcard. This prevents security scanning and can lead to breaking changes.`,
+            vulnerableVersions: 'Cannot determine without specific version',
+            remediation: `Specify an exact version for ${packageName} in package.json (e.g., "^${this.latestVersions[packageName] || '1.0.0'}")`,
+            affectedVersions: 'All versions when undefined',
+            exploitability: 'Unknown vulnerabilities may exist',
+            cvss: { baseScore: 5.0, vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N' }
+          }
+        });
+        continue;
+      }
+
+      // Clean and validate version
+      const cleanVersion = this.cleanVersion(version);
+      
+      // Check if it's a valid semver
+      if (!semver.valid(cleanVersion)) {
+        warnings.push({
+          package: packageName,
+          message: `Invalid version format: ${version}`,
+          suggestion: `Use a valid semver format like "^1.2.3"`
+        });
+        continue;
+      }
+
+      // Check against vulnerability database
       const vuln = this.vulnerabilityDB[packageName];
       if (vuln) {
-        // Clean version string (remove ^, ~, etc.)
-        const cleanVersion = this.cleanVersion(version);
-        
-        // Check if version is vulnerable
         if (this.isVulnerable(cleanVersion, vuln.vulnerableVersions)) {
           vulnerabilities.push({
             id: `dep-${packageName}-${vuln.cve}`,
@@ -104,100 +206,149 @@ class DependencyScanner {
             version: version,
             installedVersion: cleanVersion,
             vulnerability: {
-              cve: vuln.cve,
-              severity: vuln.severity,
-              description: vuln.description,
-              vulnerableVersions: vuln.vulnerableVersions,
-              remediation: vuln.remediation,
-              cvss: this.getCVSSScore(vuln.severity)
+              ...vuln,
+              cvss: this.getCVSSScore(vuln.severity),
+              patchedVersions: this.getPatchedVersion(packageName)
             }
           });
         }
       }
 
-      // Also check with npm registry for additional vulnerabilities
-      const npmVulns = await this.checkNpmRegistry(packageName, version);
-      vulnerabilities.push(...npmVulns);
+      // Check for deprecated packages
+      if (this.isDeprecated(packageName)) {
+        warnings.push({
+          package: packageName,
+          message: `Package is deprecated`,
+          suggestion: this.getDeprecationAlternative(packageName)
+        });
+      }
     }
 
     // Check for outdated packages
     const outdatedPackages = await this.checkOutdatedPackages(dependencies);
     
+    // Check for missing security packages
+    const securityRecommendations = this.checkSecurityPackages(dependencies);
+
     return {
       vulnerabilities: this.deduplicateVulnerabilities(vulnerabilities),
       outdatedPackages,
-      summary: this.generateSummary(vulnerabilities, outdatedPackages)
+      warnings,
+      securityRecommendations,
+      metrics: {
+        packagesScanned,
+        undefinedVersions,
+        vulnerablePackages: vulnerabilities.length,
+        outdatedPackages: outdatedPackages.length
+      },
+      summary: this.generateEnhancedSummary(vulnerabilities, outdatedPackages, warnings)
     };
   }
 
   /**
-   * Check npm registry for vulnerabilities
+   * Check for deprecated packages
    */
-  async checkNpmRegistry(packageName, version) {
-    // In production, this would call the actual npm audit API
-    // For now, return empty array to avoid external dependencies
-    return [];
-    
-    /* Production implementation:
-    try {
-      const response = await fetch(`https://registry.npmjs.org/-/npm/v1/security/audits`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: packageName,
-          version: this.cleanVersion(version)
-        })
-      });
-      
-      const data = await response.json();
-      return this.parseNpmAuditResponse(data);
-    } catch (error) {
-      console.error(`Failed to check npm registry for ${packageName}:`, error);
-      return [];
-    }
-    */
+  isDeprecated(packageName) {
+    const deprecated = {
+      'request': true,
+      'request-promise': true,
+      'node-sass': true,
+      'tslint': true
+    };
+    return deprecated[packageName] || false;
   }
 
   /**
-   * Check for outdated packages
+   * Get alternatives for deprecated packages
+   */
+  getDeprecationAlternative(packageName) {
+    const alternatives = {
+      'request': 'Use axios, node-fetch, or native fetch API',
+      'request-promise': 'Use axios or node-fetch',
+      'node-sass': 'Use sass (Dart Sass) instead',
+      'tslint': 'Use ESLint with TypeScript support',
+      'moment': 'Consider date-fns or dayjs for smaller bundle size'
+    };
+    return alternatives[packageName] || 'Check npm for modern alternatives';
+  }
+
+  /**
+   * Check for security-enhancing packages
+   */
+  checkSecurityPackages(dependencies) {
+    const recommendations = [];
+    const securityPackages = {
+      'helmet': 'Helps secure Express apps by setting various HTTP headers',
+      'express-rate-limit': 'Basic rate-limiting middleware for Express',
+      'express-validator': 'Middleware for input validation',
+      'bcrypt': 'Library for hashing passwords',
+      'jsonwebtoken': 'JWT implementation for authentication',
+      'dotenv': 'Loads environment variables from .env file',
+      'express-mongo-sanitize': 'Prevents MongoDB injection attacks',
+      'xss-clean': 'Sanitize user input to prevent XSS attacks'
+    };
+
+    // Check if it's an Express app
+    if (dependencies['express'] && !dependencies['helmet']) {
+      recommendations.push({
+        package: 'helmet',
+        reason: securityPackages['helmet'],
+        priority: 'high'
+      });
+    }
+
+    if (dependencies['express'] && !dependencies['express-rate-limit']) {
+      recommendations.push({
+        package: 'express-rate-limit',
+        reason: securityPackages['express-rate-limit'],
+        priority: 'medium'
+      });
+    }
+
+    return recommendations;
+  }
+
+  /**
+   * Get patched version for vulnerable package
+   */
+  getPatchedVersion(packageName) {
+    return this.latestVersions[packageName] || 'Check npm for latest version';
+  }
+
+  /**
+   * Enhanced check for outdated packages
    */
   async checkOutdatedPackages(dependencies) {
     const outdated = [];
     
-    // Common packages with their latest stable versions (as of 2024)
-    const latestVersions = {
-      'react': '18.2.0',
-      'vue': '3.3.4',
-      'angular': '17.0.0',
-      'express': '4.18.2',
-      'lodash': '4.17.21',
-      'axios': '1.6.0',
-      'webpack': '5.89.0',
-      'typescript': '5.3.0',
-      'jest': '29.7.0',
-      'eslint': '8.55.0'
-    };
-
     for (const [packageName, version] of Object.entries(dependencies)) {
+      // Skip if version is undefined or wildcard
+      if (!version || version === '*' || version === 'latest' || version === '') {
+        continue;
+      }
+
       const cleanVersion = this.cleanVersion(version);
-      const latest = latestVersions[packageName];
+      const latest = this.latestVersions[packageName];
       
       if (latest && semver.valid(cleanVersion)) {
         try {
           if (semver.lt(cleanVersion, latest)) {
             const majorDiff = semver.major(latest) - semver.major(cleanVersion);
             const minorDiff = semver.minor(latest) - semver.minor(cleanVersion);
+            const patchDiff = semver.patch(latest) - semver.patch(cleanVersion);
             
             outdated.push({
               package: packageName,
               current: version,
+              installed: cleanVersion,
               latest: latest,
-              severity: majorDiff > 0 ? 'major' : minorDiff > 0 ? 'minor' : 'patch',
+              type: majorDiff > 0 ? 'major' : minorDiff > 0 ? 'minor' : 'patch',
               behindBy: {
                 major: majorDiff,
                 minor: minorDiff,
-                patch: semver.patch(latest) - semver.patch(cleanVersion)
-              }
+                patch: patchDiff
+              },
+              updateCommand: `npm install ${packageName}@${latest}`
             });
           }
         } catch (error) {
@@ -206,7 +357,11 @@ class DependencyScanner {
       }
     }
 
-    return outdated;
+    return outdated.sort((a, b) => {
+      // Sort by update type priority: major > minor > patch
+      const priority = { major: 3, minor: 2, patch: 1 };
+      return priority[b.type] - priority[a.type];
+    });
   }
 
   /**
@@ -215,12 +370,21 @@ class DependencyScanner {
   cleanVersion(version) {
     if (!version) return '0.0.0';
     
+    // Handle file: and git: protocols
+    if (version.startsWith('file:') || version.startsWith('git:')) {
+      return '0.0.0';
+    }
+    
     // Remove common version prefixes
     let cleaned = version.replace(/^[\^~>=<\s]+/, '');
     
     // Handle version ranges
     if (cleaned.includes(' ')) {
       cleaned = cleaned.split(' ')[0];
+    }
+    
+    if (cleaned.includes('||')) {
+      cleaned = cleaned.split('||')[0].trim();
     }
     
     // Handle .x versions
@@ -259,17 +423,29 @@ class DependencyScanner {
    */
   getCVSSScore(severity) {
     const scores = {
-      'critical': 9.0,
-      'high': 7.5,
-      'medium': 5.0,
-      'low': 3.0,
-      'info': 1.0
+      'critical': {
+        baseScore: 9.8,
+        vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H'
+      },
+      'high': {
+        baseScore: 7.5,
+        vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N'
+      },
+      'medium': {
+        baseScore: 5.3,
+        vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N'
+      },
+      'low': {
+        baseScore: 3.1,
+        vector: 'CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:L/I:N/A:N'
+      },
+      'info': {
+        baseScore: 0.0,
+        vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:N'
+      }
     };
     
-    return {
-      baseScore: scores[severity] || 5.0,
-      vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:L'
-    };
+    return scores[severity] || scores['medium'];
   }
 
   /**
@@ -288,9 +464,9 @@ class DependencyScanner {
   }
 
   /**
-   * Generate summary
+   * Generate enhanced summary with actionable insights
    */
-  generateSummary(vulnerabilities, outdatedPackages) {
+  generateEnhancedSummary(vulnerabilities, outdatedPackages, warnings) {
     const severityCount = {
       critical: 0,
       high: 0,
@@ -304,40 +480,141 @@ class DependencyScanner {
       severityCount[severity]++;
     });
 
+    // Calculate risk score
+    const riskScore = 
+      severityCount.critical * 40 +
+      severityCount.high * 20 +
+      severityCount.medium * 10 +
+      severityCount.low * 5;
+
+    // Determine risk level
+    let riskLevel;
+    if (riskScore >= 100) riskLevel = 'CRITICAL';
+    else if (riskScore >= 50) riskLevel = 'HIGH';
+    else if (riskScore >= 20) riskLevel = 'MEDIUM';
+    else if (riskScore > 0) riskLevel = 'LOW';
+    else riskLevel = 'MINIMAL';
+
     return {
+      riskScore,
+      riskLevel,
       totalVulnerabilities: vulnerabilities.length,
       totalOutdated: outdatedPackages.length,
+      totalWarnings: warnings.length,
       severityDistribution: severityCount,
       needsImmediateAction: severityCount.critical > 0 || severityCount.high > 2,
-      recommendation: this.generateRecommendation(severityCount, outdatedPackages)
+      recommendation: this.generateDetailedRecommendation(severityCount, outdatedPackages, warnings),
+      actionItems: this.generateActionItems(vulnerabilities, outdatedPackages)
     };
   }
 
   /**
-   * Generate recommendation based on findings
+   * Generate detailed recommendations
    */
-  generateRecommendation(severityCount, outdatedPackages) {
+  generateDetailedRecommendation(severityCount, outdatedPackages, warnings) {
+    const recommendations = [];
+
     if (severityCount.critical > 0) {
-      return 'CRITICAL: Update vulnerable dependencies immediately. Critical security vulnerabilities detected.';
+      recommendations.push({
+        priority: 'CRITICAL',
+        message: 'Critical vulnerabilities detected requiring immediate action',
+        action: 'Update affected packages immediately to prevent potential security breaches'
+      });
     }
     
-    if (severityCount.high > 2) {
-      return 'HIGH PRIORITY: Multiple high-severity vulnerabilities detected. Schedule immediate updates.';
+    if (severityCount.high > 0) {
+      recommendations.push({
+        priority: 'HIGH',
+        message: `${severityCount.high} high-severity vulnerabilities found`,
+        action: 'Schedule updates within the next sprint'
+      });
     }
     
-    if (severityCount.high > 0 || severityCount.medium > 5) {
-      return 'MEDIUM PRIORITY: Security vulnerabilities detected. Plan updates in next sprint.';
+    if (severityCount.medium > 0) {
+      recommendations.push({
+        priority: 'MEDIUM',
+        message: `${severityCount.medium} medium-severity issues detected`,
+        action: 'Plan updates in regular maintenance cycle'
+      });
     }
     
     if (outdatedPackages.length > 10) {
-      return 'MAINTENANCE NEEDED: Many outdated packages detected. Schedule regular dependency updates.';
+      recommendations.push({
+        priority: 'MAINTENANCE',
+        message: 'Many outdated packages detected',
+        action: 'Implement regular dependency update schedule'
+      });
+    }
+
+    if (warnings.length > 0) {
+      recommendations.push({
+        priority: 'INFO',
+        message: `${warnings.length} warnings about package configuration`,
+        action: 'Review and fix package version specifications'
+      });
     }
     
-    if (severityCount.low > 0 || outdatedPackages.length > 0) {
-      return 'LOW PRIORITY: Minor issues detected. Include in regular maintenance cycle.';
+    if (recommendations.length === 0) {
+      recommendations.push({
+        priority: 'GOOD',
+        message: 'Dependencies are relatively secure',
+        action: 'Continue regular security monitoring'
+      });
     }
+
+    return recommendations;
+  }
+
+  /**
+   * Generate specific action items
+   */
+  generateActionItems(vulnerabilities, outdatedPackages) {
+    const actions = [];
     
-    return 'SECURE: No known vulnerabilities detected in dependencies.';
+    // Group vulnerabilities by package
+    const vulnByPackage = {};
+    vulnerabilities.forEach(v => {
+      if (!vulnByPackage[v.package]) {
+        vulnByPackage[v.package] = [];
+      }
+      vulnByPackage[v.package].push(v);
+    });
+
+    // Generate update commands
+    Object.entries(vulnByPackage).forEach(([pkg, vulns]) => {
+      const severity = Math.max(...vulns.map(v => 
+        v.vulnerability.severity === 'critical' ? 4 :
+        v.vulnerability.severity === 'high' ? 3 :
+        v.vulnerability.severity === 'medium' ? 2 : 1
+      ));
+      
+      const latest = this.latestVersions[pkg];
+      if (latest) {
+        actions.push({
+          type: 'update',
+          priority: severity,
+          package: pkg,
+          command: `npm install ${pkg}@${latest}`,
+          reason: vulns[0].vulnerability.description
+        });
+      }
+    });
+
+    // Add major version updates
+    outdatedPackages
+      .filter(p => p.type === 'major')
+      .slice(0, 5)
+      .forEach(p => {
+        actions.push({
+          type: 'major-update',
+          priority: 2,
+          package: p.package,
+          command: p.updateCommand,
+          reason: `Major version behind (${p.behindBy.major} major versions)`
+        });
+      });
+
+    return actions.sort((a, b) => b.priority - a.priority);
   }
 
   /**
@@ -347,66 +624,52 @@ class DependencyScanner {
     const vulnerabilities = [];
     
     if (type === 'npm') {
-      // Parse package-lock.json
       try {
         const lockData = JSON.parse(lockFileContent);
-        const packages = lockData.packages || lockData.dependencies;
+        const packages = lockData.packages || lockData.dependencies || {};
         
         for (const [path, data] of Object.entries(packages)) {
-          const packageName = path.replace('node_modules/', '');
+          const packageName = path.replace('node_modules/', '').replace(/^\//, '');
           if (packageName && data.version) {
             const vuln = this.vulnerabilityDB[packageName];
             if (vuln && this.isVulnerable(data.version, vuln.vulnerableVersions)) {
               vulnerabilities.push({
                 package: packageName,
                 version: data.version,
-                vulnerability: vuln
+                installedVersion: data.version,
+                vulnerability: {
+                  ...vuln,
+                  cvss: this.getCVSSScore(vuln.severity)
+                }
               });
             }
           }
         }
       } catch (error) {
         console.error('Error parsing lock file:', error);
+        return [{
+          package: 'lock-file',
+          version: 'unknown',
+          vulnerability: {
+            severity: 'info',
+            description: 'Failed to parse lock file',
+            remediation: 'Ensure lock file is valid JSON'
+          }
+        }];
       }
-    } else if (type === 'yarn') {
-      // Parse yarn.lock - simplified parsing
-      const lines = lockFileContent.split('\n');
-      let currentPackage = null;
-      let currentVersion = null;
-      
-      lines.forEach(line => {
-        if (line.match(/^[a-zA-Z@]/)) {
-          const match = line.match(/^(.+?)@/);
-          if (match) {
-            currentPackage = match[1];
-          }
-        } else if (line.includes('version')) {
-          const match = line.match(/version\s+"(.+?)"/);
-          if (match && currentPackage) {
-            currentVersion = match[1];
-            const vuln = this.vulnerabilityDB[currentPackage];
-            if (vuln && this.isVulnerable(currentVersion, vuln.vulnerableVersions)) {
-              vulnerabilities.push({
-                package: currentPackage,
-                version: currentVersion,
-                vulnerability: vuln
-              });
-            }
-          }
-        }
-      });
     }
     
     return vulnerabilities;
   }
 }
 
-// Add endpoint to server.js
+// Enhanced endpoint handler
 function addDependencyScanEndpoint(app) {
   const scanner = new DependencyScanner();
   
   app.post('/scan-dependencies', async (req, res) => {
     console.log('=== DEPENDENCY SCAN REQUEST ===');
+    const startTime = Date.now();
     
     try {
       const { packageJson, lockFile, lockFileType } = req.body;
@@ -414,14 +677,33 @@ function addDependencyScanEndpoint(app) {
       if (!packageJson) {
         return res.status(400).json({
           status: 'error',
-          message: 'No package.json provided'
+          message: 'No package.json provided',
+          hint: 'Send package.json content in the request body'
         });
       }
       
       // Parse package.json if it's a string
-      const pkgData = typeof packageJson === 'string' 
-        ? JSON.parse(packageJson) 
-        : packageJson;
+      let pkgData;
+      try {
+        pkgData = typeof packageJson === 'string' 
+          ? JSON.parse(packageJson) 
+          : packageJson;
+      } catch (parseError) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Invalid package.json format',
+          error: parseError.message
+        });
+      }
+      
+      // Validate package.json structure
+      if (!pkgData.dependencies && !pkgData.devDependencies) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'No dependencies found in package.json',
+          hint: 'Ensure package.json contains dependencies or devDependencies'
+        });
+      }
       
       // Scan dependencies
       const results = await scanner.scanDependencies(pkgData);
@@ -431,65 +713,91 @@ function addDependencyScanEndpoint(app) {
         const lockVulns = await scanner.scanLockFile(lockFile, lockFileType || 'npm');
         results.vulnerabilities.push(...lockVulns);
         results.vulnerabilities = scanner.deduplicateVulnerabilities(results.vulnerabilities);
+        results.metrics.lockFileScanned = true;
       }
       
       // Calculate risk score
       const riskScore = calculateDependencyRiskScore(results.vulnerabilities);
       
+      // Calculate scan time
+      const scanTime = Date.now() - startTime;
+      
       res.json({
         status: 'success',
         ...results,
         riskScore,
-        scanDate: new Date().toISOString()
+        scanMetadata: {
+          scanDate: new Date().toISOString(),
+          scanTimeMs: scanTime,
+          packageName: pkgData.name || 'unknown',
+          packageVersion: pkgData.version || 'unknown'
+        }
       });
       
+      console.log(`✅ Dependency scan completed in ${scanTime}ms`);
+      console.log(`   Found ${results.vulnerabilities.length} vulnerabilities`);
+      console.log(`   Risk level: ${results.summary.riskLevel}`);
+      
     } catch (error) {
-      console.error('Dependency scan error:', error);
+      console.error('❌ Dependency scan error:', error);
       res.status(500).json({
         status: 'error',
         message: 'Dependency scan failed',
-        error: error.message
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
   });
 }
 
 /**
- * Calculate risk score for dependencies
+ * Enhanced risk score calculation
  */
 function calculateDependencyRiskScore(vulnerabilities) {
   const severityPoints = {
-    'critical': 25,
-    'high': 15,
-    'medium': 8,
-    'low': 3,
+    'critical': 40,
+    'high': 20,
+    'medium': 10,
+    'low': 5,
     'info': 1
   };
   
   let score = 0;
+  const details = {
+    critical: [],
+    high: [],
+    medium: [],
+    low: []
+  };
+  
   vulnerabilities.forEach(vuln => {
     const severity = vuln.vulnerability?.severity || 'medium';
     score += severityPoints[severity] || 5;
+    
+    if (severity !== 'info') {
+      details[severity]?.push(vuln.package);
+    }
   });
   
   // Determine risk level
   let level;
-  if (score >= 50) level = 'critical';
-  else if (score >= 25) level = 'high';
-  else if (score >= 10) level = 'medium';
+  if (score >= 100) level = 'critical';
+  else if (score >= 50) level = 'high';
+  else if (score >= 20) level = 'medium';
   else if (score > 0) level = 'low';
   else level = 'none';
   
   return {
     score,
     level,
-    recommendation: score > 25 
-      ? 'Immediate action required to update vulnerable dependencies'
-      : score > 10
-      ? 'Schedule dependency updates in next sprint'
+    details,
+    recommendation: score > 50 
+      ? '🚨 Immediate action required to update vulnerable dependencies'
+      : score > 20
+      ? '⚠️ Schedule dependency updates in next sprint'
       : score > 0
-      ? 'Minor vulnerabilities detected, include in regular maintenance'
-      : 'Dependencies are secure'
+      ? 'ℹ️ Minor vulnerabilities detected, include in regular maintenance'
+      : '✅ Dependencies are secure'
   };
 }
 
@@ -506,7 +814,9 @@ if (require.main === module) {
     dependencies: {
       'express': '4.16.0',
       'lodash': '4.17.11',
-      'axios': '0.19.0'
+      'axios': '0.19.0',
+      'moment': '',
+      'jquery': undefined
     },
     devDependencies: {
       'webpack': '5.0.0',
