@@ -1,5 +1,4 @@
-// dependencyScanner.js - Enhanced vulnerability scanner for package.json dependencies
-const https = require('https');
+// dependencyScanner.js - Fixed version with all blockers resolved
 const semver = require('semver');
 
 class DependencyScanner {
@@ -139,19 +138,32 @@ class DependencyScanner {
       'dotenv': '16.4.5',
       'cors': '2.8.5',
       'multer': '1.4.5-lts.1',
-      'semver': '7.6.0'
+      'semver': '7.6.0',
+      'helmet': '7.0.0',
+      'express-rate-limit': '6.8.0'
     };
   }
 
   /**
-   * Enhanced scanning with better version handling
+   * Helper to normalize severity strings
    */
-  async scanDependencies(packageJson) {
+  normalizeSeverity(severity) {
+    return (severity || 'medium').toString().toLowerCase();
+  }
+
+  /**
+   * FIX: Accept options parameter and honor includeDevDependencies
+   */
+  async scanDependencies(packageJson, options = {}) {
+    const { includeDevDependencies = true } = options;
+    
     const vulnerabilities = [];
     const warnings = [];
+
+    // FIX: Conditionally include devDependencies based on options
     const dependencies = {
       ...packageJson.dependencies,
-      ...packageJson.devDependencies
+      ...(includeDevDependencies ? packageJson.devDependencies : {})
     };
 
     // Track scanning metrics
@@ -207,6 +219,7 @@ class DependencyScanner {
             installedVersion: cleanVersion,
             vulnerability: {
               ...vuln,
+              severity: this.normalizeSeverity(vuln.severity),
               cvss: this.getCVSSScore(vuln.severity),
               patchedVersions: this.getPatchedVersion(packageName)
             }
@@ -230,30 +243,45 @@ class DependencyScanner {
     // Check for missing security packages
     const securityRecommendations = this.checkSecurityPackages(dependencies);
 
+    // FIX: Deduplicate BEFORE generating summary to avoid double-counting
+    const deduped = this.deduplicateVulnerabilities(vulnerabilities);
+
     return {
-      vulnerabilities: this.deduplicateVulnerabilities(vulnerabilities),
+      vulnerabilities: deduped,
       outdatedPackages,
       warnings,
       securityRecommendations,
       metrics: {
         packagesScanned,
         undefinedVersions,
-        vulnerablePackages: vulnerabilities.length,
+        vulnerablePackages: deduped.length,  // Use deduped count
         outdatedPackages: outdatedPackages.length
       },
-      summary: this.generateEnhancedSummary(vulnerabilities, outdatedPackages, warnings)
+      summary: this.generateEnhancedSummary(deduped, outdatedPackages, warnings)  // Pass deduped list
     };
   }
 
   /**
-   * Check for deprecated packages
+   * Check if version is vulnerable
+   */
+  isVulnerable(version, vulnerableVersions) {
+    try {
+      return semver.satisfies(version, vulnerableVersions);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Check for deprecated packages (enhanced)
    */
   isDeprecated(packageName) {
     const deprecated = {
       'request': true,
       'request-promise': true,
       'node-sass': true,
-      'tslint': true
+      'tslint': true,
+      'moment': true  // FIX: Added moment to deprecated check
     };
     return deprecated[packageName] || false;
   }
@@ -273,35 +301,69 @@ class DependencyScanner {
   }
 
   /**
-   * Check for security-enhancing packages
+   * Enhanced check for security-enhancing packages
    */
   checkSecurityPackages(dependencies) {
     const recommendations = [];
     const securityPackages = {
-      'helmet': 'Helps secure Express apps by setting various HTTP headers',
-      'express-rate-limit': 'Basic rate-limiting middleware for Express',
-      'express-validator': 'Middleware for input validation',
-      'bcrypt': 'Library for hashing passwords',
-      'jsonwebtoken': 'JWT implementation for authentication',
-      'dotenv': 'Loads environment variables from .env file',
-      'express-mongo-sanitize': 'Prevents MongoDB injection attacks',
-      'xss-clean': 'Sanitize user input to prevent XSS attacks'
+      'helmet': {
+        description: 'Helps secure Express apps by setting various HTTP headers',
+        config: 'Consider enabling contentSecurityPolicy for XSS protection'
+      },
+      'express-rate-limit': {
+        description: 'Basic rate-limiting middleware for Express',
+        config: 'Configure with appropriate limits for your endpoints'
+      },
+      'express-validator': {
+        description: 'Middleware for input validation',
+        config: null
+      },
+      'bcrypt': {
+        description: 'Library for hashing passwords',
+        config: null
+      },
+      'jsonwebtoken': {
+        description: 'JWT implementation for authentication',
+        config: null
+      },
+      'dotenv': {
+        description: 'Loads environment variables from .env file',
+        config: null
+      },
+      'express-mongo-sanitize': {
+        description: 'Prevents MongoDB injection attacks',
+        config: null
+      }
     };
 
     // Check if it's an Express app
-    if (dependencies['express'] && !dependencies['helmet']) {
-      recommendations.push({
-        package: 'helmet',
-        reason: securityPackages['helmet'],
-        priority: 'high'
-      });
+    if (dependencies['express']) {
+      if (!dependencies['helmet']) {
+        recommendations.push({
+          package: 'helmet',
+          reason: securityPackages['helmet'].description,
+          priority: 'high',
+          config: securityPackages['helmet'].config
+        });
+      }
+
+      if (!dependencies['express-rate-limit']) {
+        recommendations.push({
+          package: 'express-rate-limit',
+          reason: securityPackages['express-rate-limit'].description,
+          priority: 'medium',
+          config: securityPackages['express-rate-limit'].config
+        });
+      }
     }
 
-    if (dependencies['express'] && !dependencies['express-rate-limit']) {
+    // Note about xss-clean being legacy
+    if (dependencies['xss-clean']) {
       recommendations.push({
-        package: 'express-rate-limit',
-        reason: securityPackages['express-rate-limit'],
-        priority: 'medium'
+        package: 'xss-clean',
+        reason: 'Consider using modern template engines with built-in escaping or DOMPurify on the client',
+        priority: 'info',
+        type: 'legacy'
       });
     }
 
@@ -365,7 +427,7 @@ class DependencyScanner {
   }
 
   /**
-   * Clean version string (remove ^, ~, etc.)
+   * Clean version string (enhanced)
    */
   cleanVersion(version) {
     if (!version) return '0.0.0';
@@ -375,8 +437,10 @@ class DependencyScanner {
       return '0.0.0';
     }
     
-    // Remove common version prefixes
-    let cleaned = version.replace(/^[\^~>=<\s]+/, '');
+    // Remove common version prefixes and any parentheses/quotes
+    let cleaned = version
+      .replace(/^[\^~>=<\s"'()]+/, '')
+      .replace(/["'()]+$/, '');
     
     // Handle version ranges
     if (cleaned.includes(' ')) {
@@ -404,24 +468,10 @@ class DependencyScanner {
   }
 
   /**
-   * Check if version is vulnerable
-   */
-  isVulnerable(version, vulnerableRange) {
-    try {
-      if (!semver.valid(version)) {
-        return false;
-      }
-      return semver.satisfies(version, vulnerableRange);
-    } catch (error) {
-      console.error('Error checking vulnerability:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Get CVSS score based on severity
+   * Get CVSS score based on severity (heuristic, not official CVSS)
    */
   getCVSSScore(severity) {
+    const normalizedSev = this.normalizeSeverity(severity);
     const scores = {
       'critical': {
         baseScore: 9.8,
@@ -445,7 +495,7 @@ class DependencyScanner {
       }
     };
     
-    return scores[severity] || scores['medium'];
+    return scores[normalizedSev] || scores['medium'];
   }
 
   /**
@@ -464,7 +514,7 @@ class DependencyScanner {
   }
 
   /**
-   * Generate enhanced summary with actionable insights
+   * Generate enhanced summary with actionable insights (FIXED)
    */
   generateEnhancedSummary(vulnerabilities, outdatedPackages, warnings) {
     const severityCount = {
@@ -476,7 +526,7 @@ class DependencyScanner {
     };
 
     vulnerabilities.forEach(vuln => {
-      const severity = vuln.vulnerability?.severity || 'medium';
+      const severity = this.normalizeSeverity(vuln.vulnerability?.severity);
       severityCount[severity]++;
     });
 
@@ -484,8 +534,8 @@ class DependencyScanner {
     const riskCalc = calculateDependencyRiskScore(vulnerabilities);
 
     return {
-      riskScore: riskCalc.score,  // Use the score from the single source
-      riskLevel: riskCalc.level.toUpperCase(),  // Convert to uppercase for consistency
+      riskScore: riskCalc.score,
+      riskLevel: riskCalc.level.toUpperCase(),
       totalVulnerabilities: vulnerabilities.length,
       totalOutdated: outdatedPackages.length,
       totalWarnings: warnings.length,
@@ -493,7 +543,7 @@ class DependencyScanner {
       needsImmediateAction: severityCount.critical > 0 || severityCount.high > 2,
       recommendation: this.generateDetailedRecommendation(severityCount, outdatedPackages, warnings),
       actionItems: this.generateActionItems(vulnerabilities, outdatedPackages),
-      riskDetails: riskCalc.details  // Include the details for frontend
+      riskDetails: riskCalc.details
     };
   }
 
@@ -571,17 +621,16 @@ class DependencyScanner {
 
     // Generate update commands
     Object.entries(vulnByPackage).forEach(([pkg, vulns]) => {
-      const severity = Math.max(...vulns.map(v => 
-        v.vulnerability.severity === 'critical' ? 4 :
-        v.vulnerability.severity === 'high' ? 3 :
-        v.vulnerability.severity === 'medium' ? 2 : 1
-      ));
+      const severities = vulns.map(v => this.normalizeSeverity(v.vulnerability?.severity));
+      const priority = severities.includes('critical') ? 4 :
+                      severities.includes('high') ? 3 :
+                      severities.includes('medium') ? 2 : 1;
       
       const latest = this.latestVersions[pkg];
       if (latest) {
         actions.push({
           type: 'update',
-          priority: severity,
+          priority: priority,
           package: pkg,
           command: `npm install ${pkg}@${latest}`,
           reason: vulns[0].vulnerability.description
@@ -618,6 +667,11 @@ class DependencyScanner {
         const packages = lockData.packages || lockData.dependencies || {};
         
         for (const [path, data] of Object.entries(packages)) {
+          // FIX: Skip root package and non-node_modules paths
+          if (!path || path === '' || (path && !path.startsWith('node_modules/'))) {
+            continue;
+          }
+          
           const packageName = path.replace('node_modules/', '').replace(/^\//, '');
           if (packageName && data.version) {
             const vuln = this.vulnerabilityDB[packageName];
@@ -628,6 +682,7 @@ class DependencyScanner {
                 installedVersion: data.version,
                 vulnerability: {
                   ...vuln,
+                  severity: this.normalizeSeverity(vuln.severity),
                   cvss: this.getCVSSScore(vuln.severity)
                 }
               });
@@ -650,93 +705,13 @@ class DependencyScanner {
     
     return vulnerabilities;
   }
-}
 
-// Enhanced endpoint handler
-function addDependencyScanEndpoint(app) {
-  const scanner = new DependencyScanner();
-  
-  app.post('/scan-dependencies', async (req, res) => {
-    console.log('=== DEPENDENCY SCAN REQUEST ===');
-    const startTime = Date.now();
-    
-    try {
-      const { packageJson, lockFile, lockFileType } = req.body;
-      
-      if (!packageJson) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'No package.json provided',
-          hint: 'Send package.json content in the request body'
-        });
-      }
-      
-      // Parse package.json if it's a string
-      let pkgData;
-      try {
-        pkgData = typeof packageJson === 'string' 
-          ? JSON.parse(packageJson) 
-          : packageJson;
-      } catch (parseError) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Invalid package.json format',
-          error: parseError.message
-        });
-      }
-      
-      // Validate package.json structure
-      if (!pkgData.dependencies && !pkgData.devDependencies) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'No dependencies found in package.json',
-          hint: 'Ensure package.json contains dependencies or devDependencies'
-        });
-      }
-      
-      // Scan dependencies
-      const results = await scanner.scanDependencies(pkgData);
-      
-      // If lock file provided, scan it too
-      if (lockFile) {
-        const lockVulns = await scanner.scanLockFile(lockFile, lockFileType || 'npm');
-        results.vulnerabilities.push(...lockVulns);
-        results.vulnerabilities = scanner.deduplicateVulnerabilities(results.vulnerabilities);
-        results.metrics.lockFileScanned = true;
-      }
-      
-      // Calculate risk score
-      const riskScore = calculateDependencyRiskScore(results.vulnerabilities);
-      
-      // Calculate scan time
-      const scanTime = Date.now() - startTime;
-      
-      res.json({
-        status: 'success',
-        ...results,
-        riskScore,
-        scanMetadata: {
-          scanDate: new Date().toISOString(),
-          scanTimeMs: scanTime,
-          packageName: pkgData.name || 'unknown',
-          packageVersion: pkgData.version || 'unknown'
-        }
-      });
-      
-      console.log(`✅ Dependency scan completed in ${scanTime}ms`);
-      console.log(`   Found ${results.vulnerabilities.length} vulnerabilities`);
-      console.log(`   Risk level: ${results.summary.riskLevel}`);
-      
-    } catch (error) {
-      console.error('❌ Dependency scan error:', error);
-      res.status(500).json({
-        status: 'error',
-        message: 'Dependency scan failed',
-        error: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      });
-    }
-  });
+  /**
+   * Update latest versions (for refreshing the versions table)
+   */
+  updateLatestVersions(versionMap) {
+    Object.assign(this.latestVersions, versionMap);
+  }
 }
 
 /**
@@ -760,11 +735,12 @@ function calculateDependencyRiskScore(vulnerabilities) {
   };
   
   vulnerabilities.forEach(vuln => {
-    const severity = vuln.vulnerability?.severity || 'medium';
+    // Normalize severity for consistency
+    const severity = (vuln.vulnerability?.severity || 'medium').toString().toLowerCase();
     score += severityPoints[severity] || 5;
     
-    if (severity !== 'info') {
-      details[severity]?.push(vuln.package);
+    if (severity !== 'info' && details[severity]) {
+      details[severity].push(vuln.package);
     }
   });
   
@@ -792,28 +768,5 @@ function calculateDependencyRiskScore(vulnerabilities) {
 
 module.exports = {
   DependencyScanner,
-  addDependencyScanEndpoint,
   calculateDependencyRiskScore
 };
-
-// For testing
-if (require.main === module) {
-  const scanner = new DependencyScanner();
-  const testPackageJson = {
-    dependencies: {
-      'express': '4.16.0',
-      'lodash': '4.17.11',
-      'axios': '0.19.0',
-      'moment': '2.24.0',
-      'jquery': '3.4.0'
-    },
-    devDependencies: {
-      'webpack': '5.0.0',
-      'jest': '26.0.0'
-    }
-  };
-  
-  scanner.scanDependencies(testPackageJson).then(results => {
-    console.log('Scan results:', JSON.stringify(results, null, 2));
-  });
-}

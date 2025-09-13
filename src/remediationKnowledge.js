@@ -665,3 +665,15 @@ module.exports.getOWASP = function(cweId) {
   
   return owaspMap[cweId] || 'A06:2021';
 };
+
+// New helper function to get a one-liner remediation for list views
+module.exports.getOneLiner = function(cweId) {
+  const r = module.exports[cweId];
+  if (!r) return 'Review and apply security best practices';
+  
+  // Try to get the JavaScript fix first (most common), then fallback to general fix
+  return r.remediation?.javascript?.fix || 
+         r.remediation?.fix || 
+         r.title || 
+         'Remediate per OWASP guidance';
+};

@@ -1,867 +1,566 @@
-// server.js - Enhanced with real AST-based scanning and dependency scanning
+// server.js - Enhanced with user configuration and context support (PROPERLY FIXED)
 const express = require('express');
+const helmet = require('helmet');
 const cors = require('cors');
-const multer = require('multer');
-const parser = require('@babel/parser');
-const traverse = require('@babel/traverse').default;
-const t = require('@babel/types');
-const fs = require('fs');
 const path = require('path');
+const fs = require('fs');
 const os = require('os');
 
-// Import dependency scanner
-const { DependencyScanner, addDependencyScanEndpoint, calculateDependencyRiskScore } = require('./dependencyScanner');
+// Import the enhanced risk calculator
+const EnhancedRiskCalculator = require('./enhancedRiskCalculator');
 
-// Import remediation knowledge if file exists
-let remediationKnowledge = {};
-try {
-  remediationKnowledge = require('./remediationKnowledge');
-  console.log('✅ Remediation knowledge loaded');
-} catch (e) {
-  console.log('⚠️ Remediation knowledge file not found, using basic defaults');
-  // Basic fallback remediations
-  remediationKnowledge = {
-    SQL_INJECTION: {
-      title: "Use Parameterized Queries",
-      description: "Never concatenate user input directly into SQL queries",
-      steps: ["Use prepared statements", "Validate input", "Use ORM libraries"],
-      references: ["https://owasp.org/www-community/attacks/SQL_Injection"]
-    },
-    XSS: {
-      title: "Sanitize Output",
-      description: "Encode data before inserting into HTML",
-      steps: ["Use textContent instead of innerHTML", "HTML-encode user input", "Implement CSP"],
-      references: ["https://owasp.org/www-community/attacks/xss/"]
-    }
-  };
+// Import the AST vulnerability scanner
+const { ASTVulnerabilityScanner } = require('./astScanner');
+const classifier = new ASTVulnerabilityScanner();
+
+// Import dependency scanner
+const { DependencyScanner } = require('./dependencyScanner');
+const depScanner = new DependencyScanner();
+
+// Import and configure rate limiting
+const rateLimit = require('express-rate-limit');
+
+// Helper function for creating rate limiters
+function rateLimiter(max, windowMs) {
+  return rateLimit({
+    windowMs: windowMs,
+    max: max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: 'Too many requests from this IP, please try again later.'
+  });
 }
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const HOST = '0.0.0.0'; // CRITICAL: Must bind to 0.0.0.0 for Railway
 
-// Enhanced CORS configuration - Fixed for Railway
-const corsOptions = {
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'http://localhost:5173',
-      'http://localhost:5174',
-      'https://neperia-code-guardian.lovable.app',
-      'https://semgrep-backend-production.up.railway.app'
-    ];
-    
-    // Allow requests with no origin (like mobile apps or Postman)
-    if (!origin) return callback(null, true);
-    
-    // Check if origin matches allowed patterns
-    const isAllowed = allowedOrigins.some(allowed => origin === allowed) ||
-                      origin.includes('.lovable.app') ||
-                      origin.includes('.base44.app') ||
-                      origin.includes('.vercel.app') ||
-                      origin.includes('.railway.app');
-    
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      console.log('CORS blocked origin:', origin);
-      callback(null, true); // For debugging, allow all origins temporarily
-    }
+// Security middleware - Helmet with proper CSP
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
   },
-  methods: ['GET', 'POST', 'OPTIONS'],
+}));
+
+// CORS middleware
+app.use(cors({
+  origin: true,
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  optionsSuccessStatus: 200 // For legacy browser support
-};
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
-app.use(cors(corsOptions));
-
+// Body parsing middleware
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-const upload = multer({ 
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }
-});
-
-// Add request logging middleware
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - Origin: ${req.headers.origin || 'no-origin'}`);
-  next();
-});
-
-// AST-based vulnerability scanner
-class ASTVulnerabilityScanner {
-  constructor() {
-    this.findings = [];
-    this.currentFile = '';
+/**
+ * Sanitize and validate risk configuration
+ */
+function sanitizeRiskConfig(cfg = {}) {
+  const config = JSON.parse(JSON.stringify(cfg)); // Deep clone
+  
+  // Sanitize severity points
+  const points = config.severityPoints || config.fileLevel?.severityPoints;
+  if (points) {
+    ['critical', 'high', 'medium', 'low', 'info'].forEach(k => {
+      if (points[k] != null) {
+        points[k] = Math.max(0, Math.min(100, Number(points[k]) || 0));
+      }
+    });
   }
-
-  reset() {
-    this.findings = [];
-    this.currentFile = '';
+  
+  // Sanitize risk thresholds
+  const thresholds = config.riskThresholds || config.fileLevel?.riskThresholds;
+  if (thresholds) {
+    Object.keys(thresholds).forEach(k => {
+      if (thresholds[k] != null) {
+        thresholds[k] = Math.max(0, Math.min(100, Number(thresholds[k]) || 0));
+      }
+    });
+    
+    // Ensure proper ordering
+    if (thresholds.critical != null && thresholds.high != null) {
+      thresholds.high = Math.min(thresholds.high, thresholds.critical);
+    }
+    if (thresholds.high != null && thresholds.medium != null) {
+      thresholds.medium = Math.min(thresholds.medium, thresholds.high);
+    }
+    if (thresholds.medium != null && thresholds.low != null) {
+      thresholds.low = Math.min(thresholds.low, thresholds.medium);
+    }
+    if (thresholds.low != null && thresholds.minimal != null) {
+      thresholds.minimal = Math.min(thresholds.minimal, thresholds.low);
+    }
   }
-
-  // Helper functions to handle both regular and optional chaining
-  isMember(n) {
-    return t.isMemberExpression(n) || t.isOptionalMemberExpression(n);
+  
+  // Sanitize normalization settings
+  if (config.normalization) {
+    if (config.normalization.minScore != null) {
+      config.normalization.minScore = Math.max(0, Math.min(100, Number(config.normalization.minScore) || 0));
+    }
+    if (config.normalization.maxScore != null) {
+      config.normalization.maxScore = Math.max(0, Math.min(1000, Number(config.normalization.maxScore) || 100));
+    }
+    if (config.normalization.targetMin != null) {
+      config.normalization.targetMin = Math.max(0, Math.min(100, Number(config.normalization.targetMin) || 0));
+    }
+    if (config.normalization.targetMax != null) {
+      config.normalization.targetMax = Math.max(0, Math.min(100, Number(config.normalization.targetMax) || 100));
+    }
   }
+  
+  return config;
+}
 
-  isCall(n) {
-    return t.isCallExpression(n) || t.isOptionalCallExpression(n);
+/**
+ * Sanitize context factors
+ */
+function sanitizeContextFactors(context = {}) {
+  const sanitized = { ...context };
+  
+  if (sanitized.factors) {
+    Object.keys(sanitized.factors).forEach(factorName => {
+      const factor = sanitized.factors[factorName];
+      if (factor && factor.weight != null) {
+        factor.weight = Math.max(0.5, Math.min(3.0, Number(factor.weight) || 1.0));
+      }
+    });
   }
+  
+  return sanitized;
+}
 
-  getPropName(member) {
-    if (!this.isMember(member)) return null;
-    const p = member.property;
-    return t.isIdentifier(p) ? p.name : (t.isStringLiteral(p) ? p.value : null);
-  }
+/**
+ * Helper function to normalize severity strings
+ */
+function normalizeSeverity(severity) {
+  return (severity || 'info').toString().toLowerCase();
+}
 
-  // Helper to check if path argument is dynamic
-  isDynamicPathArg(arg) {
-    if (!arg) return false;
-
-    // Identifier or object.property (including optional chaining)
-    if (t.isIdentifier(arg) || t.isMemberExpression(arg) || t.isOptionalMemberExpression(arg)) {
-      return true;
+/**
+ * Enhanced code scanning endpoint
+ */
+app.post('/scan-code', rateLimiter(50, 60000), async (req, res) => {
+  console.log('=== CODE SCAN REQUEST RECEIVED ===');
+  console.log('Origin:', req.headers.origin);
+  
+  const startTime = Date.now();
+  
+  try {
+    const { 
+      code, 
+      language = 'javascript', 
+      filename = 'code.js',
+      riskConfig = {},
+      context = {}
+    } = req.body;
+    
+    if (!code || typeof code !== 'string' || code.trim() === '') {
+      return res.status(400).json({ 
+        status: 'error', 
+        message: 'No code provided' 
+      });
     }
 
-    // Template literal with expressions only
-    if (t.isTemplateLiteral(arg) && arg.expressions.length > 0) {
-      return true;
+    console.log('Code length:', code.length);
+    console.log('Language:', language);
+    console.log('Risk config provided:', Object.keys(riskConfig).length > 0);
+    console.log('Context provided:', Object.keys(context).length > 0);
+    
+    // Scan for vulnerabilities
+    const findings = classifier.scan(code, filename, language);
+    console.log(`Found ${findings.length} vulnerabilities`);
+    
+    // Sanitize configurations
+    const sanitizedConfig = sanitizeRiskConfig(riskConfig);
+    const sanitizedContext = sanitizeContextFactors(context);
+    
+    // Create risk calculator instance
+    const calc = new EnhancedRiskCalculator(sanitizedConfig);
+    
+    // Calculate risk scores
+    const { score, risk } = calc.calculateFileRisk(findings, sanitizedContext);
+    
+    // Build severity distribution
+    const severityDistribution = {
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      info: 0
+    };
+    
+    findings.forEach(f => {
+      const severity = normalizeSeverity(f.severity);
+      if (severityDistribution.hasOwnProperty(severity)) {
+        severityDistribution[severity]++;
+      }
+    });
+    
+    // Build top risks
+    const topRisks = findings
+      .filter(f => {
+        const sev = normalizeSeverity(f.severity);
+        return sev === 'critical' || sev === 'high';
+      })
+      .slice(0, 3)
+      .map(f => ({
+        title: f.title || f.check_id || 'Security Issue',
+        severity: normalizeSeverity(f.severity),
+        category: f.owasp?.category || 'OWASP A06'
+      }));
+    
+    const businessPriority = risk.priority;
+    
+    // Generate recommendation
+    let recommendation = '';
+    if (risk.level === 'critical') {
+      recommendation = 'Immediate action required. Deploy fixes to production ASAP.';
+    } else if (risk.level === 'high') {
+      recommendation = 'High priority remediation needed. Address within 48 hours.';
+    } else if (risk.level === 'medium') {
+      recommendation = 'Schedule remediation in next sprint.';
+    } else if (risk.level === 'low') {
+      recommendation = 'Include in regular maintenance cycle.';
+    } else {
+      recommendation = 'Maintain current security posture.';
     }
-
-    // Binary expression with + operator
-    if (t.isBinaryExpression(arg) && arg.operator === '+') {
-      return true;
-    }
-
-    // path.join/resolve/normalize with dynamic arguments
-    if (t.isCallExpression(arg)) {
-      if (this.isMember(arg.callee)) {
-        const obj = arg.callee.object;
-        const prop = arg.callee.property;
-        const name = t.isIdentifier(prop) ? prop.name : (t.isStringLiteral(prop) ? prop.value : null);
-        if (t.isIdentifier(obj, { name: 'path' }) && ['join', 'resolve', 'normalize'].includes(name)) {
-          return arg.arguments.some(a => this.isDynamicPathArg(a));
+    
+    const endTime = Date.now();
+    
+    // Response
+    res.json({
+      status: 'success',
+      language,
+      findings,
+      score,
+      risk,
+      riskScore: score.final,
+      riskAssessment: {
+        riskScore: score.final,
+        riskLevel: risk.level.charAt(0).toUpperCase() + risk.level.slice(1),
+        severityDistribution,
+        topRisks,
+        businessPriority,
+        confidence: risk.confidence,
+        recommendation,
+        factorImpacts: score.factorImpacts || {}
+      },
+      vulnerabilities: {
+        total: findings.length,
+        distribution: severityDistribution,
+        categories: [...new Set(findings.map(f => f.owasp?.category || 'Unknown'))]
+      },
+      metadata: {
+        scanned_at: new Date().toISOString(),
+        code_length: code.length,
+        findings_count: findings.length,
+        scan_time: `${endTime - startTime}ms`,
+        configuration: {
+          customConfig: Object.keys(riskConfig).length > 0,
+          contextProvided: Object.keys(context).length > 0
         }
       }
-    }
-
-    return false;
+    });
+    
+  } catch (error) {
+    console.error('Scan error:', error);
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Code scan failed',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
   }
+});
 
-  // Parse JavaScript/TypeScript code into AST
-  parseCode(code, language = 'javascript') {
-    try {
-      console.log('Attempting to parse code...');
-      const ast = parser.parse(code, {
-        sourceType: 'unambiguous', // Auto-detect module vs script
-        plugins: [
-          'jsx',
-          'typescript',
-          'decorators-legacy',
-          'dynamicImport',
-          'classProperties',
-          'asyncGenerators',
-          'objectRestSpread',
-          'optionalChaining',
-          'nullishCoalescingOperator',
-          'exportDefaultFrom',
-          'exportNamespaceFrom',
-          'throwExpressions',
-          'classPrivateProperties',
-          'classPrivateMethods'
-        ],
-        errorRecovery: true,
-        allowReturnOutsideFunction: true,
-        allowImportExportEverywhere: true,
-        allowAwaitOutsideFunction: true,
-        allowSuperOutsideMethod: true,
-        allowUndeclaredExports: true
+/**
+ * Enhanced dependency scanning endpoint - PROPERLY FIXED
+ */
+app.post('/scan-dependencies', async (req, res) => {
+  console.log('=== DEPENDENCY SCAN REQUEST RECEIVED ===');
+  
+  try {
+    const {
+      packageJson,
+      packageLock,
+      lockFile,
+      lockFileType = 'npm',
+      includeDevDependencies = false,
+      riskConfig = {},
+      context = {}
+    } = req.body;
+    
+    if (!packageJson) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'No package.json provided'
       });
-      console.log('✅ Parse successful, AST generated');
-      return ast;
-    } catch (error) {
-      console.error('❌ Parse error:', error.message);
-      console.error('First 500 chars of code:', code.substring(0, 500));
-      
-      // Try alternative parsing strategy
+    }
+    
+    console.log('Risk config provided:', Object.keys(riskConfig).length > 0);
+    console.log('Context provided:', Object.keys(context).length > 0);
+    
+    // Parse packageJson if string
+    const pkgJson = typeof packageJson === 'string' ? JSON.parse(packageJson) : packageJson;
+    
+    // Scan dependencies
+    const scanResults = await depScanner.scanDependencies(pkgJson, {
+      includeDevDependencies
+    });
+    
+    // Process lock file if provided - WITH PROPER DEDUPLICATION
+    if (lockFile || packageLock) {
       try {
-        console.log('Trying alternative parse with script mode...');
-        const ast = parser.parse(code, {
-          sourceType: 'script',
-          allowReturnOutsideFunction: true,
-          errorRecovery: true
-        });
-        console.log('✅ Alternative parse successful');
-        return ast;
-      } catch (altError) {
-        console.error('❌ Alternative parse also failed:', altError.message);
-      }
-      
-      // Add a finding to show parsing failed
-      this.addFinding({
-        type: 'PARSE_ERROR',
-        severity: 'info',
-        line: 0,
-        message: `Code parsing failed: ${error.message}`,
-        code: code.substring(0, 200)
-      });
-      return null;
-    }
-  }
-
-  // Main scanning function
-  scan(code, filename = 'code.js', language = 'javascript') {
-    console.log(`🔍 Starting scan of ${filename}, code length: ${code.length}`);
-    this.reset();
-    this.currentFile = filename;
-
-    const ast = this.parseCode(code, language);
-    if (!ast) {
-      console.log('❌ No AST generated, returning empty findings');
-      return this.findings;
-    }
-
-    console.log('🔎 AST generated, running detectors...');
-    
-    // Run all detection methods with logging
-    console.log('  - Detecting SQL Injection...');
-    this.detectSQLInjection(ast, code);
-    
-    console.log('  - Detecting XSS...');
-    this.detectXSS(ast, code);
-    
-    console.log('  - Detecting Hardcoded Secrets...');
-    this.detectHardcodedSecrets(ast, code);
-    
-    console.log('  - Detecting Command Injection...');
-    this.detectCommandInjection(ast, code);
-    
-    console.log('  - Detecting Insecure Crypto...');
-    this.detectInsecureCrypto(ast, code);
-    
-    console.log('  - Detecting Path Traversal...');
-    this.detectPathTraversal(ast, code);
-    
-    console.log('  - Detecting Insecure Deserialization...');
-    this.detectInsecureDeserialization(ast, code);
-    
-    console.log('  - Detecting Insecure File Operations...');
-    this.detectInsecureFileOperations(ast, code);
-    
-    console.log('  - Detecting Authentication Issues...');
-    this.detectAuthenticationIssues(ast, code);
-
-    console.log(`✅ Scan complete, found ${this.findings.length} vulnerabilities`);
-    if (this.findings.length > 0) {
-      console.log('Findings:', this.findings.map(f => `${f.type} (${f.severity})`).join(', '));
-    }
-    return this.findings;
-  }
-
-  // Fixed SQL Injection Detection
-  detectSQLInjection(ast, code) {
-    let sqlFindings = 0;
-    const dbMethods = ['query', 'execute', 'exec', 'run', 'all', 'get'];
-    
-    traverse(ast, {
-      CallExpression: (path) => {
-        const node = path.node;
-        const callee = node.callee;
-        
-        if (!this.isMember(callee)) return;
-        
-        const method = this.getPropName(callee);
-        if (!method || !dbMethods.includes(method)) return;
-        
-        const firstArg = node.arguments[0];
-        if (!firstArg) return;
-        
-        // Check for string concatenation
-        if (t.isBinaryExpression(firstArg, { operator: '+' })) {
-          this.addFinding({
-            type: 'SQL_INJECTION',
-            severity: 'high',
-            line: node.loc?.start.line || 0,
-            message: 'Potential SQL injection: Query uses string concatenation',
-            code: this.getCodeSnippet(code, node.loc)
-          });
-          sqlFindings++;
-        }
-        
-        // Check for template literals
-        if (t.isTemplateLiteral(firstArg) && firstArg.expressions.length > 0) {
-          this.addFinding({
-            type: 'SQL_INJECTION',
-            severity: 'high',
-            line: node.loc?.start.line || 0,
-            message: 'Potential SQL injection: Query uses template literals with variables',
-            code: this.getCodeSnippet(code, node.loc)
-          });
-          sqlFindings++;
-        }
-        
-        // Check for tagged templates (SQL`...${x}`)
-        if (t.isTaggedTemplateExpression(firstArg)) {
-          if (firstArg.quasi.expressions?.length) {
-            this.addFinding({
-              type: 'SQL_INJECTION',
-              severity: 'high',
-              line: node.loc?.start.line || 0,
-              message: 'Potential SQL injection: Tagged template with expressions',
-              code: this.getCodeSnippet(code, node.loc)
-            });
-            sqlFindings++;
-          }
-        }
-      },
-      
-      OptionalCallExpression: (path) => {
-        // Handle optional chaining: db?.query()
-        const node = path.node;
-        const callee = node.callee;
-        
-        if (!this.isMember(callee)) return;
-        
-        const method = this.getPropName(callee);
-        if (!method || !dbMethods.includes(method)) return;
-        
-        const firstArg = node.arguments[0];
-        if (!firstArg) return;
-        
-        if (t.isBinaryExpression(firstArg, { operator: '+' }) || 
-            (t.isTemplateLiteral(firstArg) && firstArg.expressions.length > 0)) {
-          this.addFinding({
-            type: 'SQL_INJECTION',
-            severity: 'high',
-            line: node.loc?.start.line || 0,
-            message: 'Potential SQL injection in optional chain',
-            code: this.getCodeSnippet(code, node.loc)
-          });
-          sqlFindings++;
-        }
-      }
-    });
-    
-    if (sqlFindings > 0) console.log(`    Found ${sqlFindings} SQL injection vulnerabilities`);
-  }
-
-  // Enhanced XSS Detection
-  detectXSS(ast, code) {
-    let xssFindings = 0;
-    traverse(ast, {
-      MemberExpression: (path) => {
-        const node = path.node;
-        
-        // Detect innerHTML usage
-        if (t.isIdentifier(node.property) && node.property.name === 'innerHTML') {
-          const parent = path.parent;
-          if (t.isAssignmentExpression(parent)) {
-            this.addFinding({
-              type: 'XSS',
-              severity: 'high',
-              line: node.loc?.start.line || 0,
-              message: 'Potential XSS: Direct innerHTML assignment',
-              code: this.getCodeSnippet(code, node.loc)
-            });
-            xssFindings++;
-          }
-        }
-        
-        // Detect outerHTML
-        if (t.isIdentifier(node.property) && node.property.name === 'outerHTML') {
-          const parent = path.parent;
-          if (t.isAssignmentExpression(parent)) {
-            this.addFinding({
-              type: 'XSS',
-              severity: 'high',
-              line: node.loc?.start.line || 0,
-              message: 'Potential XSS: Direct outerHTML assignment',
-              code: this.getCodeSnippet(code, node.loc)
-            });
-            xssFindings++;
-          }
-        }
-        
-        // Detect document.write
-        if (t.isIdentifier(node.object, { name: 'document' }) &&
-            t.isIdentifier(node.property, { name: 'write' })) {
-          this.addFinding({
-            type: 'XSS',
-            severity: 'high',
-            line: node.loc?.start.line || 0,
-            message: 'Potential XSS: document.write usage',
-            code: this.getCodeSnippet(code, node.loc)
-            });
-          xssFindings++;
-        }
-      },
-      
-      CallExpression: (path) => {
-        const node = path.node;
-        
-        // Detect eval usage
-        if (t.isIdentifier(node.callee, { name: 'eval' })) {
-          this.addFinding({
-            type: 'CODE_INJECTION',
-            severity: 'critical',
-            line: node.loc?.start.line || 0,
-            message: 'Code injection risk: eval() usage detected',
-            code: this.getCodeSnippet(code, node.loc)
-          });
-          xssFindings++;
-        }
-        
-        // Detect insertAdjacentHTML
-        if (this.isMember(node.callee)) {
-          const method = this.getPropName(node.callee);
-          if (method === 'insertAdjacentHTML') {
-            const arg = node.arguments[1];
-            if (arg && (t.isIdentifier(arg) || t.isMemberExpression(arg) || 
-                (t.isTemplateLiteral(arg) && arg.expressions.length))) {
-              this.addFinding({
-                type: 'XSS',
-                severity: 'high',
-                line: node.loc?.start.line || 0,
-                message: 'Potential XSS: insertAdjacentHTML with dynamic content',
-                code: this.getCodeSnippet(code, node.loc)
-              });
-              xssFindings++;
-            }
-          }
-        }
-      }
-    });
-    if (xssFindings > 0) console.log(`    Found ${xssFindings} XSS/Code injection vulnerabilities`);
-  }
-
-  // Hardcoded Secrets Detection
-  detectHardcodedSecrets(ast, code) {
-    let secretFindings = 0;
-    traverse(ast, {
-      VariableDeclarator: (path) => {
-        const node = path.node;
-        
-        if (t.isIdentifier(node.id)) {
-          const varName = node.id.name.toLowerCase();
-          const secretPatterns = [
-            'password', 'passwd', 'pwd', 'secret', 'apikey', 
-            'api_key', 'token', 'auth', 'credential', 'private'
-          ];
-          
-          // Check if variable name suggests it's a secret
-          const isSecret = secretPatterns.some(pattern => varName.includes(pattern));
-          
-          if (isSecret && node.init) {
-            // Check if it's a string literal (hardcoded)
-            if (t.isStringLiteral(node.init) && node.init.value.length > 0) {
-              this.addFinding({
-                type: 'HARDCODED_SECRET',
-                severity: 'critical',
-                line: node.loc?.start.line || 0,
-                message: `Hardcoded credential detected: ${node.id.name}`,
-                code: this.getCodeSnippet(code, node.loc)
-              });
-              secretFindings++;
-            }
-          }
-        }
-      },
-      
-      ObjectProperty: (path) => {
-        const node = path.node;
-        const key = node.key.name || node.key.value;
-        
-        if (typeof key === 'string') {
-          const keyLower = key.toLowerCase();
-          const secretPatterns = ['password', 'secret', 'apikey', 'token', 'api_key', 'jwt'];
-          
-          const isSecret = secretPatterns.some(pattern => keyLower.includes(pattern));
-          
-          if (isSecret && t.isStringLiteral(node.value) && node.value.value.length > 0) {
-            this.addFinding({
-              type: 'HARDCODED_SECRET',
-              severity: 'critical',
-              line: node.loc?.start.line || 0,
-              message: `Hardcoded credential in object: ${key}`,
-              code: this.getCodeSnippet(code, node.loc)
-            });
-            secretFindings++;
-          }
-        }
-      }
-    });
-    if (secretFindings > 0) console.log(`    Found ${secretFindings} hardcoded secrets`);
-  }
-
-  // Fixed Command Injection Detection
-  detectCommandInjection(ast, code) {
-    let cmdFindings = 0;
-    const dangerous = new Set(['exec', 'execSync', 'spawn', 'spawnSync', 'execFile', 'system']);
-    
-    traverse(ast, {
-      CallExpression: (path) => {
-        const node = path.node;
-        let method = null;
-        
-        // Direct function call: exec(...)
-        if (t.isIdentifier(node.callee) && dangerous.has(node.callee.name)) {
-          method = node.callee.name;
-        } 
-        // Method call: child_process.exec(...) or cp?.exec(...)
-        else if (this.isMember(node.callee)) {
-          const name = this.getPropName(node.callee);
-          if (dangerous.has(name)) method = name;
-        }
-        
-        if (!method) return;
-        
-        // Check for dynamic input
-        const hasDynamic = node.arguments.some(arg =>
-          t.isIdentifier(arg) || 
-          t.isMemberExpression(arg) ||
-          t.isOptionalMemberExpression(arg) ||
-          (t.isTemplateLiteral(arg) && arg.expressions.length) ||
-          (t.isBinaryExpression(arg, { operator: '+' }))
+        const lockVulns = await depScanner.scanLockFile(
+          lockFile || packageLock, 
+          lockFileType
         );
-        
-        if (hasDynamic || node.arguments.length > 0) {
-          this.addFinding({
-            type: 'COMMAND_INJECTION',
-            severity: 'critical',
-            line: node.loc?.start.line || 0,
-            message: `Potential command injection: ${method} with dynamic input`,
-            code: this.getCodeSnippet(code, node.loc)
-          });
-          cmdFindings++;
+        if (lockVulns && lockVulns.length > 0) {
+          scanResults.vulnerabilities.push(...lockVulns);
+          // CRITICAL FIX: Deduplicate after merging
+          scanResults.vulnerabilities = depScanner.deduplicateVulnerabilities(scanResults.vulnerabilities);
+          // Update count with deduplicated length
+          scanResults.summary.totalVulnerabilities = scanResults.vulnerabilities.length;
         }
-      },
-      
-      OptionalCallExpression: (path) => {
-        const node = path.node;
-        
-        if (this.isMember(node.callee)) {
-          const name = this.getPropName(node.callee);
-          if (dangerous.has(name)) {
-            this.addFinding({
-              type: 'COMMAND_INJECTION',
-              severity: 'critical',
-              line: node.loc?.start.line || 0,
-              message: `Potential command injection: ${name} with optional chaining`,
-              code: this.getCodeSnippet(code, node.loc)
-            });
-            cmdFindings++;
-          }
-        }
+      } catch (lockError) {
+        console.warn('Lock file scan failed:', lockError.message);
       }
-    });
+    }
     
-    if (cmdFindings > 0) console.log(`    Found ${cmdFindings} command injection vulnerabilities`);
-  }
-
-  // Insecure Cryptography Detection
-  detectInsecureCrypto(ast, code) {
-    let cryptoFindings = 0;
-    traverse(ast, {
-      CallExpression: (path) => {
-        const node = path.node;
-        
-        // Check for weak hash algorithms
-        if (this.isMember(node.callee)) {
-          const method = this.getPropName(node.callee);
-          
-          if (method === 'createHash') {
-            const firstArg = node.arguments[0];
-            if (t.isStringLiteral(firstArg)) {
-              const algorithm = firstArg.value.toLowerCase();
-              const weakAlgos = ['md5', 'sha1', 'md4', 'ripemd160'];
-              
-              if (weakAlgos.includes(algorithm)) {
-                this.addFinding({
-                  type: 'WEAK_CRYPTO',
-                  severity: 'high',
-                  line: node.loc?.start.line || 0,
-                  message: `Weak cryptographic algorithm: ${algorithm}`,
-                  code: this.getCodeSnippet(code, node.loc)
-                });
-                cryptoFindings++;
-              }
-            }
-          }
-        }
-        
-        // Check for Math.random()
-        if (this.isMember(node.callee) &&
-            t.isIdentifier(node.callee.object, { name: 'Math' }) &&
-            t.isIdentifier(node.callee.property, { name: 'random' })) {
-          
-          this.addFinding({
-            type: 'WEAK_RANDOM',
-            severity: 'medium',
-            line: node.loc?.start.line || 0,
-            message: 'Weak random number generation (Math.random) - use crypto.randomBytes for security',
-            code: this.getCodeSnippet(code, node.loc)
-          });
-          cryptoFindings++;
-        }
-      }
-    });
-    if (cryptoFindings > 0) console.log(`    Found ${cryptoFindings} crypto/randomness issues`);
-  }
-
-  // Fixed Path Traversal Detection
-  detectPathTraversal(ast, code) {
-    let pathFindings = 0;
-    const fsOps = ['readFile', 'readFileSync', 'writeFile', 'writeFileSync', 
-                   'unlink', 'unlinkSync', 'readdir', 'readdirSync', 'open', 'openSync'];
+    // Calculate risk scores
+    const sanitizedConfig = sanitizeRiskConfig(riskConfig);
+    const sanitizedContext = sanitizeContextFactors(context);
+    const calc = new EnhancedRiskCalculator(sanitizedConfig);
     
-    traverse(ast, {
-      CallExpression: (path) => {
-        const node = path.node;
-        
-        if (!this.isMember(node.callee)) return;
-        
-        const method = this.getPropName(node.callee);
-        if (!fsOps.includes(method)) return;
-        
-        const pathArg = node.arguments[0];
-        if (this.isDynamicPathArg(pathArg)) {
-          this.addFinding({
-            type: 'PATH_TRAVERSAL',
-            severity: 'high',
-            line: node.loc?.start.line || 0,
-            message: 'Potential path traversal vulnerability (dynamic file path)',
-            code: this.getCodeSnippet(code, node.loc)
-          });
-          pathFindings++;
-        }
-      }
-    });
-    
-    if (pathFindings > 0) console.log(`    Found ${pathFindings} path traversal vulnerabilities`);
-  }
-
-  // Insecure Deserialization Detections
-  detectInsecureDeserialization(ast, code) {
-    let deserialFindings = 0;
-    traverse(ast, {
-      CallExpression: (path) => {
-        const node = path.node;
-        
-        // Check for JSON.parse with unvalidated input
-        if (this.isMember(node.callee) &&
-            t.isIdentifier(node.callee.object, { name: 'JSON' }) &&
-            t.isIdentifier(node.callee.property, { name: 'parse' })) {
-          
-          const arg = node.arguments[0];
-          if (arg && (t.isIdentifier(arg) || t.isMemberExpression(arg))) {
-            this.addFinding({
-              type: 'INSECURE_DESERIALIZATION',
-              severity: 'medium',
-              line: node.loc?.start.line || 0,
-              message: 'Potential insecure deserialization of untrusted data',
-              code: this.getCodeSnippet(code, node.loc)
-            });
-            deserialFindings++;
-          }
-        }
-      }
-    });
-    if (deserialFindings > 0) console.log(`    Found ${deserialFindings} deserialization issues`);
-  }
-
-  // Insecure File Operations
-  detectInsecureFileOperations(ast, code) {
-    let fileFindings = 0;
-    traverse(ast, {
-      CallExpression: (path) => {
-        const node = path.node;
-        
-        // Check for chmod with weak permissions
-        if (this.isMember(node.callee)) {
-          const method = this.getPropName(node.callee);
-          
-          if (method === 'chmod' || method === 'chmodSync') {
-            const modeArg = node.arguments[1];
-            if (t.isNumericLiteral(modeArg) || t.isStringLiteral(modeArg)) {
-              const mode = modeArg.value;
-              if (mode === 0o777 || mode === '777' || mode === 0o666 || mode === '666') {
-                this.addFinding({
-                  type: 'INSECURE_FILE_PERMISSION',
-                  severity: 'medium',
-                  line: node.loc?.start.line || 0,
-                  message: `Insecure file permissions (${mode})`,
-                  code: this.getCodeSnippet(code, node.loc)
-                });
-                fileFindings++;
-              }
-            }
-          }
-        }
-      }
-    });
-    if (fileFindings > 0) console.log(`    Found ${fileFindings} insecure file operations`);
-  }
-
-  // Authentication Issues Detection
-  detectAuthenticationIssues(ast, code) {
-    let authFindings = 0;
-    traverse(ast, {
-      FunctionDeclaration: (path) => {
-        const node = path.node;
-        const funcName = node.id?.name?.toLowerCase() || '';
-        
-        // Look for route handlers that might need auth
-        if (funcName.includes('route') || funcName.includes('handler') ||
-            funcName.includes('endpoint') || funcName.includes('controller')) {
-          
-          let hasAuthCheck = false;
-          path.traverse({
-            CallExpression(innerPath) {
-              const callee = innerPath.node.callee;
-              if (t.isIdentifier(callee)) {
-                const name = callee.name.toLowerCase();
-                if (name.includes('auth') || name.includes('verify') || 
-                    name.includes('check') || name.includes('permission')) {
-                  hasAuthCheck = true;
-                }
-              }
-            }
-          });
-          
-          if (!hasAuthCheck) {
-            this.addFinding({
-              type: 'MISSING_AUTHENTICATION',
-              severity: 'medium',
-              line: node.loc?.start.line || 0,
-              message: 'Potentially missing authentication check in route handler',
-              code: this.getCodeSnippet(code, node.loc)
-            });
-            authFindings++;
-          }
-        }
-      }
-    });
-    if (authFindings > 0) console.log(`    Found ${authFindings} authentication issues`);
-  }
-
-  // Helper function to get code snippet
-  getCodeSnippet(code, loc) {
-    if (!loc) return '';
-    
-    const lines = code.split('\n');
-    const startLine = Math.max(0, loc.start.line - 2);
-    const endLine = Math.min(lines.length, loc.end.line + 1);
-    
-    return lines.slice(startLine, endLine).join('\n');
-  }
-
-  // Enhanced addFinding with remediation
-  addFinding(finding) {
-    const cweMapping = {
-      'SQL_INJECTION': { id: 'CWE-89', name: 'SQL Injection', owasp: 'A03:2021 - Injection' },
-      'XSS': { id: 'CWE-79', name: 'Cross-site Scripting', owasp: 'A03:2021 - Injection' },
-      'HARDCODED_SECRET': { id: 'CWE-798', name: 'Use of Hard-coded Credentials', owasp: 'A07:2021 - Identification and Authentication Failures' },
-      'COMMAND_INJECTION': { id: 'CWE-78', name: 'OS Command Injection', owasp: 'A03:2021 - Injection' },
-      'CODE_INJECTION': { id: 'CWE-94', name: 'Code Injection', owasp: 'A03:2021 - Injection' },
-      'WEAK_CRYPTO': { id: 'CWE-327', name: 'Use of Broken or Risky Cryptographic Algorithm', owasp: 'A02:2021 - Cryptographic Failures' },
-      'WEAK_RANDOM': { id: 'CWE-330', name: 'Use of Insufficiently Random Values', owasp: 'A02:2021 - Cryptographic Failures' },
-      'PATH_TRAVERSAL': { id: 'CWE-22', name: 'Path Traversal', owasp: 'A01:2021 - Broken Access Control' },
-      'INSECURE_DESERIALIZATION': { id: 'CWE-502', name: 'Deserialization of Untrusted Data', owasp: 'A08:2021 - Software and Data Integrity Failures' },
-      'INSECURE_FILE_PERMISSION': { id: 'CWE-732', name: 'Incorrect Permission Assignment', owasp: 'A01:2021 - Broken Access Control' },
-      'MISSING_AUTHENTICATION': { id: 'CWE-306', name: 'Missing Authentication for Critical Function', owasp: 'A07:2021 - Identification and Authentication Failures' },
-      'PARSE_ERROR': { id: 'CWE-0', name: 'Parse Error', owasp: 'N/A' }
-    };
-
-    const cwe = cweMapping[finding.type] || { id: 'CWE-Unknown', name: finding.type, owasp: 'Unknown' };
-    
-    // Get detailed remediation from knowledge base
-    const remediation = remediationKnowledge[finding.type] || {
-      title: "Review and apply security best practices",
-      description: "Consult security documentation for this vulnerability type",
-      steps: ["Review OWASP guidelines", "Apply secure coding practices"],
-      references: ["https://owasp.org"]
+    // Get severity distribution
+    const dist = scanResults.summary?.severityDistribution || {
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      info: 0
     };
     
-    this.findings.push({
-      ...finding,
-      line: finding.line || 0,  // Ensure line is always set
-      cwe: cwe,
-      owasp: cwe.owasp,
-      file: this.currentFile,
-      timestamp: new Date().toISOString(),
-      remediation: {
-        title: remediation.title || "Apply security best practices",
-        description: remediation.description || "",
-        steps: remediation.steps || [],
-        codeExample: remediation.codeExample || null,
-        references: remediation.references || []
+    // Calculate risk
+    const { score, risk } = calc.calculateFromSeverityDistribution(dist, sanitizedContext);
+    
+    // Enhance results
+    const enhancedResults = {
+      ...scanResults,
+      score,
+      risk,
+      summary: {
+        ...scanResults.summary,
+        riskScore: score.final,
+        riskLevel: risk.level.charAt(0).toUpperCase() + risk.level.slice(1),
+        confidence: risk.confidence,
+        priority: risk.priority
+      }
+    };
+    
+    res.json({
+      status: 'success',
+      ...enhancedResults,
+      metadata: {
+        scanned_at: new Date().toISOString(),
+        configuration: {
+          customConfig: Object.keys(riskConfig).length > 0,
+          contextProvided: Object.keys(context).length > 0,
+          includeDevDependencies,
+          lockFileScanned: !!(lockFile || packageLock)
+        }
       }
     });
+    
+  } catch (error) {
+    console.error('Dependency scan error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Dependency scan failed',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
   }
-}
-
-// Calculate risk score based on findings
-function calculateRiskScore(findings) {
-  const severityScores = {
-    critical: 10,
-    high: 7,
-    medium: 4,
-    low: 1,
-    info: 0
-  };
-
-  let totalScore = 0;
-  findings.forEach(finding => {
-    totalScore += severityScores[finding.severity] || 0;
-  });
-
-  // Normalize to 0-100 scale
-  return Math.min(100, totalScore);
-}
-
-// Test endpoint for debugging
-app.get('/test-scanner', (req, res) => {
-  console.log('=== TEST SCANNER ENDPOINT ===');
-  const testCode = `
-    const password = "admin123";
-    const apiKey = "sk-12345";
-    eval("console.log('test')");
-    Math.random();
-    document.innerHTML = userInput;
-    db.query("SELECT * FROM users WHERE id = " + userId);
-    db?.query(\`SELECT * FROM users WHERE id = \${userId}\`);
-    exec("rm -rf " + userPath);
-    crypto.createHash('md5');
-    fs.readFile(userInput);
-    fs.readFile(path.join(__dirname, userInput));
-  `;
-  
-  // Create new scanner instance for this request
-  const scanner = new ASTVulnerabilityScanner();
-  const findings = scanner.scan(testCode, 'test.js', 'javascript');
-  
-  res.json({
-    message: 'Scanner test',
-    code: testCode,
-    findings: findings,
-    findingsCount: findings.length,
-    success: findings.length > 0
-  });
 });
 
-// Health check endpoints
+/**
+ * File upload scanning endpoint
+ */
+app.post('/scan-file', async (req, res) => {
+  console.log('=== FILE SCAN REQUEST RECEIVED ===');
+  
+  try {
+    const {
+      content,
+      filename = 'uploaded-file',
+      language = 'javascript',
+      riskConfig = {},
+      context = {}
+    } = req.body;
+    
+    if (!content) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'No file content provided'
+      });
+    }
+    
+    // Scan the file
+    const findings = classifier.scan(content, filename, language);
+    
+    // Calculate risk
+    const sanitizedConfig = sanitizeRiskConfig(riskConfig);
+    const sanitizedContext = sanitizeContextFactors(context);
+    const calc = new EnhancedRiskCalculator(sanitizedConfig);
+    const { score, risk } = calc.calculateFileRisk(findings, sanitizedContext);
+    
+    res.json({
+      status: 'success',
+      filename,
+      language,
+      findings,
+      score,
+      risk,
+      vulnerabilities: {
+        total: findings.length,
+        critical: findings.filter(f => normalizeSeverity(f.severity) === 'critical').length,
+        high: findings.filter(f => normalizeSeverity(f.severity) === 'high').length,
+        medium: findings.filter(f => normalizeSeverity(f.severity) === 'medium').length,
+        low: findings.filter(f => normalizeSeverity(f.severity) === 'low').length
+      },
+      metadata: {
+        scanned_at: new Date().toISOString(),
+        file_size: content.length,
+        configuration: {
+          customConfig: Object.keys(riskConfig).length > 0,
+          contextProvided: Object.keys(context).length > 0
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('File scan error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'File scan failed',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * Batch scanning endpoint
+ */
+app.post('/scan-batch', rateLimiter(20, 60000), async (req, res) => {
+  console.log('=== BATCH SCAN REQUEST RECEIVED ===');
+  
+  try {
+    const {
+      files = [],
+      riskConfig = {},
+      context = {}
+    } = req.body;
+    
+    if (!Array.isArray(files) || files.length === 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'No files provided for batch scanning'
+      });
+    }
+    
+    const sanitizedConfig = sanitizeRiskConfig(riskConfig);
+    const sanitizedContext = sanitizeContextFactors(context);
+    const calc = new EnhancedRiskCalculator(sanitizedConfig);
+    
+    const results = [];
+    let totalFindings = [];
+    
+    // Scan each file
+    for (const file of files) {
+      try {
+        const { content, filename = 'unknown', language = 'javascript' } = file;
+        
+        if (!content) continue;
+        
+        const findings = classifier.scan(content, filename, language);
+        totalFindings = totalFindings.concat(findings);
+        
+        results.push({
+          filename,
+          language,
+          findings: findings.length,
+          vulnerabilities: findings
+        });
+      } catch (fileError) {
+        console.error(`Error scanning file ${file.filename}:`, fileError);
+        results.push({
+          filename: file.filename || 'unknown',
+          error: fileError.message
+        });
+      }
+    }
+    
+    // Calculate overall risk
+    const { score, risk } = calc.calculateFileRisk(totalFindings, sanitizedContext);
+    
+    res.json({
+      status: 'success',
+      filesScanned: files.length,
+      results,
+      overallScore: score,
+      overallRisk: risk,
+      summary: {
+        totalFindings: totalFindings.length,
+        critical: totalFindings.filter(f => normalizeSeverity(f.severity) === 'critical').length,
+        high: totalFindings.filter(f => normalizeSeverity(f.severity) === 'high').length,
+        medium: totalFindings.filter(f => normalizeSeverity(f.severity) === 'medium').length,
+        low: totalFindings.filter(f => normalizeSeverity(f.severity) === 'low').length
+      },
+      metadata: {
+        scanned_at: new Date().toISOString(),
+        configuration: {
+          customConfig: Object.keys(riskConfig).length > 0,
+          contextProvided: Object.keys(context).length > 0
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Batch scan error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Batch scan failed',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * Health check endpoints
+ */
 app.get('/health', (req, res) => {
-  console.log('Health check requested');
   res.json({ 
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    scanner: 'AST Scanner',
-    version: '2.0',
-    port: PORT,
-    environment: process.env.NODE_ENV || 'production'
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    features: {
+      customRiskConfig: true,
+      contextualAnalysis: true,
+      enhancedRiskCalculator: true,
+      batchScanning: true,
+      dependencyScanning: true,
+      astScanning: true,
+      helmetSecurity: true
+    }
   });
 });
 
@@ -869,230 +568,165 @@ app.get('/healthz', (req, res) => {
   res.status(200).send('OK');
 });
 
-// Root endpoint
+/**
+ * Get current default configuration
+ */
+app.get('/config/defaults', (req, res) => {
+  res.json({
+    status: 'success',
+    defaults: {
+      severityPoints: {
+        critical: 40,
+        high: 25,
+        medium: 15,
+        low: 8,
+        info: 3
+      },
+      riskThresholds: {
+        critical: 80,
+        high: 60,
+        medium: 40,
+        low: 20,
+        minimal: 0
+      },
+      normalization: {
+        enabled: false,
+        minScore: 0,
+        maxScore: 100,
+        targetMin: 0,
+        targetMax: 100
+      },
+      factors: {
+        environmental: { enabled: true, weight: 1.0 },
+        pattern: { enabled: true, weight: 1.0 },
+        confidence: { enabled: true, weight: 1.0 },
+        exploitability: { enabled: true, weight: 1.0 },
+        businessImpact: { enabled: true, weight: 1.0 }
+      }
+    }
+  });
+});
+
+/**
+ * Root endpoint with API information
+ */
 app.get('/', (req, res) => {
   res.json({
-    name: 'Neperia AST Security Scanner',
-    version: '2.0',
+    name: 'Neperia Security Scanner - Enhanced Edition',
+    version: '4.0',
     status: 'operational',
     endpoints: {
-      '/scan-code': 'POST - Scan code for vulnerabilities using AST',
-      '/scan': 'POST - Upload file for scanning',
-      '/scan-dependencies': 'POST - Scan package.json for vulnerable dependencies',
-      '/test-scanner': 'GET - Test scanner functionality',
-      '/health': 'GET - Health check',
-      '/healthz': 'GET - Railway health check'
+      'POST /scan-code': 'Scan code with custom risk configuration',
+      'POST /scan-dependencies': 'Scan dependencies with custom risk configuration',
+      'POST /scan-file': 'Scan uploaded file with custom risk configuration',
+      'POST /scan-batch': 'Batch scan multiple files',
+      'GET /config/defaults': 'Get default configuration values',
+      'GET /health': 'Health check with feature status',
+      'GET /healthz': 'Simple health check'
     },
     features: [
-      'AST-based vulnerability detection',
-      'No regex patterns - real code analysis',
-      'JavaScript/TypeScript support',
+      'User-configurable risk scoring',
+      'Contextual risk analysis',
+      'Per-request risk calculator instances',
+      'Enhanced risk factors and multipliers',
+      'Sanitized configuration inputs',
+      'Batch file scanning',
       'Dependency vulnerability scanning',
-      'CWE/OWASP mapping',
-      'Risk score calculation',
-      'Comprehensive vulnerability coverage',
-      'Optional chaining support',
-      'Tagged template detection',
-      'Detailed remediation guidance'
+      'OWASP/CWE/CVSS classification',
+      'Business impact assessment',
+      'AST-based code analysis',
+      'Helmet security headers'
     ],
-    vulnerabilities_detected: [
-      'SQL Injection (CWE-89)',
-      'XSS (CWE-79)',
-      'Hardcoded Credentials (CWE-798)',
-      'Command Injection (CWE-78)',
-      'Code Injection (CWE-94)',
-      'Weak Cryptography (CWE-327)',
-      'Path Traversal (CWE-22)',
-      'Insecure Deserialization (CWE-502)',
-      'Authentication Issues (CWE-306)',
-      'Vulnerable Dependencies'
-    ]
+    configuration: {
+      riskConfig: {
+        description: 'Custom severity weights and thresholds',
+        fields: ['severityPoints', 'riskThresholds', 'normalization']
+      },
+      context: {
+        description: 'Environmental and business context',
+        fields: ['businessUnit', 'environment', 'dataClassification', 'factors']
+      }
+    },
+    supported_languages: ['javascript', 'typescript'],
+    api_version: '4.0.0'
   });
 });
 
-// Main scanning endpoint
-app.post('/scan-code', async (req, res) => {
-  console.log('=== AST SCAN REQUEST RECEIVED ===');
-  
-  try {
-    const { code, language = 'javascript', filename = 'code.js' } = req.body;
-    
-    console.log('📥 Code received:', {
-      length: code?.length,
-      firstLine: code?.split('\n')[0]?.substring(0, 100),
-      language,
-      filename
-    });
-    
-    if (!code || typeof code !== 'string' || code.trim() === '') {
-      console.log('❌ No code provided');
-      return res.status(400).json({ 
-        status: 'error', 
-        message: 'No code provided' 
-      });
-    }
-
-    const startTime = Date.now();
-    
-    // Create new scanner instance for this request (prevents concurrency issues)
-    const scanner = new ASTVulnerabilityScanner();
-    const findings = scanner.scan(code, filename, language);
-    
-    const endTime = Date.now();
-    const scanTime = endTime - startTime;
-    
-    console.log(`📊 Scan results: ${findings.length} findings in ${scanTime}ms`);
-    
-    // Calculate risk score
-    const riskScore = calculateRiskScore(findings);
-    
-    res.json({
-      status: 'success',
-      language: language,
-      findings: findings,
-      riskScore: riskScore,
-      metadata: {
-        scanned_at: new Date().toISOString(),
-        code_length: code.length,
-        findings_count: findings.length,
-        scan_time_ms: scanTime,
-        scanner: 'AST-based Scanner v2.0'
-      },
-      riskAssessment: {
-        riskScore: riskScore,
-        riskLevel: riskScore > 70 ? 'Critical' : 
-                   riskScore > 40 ? 'High' : 
-                   riskScore > 20 ? 'Medium' : 
-                   riskScore > 0 ? 'Low' : 'Minimal',
-        criticalFindings: findings.filter(f => f.severity === 'critical').length,
-        highFindings: findings.filter(f => f.severity === 'high').length,
-        mediumFindings: findings.filter(f => f.severity === 'medium').length,
-        lowFindings: findings.filter(f => f.severity === 'low').length
-      }
-    });
-    
-  } catch (error) {
-    console.error('❌ Scan error:', error);
-    res.status(500).json({ 
-      status: 'error', 
-      message: 'Scan failed',
-      error: error.message 
-    });
-  }
+/**
+ * 404 handler
+ */
+app.use('*', (req, res) => {
+  res.status(404).json({ 
+    status: 'error', 
+    message: 'Route not found',
+    path: req.originalUrl,
+    method: req.method,
+    available_routes: [
+      'GET /',
+      'GET /health',
+      'GET /healthz',
+      'GET /config/defaults',
+      'POST /scan-code',
+      'POST /scan-dependencies',
+      'POST /scan-file',
+      'POST /scan-batch'
+    ],
+    timestamp: new Date().toISOString()
+  });
 });
 
-// File upload endpoint
-app.post('/scan', upload.single('file'), async (req, res) => {
-  console.log('=== FILE SCAN REQUEST RECEIVED ===');
+/**
+ * Error handling middleware
+ */
+app.use((error, req, res, next) => {
+  console.error('Unhandled error:', error);
   
-  try {
-    if (!req.file) {
-      console.log('❌ No file uploaded');
-      return res.status(400).json({ 
-        status: 'error', 
-        message: 'No file uploaded' 
-      });
-    }
-
-    const code = req.file.buffer.toString('utf8');
-    const filename = req.file.originalname;
-    const language = path.extname(filename).slice(1) || 'javascript';
-    
-    console.log(`📎 File: ${filename}, Size: ${req.file.size} bytes, Language: ${language}`);
-
-    // Create new scanner instance for this request (prevents concurrency issues)
-    const scanner = new ASTVulnerabilityScanner();
-    const findings = scanner.scan(code, filename, language);
-    const riskScore = calculateRiskScore(findings);
-    
-    console.log(`📊 File scan results: ${findings.length} findings`);
-
-    res.json({
-      status: 'success',
-      filename: filename,
-      language: language,
-      findings: findings,
-      riskScore: riskScore,
-      metadata: {
-        scanned_at: new Date().toISOString(),
-        file_size: req.file.size,
-        findings_count: findings.length
-      },
-      riskAssessment: {
-        riskScore: riskScore,
-        riskLevel: riskScore > 70 ? 'Critical' : 
-                   riskScore > 40 ? 'High' : 
-                   riskScore > 20 ? 'Medium' : 
-                   riskScore > 0 ? 'Low' : 'Minimal',
-        criticalFindings: findings.filter(f => f.severity === 'critical').length,
-        highFindings: findings.filter(f => f.severity === 'high').length,
-        mediumFindings: findings.filter(f => f.severity === 'medium').length,
-        lowFindings: findings.filter(f => f.severity === 'low').length
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ File scan error:', error);
-    res.status(500).json({ 
-      status: 'error', 
-      message: 'File scan failed',
-      error: error.message 
-    });
+  if (res.headersSent) {
+    return next(error);
   }
-});
-
-// Add dependency scanning endpoint
-addDependencyScanEndpoint(app);
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('❌ Server Error:', err);
-  res.status(500).json({
-    status: 'error',
+  
+  res.status(500).json({ 
+    status: 'error', 
     message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    timestamp: new Date().toISOString()
   });
 });
 
-// Handle 404
-app.use((req, res) => {
-  console.log(`❓ 404 - Path not found: ${req.path}`);
-  res.status(404).json({
-    status: 'error',
-    message: 'Endpoint not found',
-    path: req.path
-  });
-});
-
-// Start server - CRITICAL: Bind to 0.0.0.0
-const server = app.listen(PORT, HOST, (err) => {
-  if (err) {
-    console.error('Failed to start server:', err);
-    process.exit(1);
-  }
-  
+/**
+ * Start server
+ */
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`
-╔══════════════════════════════════════════════╗
-║   NEPERIA AST SECURITY SCANNER v2.0         ║
-║   Real AST Analysis - No Regex Patterns     ║
-╠══════════════════════════════════════════════╣
-║   Status: OPERATIONAL                        ║
-║   Host: ${HOST}                             ║
-║   Port: ${PORT}                              ║
-║   Mode: AST-based Scanning                  ║
-║   Coverage: OWASP Top 10 + Dependencies     ║
-║   Environment: ${process.env.NODE_ENV || 'production'}     ║
-╚══════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════╗
+║     NEPERIA SECURITY SCANNER - ENHANCED EDITION v4.0        ║
+╠══════════════════════════════════════════════════════════════╣
+║  Server running on port ${PORT}                                 ║
+║  Status: OPERATIONAL                                         ║
+║                                                              ║
+║  FEATURES:                                                   ║
+║  ✓ User-configurable risk scoring                           ║
+║  ✓ Per-request calculator instances                         ║
+║  ✓ Contextual risk analysis                                 ║
+║  ✓ Input sanitization and validation                        ║
+║  ✓ Enhanced factor-based scoring                            ║
+║  ✓ Batch file scanning                                      ║
+║  ✓ AST-based vulnerability detection                        ║
+║  ✓ Helmet security headers                                  ║
+║                                                              ║
+║  ENDPOINTS:                                                  ║
+║  • POST /scan-code         - Code analysis                   ║
+║  • POST /scan-dependencies - Dependency analysis             ║
+║  • POST /scan-file         - File analysis                   ║
+║  • POST /scan-batch        - Batch file analysis             ║
+║  • GET /config/defaults    - Default configurations          ║
+║                                                              ║
+║  Configuration: Pass 'riskConfig' and 'context' in body      ║
+╚══════════════════════════════════════════════════════════════╝
   `);
-  
-  console.log('✅ Server is listening on:', server.address());
-  console.log(`✅ Health check available at: http://${HOST}:${PORT}/health`);
-  console.log(`✅ Test scanner at: http://${HOST}:${PORT}/test-scanner`);
-  console.log(`✅ Dependency scanner at: POST http://${HOST}:${PORT}/scan-dependencies`);
-  console.log(`Railway URL: https://semgrep-backend-production.up.railway.app`);
 });
 
-// Add graceful shutdown
+// Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM received, closing server...');
   server.close(() => {
@@ -1100,3 +734,13 @@ process.on('SIGTERM', () => {
     process.exit(0);
   });
 });
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, closing server...');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+module.exports = app;

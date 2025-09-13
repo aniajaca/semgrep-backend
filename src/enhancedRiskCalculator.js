@@ -2,6 +2,12 @@
 const crypto = require('crypto');
 const { CustomEnvironmentalFactorSystem } = require('./customEnvironmentalFactors');
 
+// Title-case helper for consistent formatting across server and reports
+function toTitle(s='') {
+  if (!s) return '';
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
 class EnhancedRiskCalculator {
   constructor(config = {}) {
     // Initialize the custom factor system
@@ -118,6 +124,22 @@ class EnhancedRiskCalculator {
     // Memoization for heavy operations (capped at 1000 entries)
     this.memoCache = new Map();
     this.memoCacheMaxSize = 1000;
+  }
+
+  /**
+   * Convenience method to calculate risk directly from severity distribution
+   * Avoids the need to create fake vulnerability arrays everywhere
+   */
+  calculateFromSeverityDistribution(dist = {}, context = {}) {
+    // Create a minimal vulnerability array from the distribution
+    const expanded = []
+      .concat(Array.from({ length: dist.critical || 0 }, () => ({ severity: 'critical', cwe: 'CWE-1' })))
+      .concat(Array.from({ length: dist.high || 0 },     () => ({ severity: 'high', cwe: 'CWE-1' })))
+      .concat(Array.from({ length: dist.medium || 0 },   () => ({ severity: 'medium', cwe: 'CWE-1' })))
+      .concat(Array.from({ length: dist.low || 0 },      () => ({ severity: 'low', cwe: 'CWE-1' })))
+      .concat(Array.from({ length: dist.info || 0 },     () => ({ severity: 'info', cwe: 'CWE-1' })));
+    
+    return this.calculateFileRisk(expanded, context);
   }
 
   /**
@@ -913,8 +935,11 @@ class EnhancedRiskCalculator {
   }
 }
 
-// Export the calculator
+// Export the calculator class
 module.exports = EnhancedRiskCalculator;
+
+// Export the toTitle helper function
+module.exports.toTitle = toTitle;
 
 // Also export as singleton for convenience
 module.exports.calculator = new EnhancedRiskCalculator();
