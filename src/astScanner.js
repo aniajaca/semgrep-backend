@@ -42,7 +42,7 @@ class ASTVulnerabilityScanner {
           /mongodb(?:\+srv)?:\/\/[^:]+:[^@]+@/gi,
           /postgres:\/\/[^:]+:[^@]+@/gi,
         ],
-        // Path traversal
+       // Path traversal
         pathTraversal: [
           /readFile(?:Sync)?\s*\([^)]*\+[^)]*\)/gi,
           /require\s*\([^)]*\+[^)]*\)/gi,
