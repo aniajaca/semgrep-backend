@@ -1,4 +1,4 @@
-// server.js - Enhanced with user configuration and context support (PROPERLY FIXED)
+// server.js - Enhanced with user configuration and context support (COMPLETE VERSION)
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -16,6 +16,9 @@ const classifier = new ASTVulnerabilityScanner();
 // Import dependency scanner
 const { DependencyScanner } = require('./dependencyScanner');
 const depScanner = new DependencyScanner();
+
+// Import taxonomy for new endpoints
+const Taxonomy = require('./taxonomy');
 
 // Import and configure rate limiting
 const rateLimit = require('express-rate-limit');
@@ -141,6 +144,125 @@ function sanitizeContextFactors(context = {}) {
 function normalizeSeverity(severity) {
   return (severity || 'info').toString().toLowerCase();
 }
+
+// ============================================================================
+// TAXONOMY ENDPOINTS (NEW)
+// ============================================================================
+
+/**
+ * Get CWE details
+ */
+app.get('/api/taxonomy/cwe/:id', (req, res) => {
+  const info = Taxonomy.getByCwe(req.params.id);
+  if (!info) {
+    return res.status(404).json({ 
+      status: 'error',
+      message: 'Unknown CWE',
+      cwe: req.params.id 
+    });
+  }
+  res.json({
+    status: 'success',
+    data: info
+  });
+});
+
+/**
+ * Get all vulnerability categories
+ */
+app.get('/api/taxonomy/categories', (req, res) => {
+  const categories = {};
+  
+  // Group CWEs by category from the taxonomy
+  if (Taxonomy.cweMap) {
+    Object.entries(Taxonomy.cweMap).forEach(([cwe, data]) => {
+      if (!categories[data.category]) {
+        categories[data.category] = {
+          name: data.category,
+          cwes: []
+        };
+      }
+      categories[data.category].cwes.push({
+        id: cwe,
+        title: data.title,
+        severity: data.defaultSeverity,
+        owasp: data.owasp
+      });
+    });
+  }
+  
+  res.json({
+    status: 'success',
+    data: categories
+  });
+});
+
+/**
+ * Get severity rankings with colors for UI
+ */
+app.get('/api/taxonomy/severities', (req, res) => {
+  res.json({
+    status: 'success',
+    data: {
+      critical: { 
+        rank: 5, 
+        color: '#dc2626',
+        label: 'Critical',
+        description: 'Immediate action required'
+      },
+      high: { 
+        rank: 4, 
+        color: '#ea580c',
+        label: 'High',
+        description: 'Address within 48 hours'
+      },
+      medium: { 
+        rank: 3, 
+        color: '#ca8a04',
+        label: 'Medium',
+        description: 'Schedule in next sprint'
+      },
+      low: { 
+        rank: 2, 
+        color: '#65a30d',
+        label: 'Low',
+        description: 'Include in maintenance'
+      },
+      info: { 
+        rank: 1, 
+        color: '#0891b2',
+        label: 'Info',
+        description: 'For awareness only'
+      }
+    }
+  });
+});
+
+/**
+ * Get scanner statistics
+ */
+app.get('/api/stats', (req, res) => {
+  res.json({
+    status: 'success',
+    data: {
+      version: '4.0.0',
+      supportedLanguages: ['javascript', 'typescript'],
+      vulnerabilityCategories: Object.keys(Taxonomy.categoryPatterns || {}),
+      totalCWEs: Object.keys(Taxonomy.cweMap || {}).length,
+      features: {
+        astScanning: true,
+        dependencyScanning: true,
+        batchScanning: true,
+        customRiskConfig: true,
+        contextualAnalysis: true
+      }
+    }
+  });
+});
+
+// ============================================================================
+// SCANNING ENDPOINTS (EXISTING)
+// ============================================================================
 
 /**
  * Enhanced code scanning endpoint
@@ -280,7 +402,7 @@ app.post('/scan-code', rateLimiter(50, 60000), async (req, res) => {
 });
 
 /**
- * Enhanced dependency scanning endpoint - PROPERLY FIXED
+ * Enhanced dependency scanning endpoint
  */
 app.post('/scan-dependencies', async (req, res) => {
   console.log('=== DEPENDENCY SCAN REQUEST RECEIVED ===');
@@ -314,7 +436,7 @@ app.post('/scan-dependencies', async (req, res) => {
       includeDevDependencies
     });
     
-    // Process lock file if provided - WITH PROPER DEDUPLICATION
+    // Process lock file if provided
     if (lockFile || packageLock) {
       try {
         const lockVulns = await depScanner.scanLockFile(
@@ -323,9 +445,7 @@ app.post('/scan-dependencies', async (req, res) => {
         );
         if (lockVulns && lockVulns.length > 0) {
           scanResults.vulnerabilities.push(...lockVulns);
-          // CRITICAL FIX: Deduplicate after merging
           scanResults.vulnerabilities = depScanner.deduplicateVulnerabilities(scanResults.vulnerabilities);
-          // Update count with deduplicated length
           scanResults.summary.totalVulnerabilities = scanResults.vulnerabilities.length;
         }
       } catch (lockError) {
@@ -543,6 +663,47 @@ app.post('/scan-batch', rateLimiter(20, 60000), async (req, res) => {
   }
 });
 
+// ============================================================================
+// CONFIGURATION & HEALTH ENDPOINTS
+// ============================================================================
+
+/**
+ * Get current default configuration (FIXED to match calculator)
+ */
+app.get('/config/defaults', (req, res) => {
+  res.json({
+    status: 'success',
+    defaults: {
+      severityPoints: {
+        critical: 25,  // Fixed to match calculator
+        high: 15,      // Fixed to match calculator
+        medium: 8,     // Fixed to match calculator
+        low: 3,        // Fixed to match calculator
+        info: 1        // Fixed to match calculator
+      },
+      riskThresholds: {
+        critical: 80,
+        high: 60,
+        medium: 40,
+        low: 20,
+        minimal: 0
+      },
+      normalization: {
+        enabled: true,
+        dynamicScaling: true,
+        description: 'Uses dynamic scaling based on actual vulnerability count'
+      },
+      factors: {
+        internetFacing: { enabled: false, weight: 1.5 },
+        production: { enabled: false, weight: 1.3 },
+        handlesPI: { enabled: false, weight: 1.4 },
+        legacyCode: { enabled: false, weight: 1.2 },
+        businessCritical: { enabled: false, weight: 1.6 }
+      }
+    }
+  });
+});
+
 /**
  * Health check endpoints
  */
@@ -559,52 +720,14 @@ app.get('/health', (req, res) => {
       batchScanning: true,
       dependencyScanning: true,
       astScanning: true,
-      helmetSecurity: true
+      helmetSecurity: true,
+      taxonomyEndpoints: true
     }
   });
 });
 
 app.get('/healthz', (req, res) => {
   res.status(200).send('OK');
-});
-
-/**
- * Get current default configuration
- */
-app.get('/config/defaults', (req, res) => {
-  res.json({
-    status: 'success',
-    defaults: {
-      severityPoints: {
-        critical: 40,
-        high: 25,
-        medium: 15,
-        low: 8,
-        info: 3
-      },
-      riskThresholds: {
-        critical: 80,
-        high: 60,
-        medium: 40,
-        low: 20,
-        minimal: 0
-      },
-      normalization: {
-        enabled: false,
-        minScore: 0,
-        maxScore: 100,
-        targetMin: 0,
-        targetMax: 100
-      },
-      factors: {
-        environmental: { enabled: true, weight: 1.0 },
-        pattern: { enabled: true, weight: 1.0 },
-        confidence: { enabled: true, weight: 1.0 },
-        exploitability: { enabled: true, weight: 1.0 },
-        businessImpact: { enabled: true, weight: 1.0 }
-      }
-    }
-  });
 });
 
 /**
@@ -616,37 +739,37 @@ app.get('/', (req, res) => {
     version: '4.0',
     status: 'operational',
     endpoints: {
-      'POST /scan-code': 'Scan code with custom risk configuration',
-      'POST /scan-dependencies': 'Scan dependencies with custom risk configuration',
-      'POST /scan-file': 'Scan uploaded file with custom risk configuration',
-      'POST /scan-batch': 'Batch scan multiple files',
-      'GET /config/defaults': 'Get default configuration values',
-      'GET /health': 'Health check with feature status',
-      'GET /healthz': 'Simple health check'
+      scanning: {
+        'POST /scan-code': 'Scan code with custom risk configuration',
+        'POST /scan-dependencies': 'Scan dependencies with custom risk configuration',
+        'POST /scan-file': 'Scan uploaded file with custom risk configuration',
+        'POST /scan-batch': 'Batch scan multiple files'
+      },
+      taxonomy: {
+        'GET /api/taxonomy/cwe/:id': 'Get CWE details',
+        'GET /api/taxonomy/categories': 'Get all vulnerability categories',
+        'GET /api/taxonomy/severities': 'Get severity rankings',
+        'GET /api/stats': 'Get scanner statistics'
+      },
+      configuration: {
+        'GET /config/defaults': 'Get default configuration values',
+        'GET /health': 'Health check with feature status',
+        'GET /healthz': 'Simple health check'
+      }
     },
     features: [
       'User-configurable risk scoring',
       'Contextual risk analysis',
-      'Per-request risk calculator instances',
-      'Enhanced risk factors and multipliers',
-      'Sanitized configuration inputs',
+      'Centralized taxonomy system',
+      'Dynamic risk normalization',
+      'Enhanced remediation guidance',
+      'Smart vulnerability deduplication',
       'Batch file scanning',
       'Dependency vulnerability scanning',
       'OWASP/CWE/CVSS classification',
-      'Business impact assessment',
       'AST-based code analysis',
       'Helmet security headers'
     ],
-    configuration: {
-      riskConfig: {
-        description: 'Custom severity weights and thresholds',
-        fields: ['severityPoints', 'riskThresholds', 'normalization']
-      },
-      context: {
-        description: 'Environmental and business context',
-        fields: ['businessUnit', 'environment', 'dataClassification', 'factors']
-      }
-    },
     supported_languages: ['javascript', 'typescript'],
     api_version: '4.0.0'
   });
@@ -661,16 +784,6 @@ app.use('*', (req, res) => {
     message: 'Route not found',
     path: req.originalUrl,
     method: req.method,
-    available_routes: [
-      'GET /',
-      'GET /health',
-      'GET /healthz',
-      'GET /config/defaults',
-      'POST /scan-code',
-      'POST /scan-dependencies',
-      'POST /scan-file',
-      'POST /scan-batch'
-    ],
     timestamp: new Date().toISOString()
   });
 });
@@ -705,23 +818,34 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 ║  Status: OPERATIONAL                                         ║
 ║                                                              ║
 ║  FEATURES:                                                   ║
+║  ✓ Centralized taxonomy system                              ║
+║  ✓ Dynamic risk normalization                               ║
 ║  ✓ User-configurable risk scoring                           ║
-║  ✓ Per-request calculator instances                         ║
 ║  ✓ Contextual risk analysis                                 ║
-║  ✓ Input sanitization and validation                        ║
-║  ✓ Enhanced factor-based scoring                            ║
+║  ✓ Enhanced remediation guidance                            ║
+║  ✓ Smart vulnerability deduplication                        ║
 ║  ✓ Batch file scanning                                      ║
+║  ✓ Dependency vulnerability scanning                        ║
 ║  ✓ AST-based vulnerability detection                        ║
-║  ✓ Helmet security headers                                  ║
 ║                                                              ║
 ║  ENDPOINTS:                                                  ║
+║  Scanning:                                                   ║
 ║  • POST /scan-code         - Code analysis                   ║
 ║  • POST /scan-dependencies - Dependency analysis             ║
 ║  • POST /scan-file         - File analysis                   ║
 ║  • POST /scan-batch        - Batch file analysis             ║
-║  • GET /config/defaults    - Default configurations          ║
 ║                                                              ║
-║  Configuration: Pass 'riskConfig' and 'context' in body      ║
+║  Taxonomy:                                                   ║
+║  • GET /api/taxonomy/cwe/:id    - CWE details               ║
+║  • GET /api/taxonomy/categories - Categories                 ║
+║  • GET /api/taxonomy/severities - Severity info             ║
+║  • GET /api/stats               - Statistics                ║
+║                                                              ║
+║  Configuration:                                              ║
+║  • GET /config/defaults    - Default configurations          ║
+║  • GET /health            - Health check                     ║
+║                                                              ║
+║  Pass 'riskConfig' and 'context' in request body            ║
 ╚══════════════════════════════════════════════════════════════╝
   `);
 });

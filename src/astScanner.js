@@ -1,8 +1,11 @@
-// astScanner.js - AST-based vulnerability scanner for code analysis
+// astScanner.js - Enhanced AST-based vulnerability scanner with comprehensive patterns
+
+const remediationKnowledge = require('./remediationKnowledge');
+const Taxonomy = require('./taxonomy');
 
 class ASTVulnerabilityScanner {
   constructor() {
-    // Initialize vulnerability patterns
+    // Initialize comprehensive vulnerability patterns
     this.patterns = {
       javascript: {
         // SQL Injection patterns
@@ -10,42 +13,112 @@ class ASTVulnerabilityScanner {
           /query\s*\(\s*[`"'].*\$\{.*\}.*[`"']/gi,
           /query\s*\(\s*[`"'].*\+.*[`"']/gi,
           /execute\s*\(\s*[`"'].*\$\{.*\}.*[`"']/gi,
+          /raw\s*\(\s*[`"'].*\$\{.*\}.*[`"']/gi,
+          /\.query\s*\(\s*["'`][^"'`]*\$\{[^}]+\}[^"'`]*["'`]\)/gi,
         ],
         // Command injection patterns
         commandInjection: [
           /exec\s*\(\s*[`"'].*\$\{.*\}.*[`"']/gi,
           /execSync\s*\(\s*[`"'].*\$\{.*\}.*[`"']/gi,
           /spawn\s*\(\s*[`"'].*\$\{.*\}.*[`"']/gi,
+          /execFile\s*\([^,)]*\+[^,)]*\)/gi,
+          /child_process\.[a-z]+\s*\([^)]*\$\{.*\}[^)]*\)/gi,
         ],
         // XSS patterns
         xss: [
           /innerHTML\s*=\s*[^'"`]/gi,
+          /outerHTML\s*=\s*[^'"`]/gi,
           /document\.write\s*\(/gi,
           /\.html\s*\(\s*[^'"`]/gi,
+          /insertAdjacentHTML\s*\([^,)]*,[^'"`]/gi,
+          /dangerouslySetInnerHTML\s*=\s*\{/gi,
         ],
-        // Hardcoded credentials
+        // Hardcoded credentials (expanded)
         hardcodedSecrets: [
           /(?:api[_-]?key|apikey|secret|password|pwd|token|auth)\s*[:=]\s*["'][\w\-]{10,}/gi,
           /(?:AWS|aws)[_-]?(?:ACCESS|access)[_-]?(?:KEY|key)[_-]?(?:ID|id)?\s*[:=]\s*["'][A-Z0-9]{20}/gi,
+          /(?:private[_-]?key|privatekey)\s*[:=]\s*["'][^"']{20,}/gi,
+          /Bearer\s+[a-zA-Z0-9\-._~+/]+=*/gi,
+          /mongodb(?:\+srv)?:\/\/[^:]+:[^@]+@/gi,
+          /postgres:\/\/[^:]+:[^@]+@/gi,
         ],
         // Path traversal
         pathTraversal: [
           /readFile(?:Sync)?\s*\([^)]*\+[^)]*\)/gi,
           /require\s*\([^)]*\+[^)]*\)/gi,
+          /createReadStream\s*\([^)]*\+[^)]*\)/gi,
+          /sendFile\s*\([^)]*\+[^)]*\)/gi,
+          /\.\.\/|\.\.\\\/gi,
         ],
         // Weak crypto
         weakCrypto: [
           /createHash\s*\(\s*["'](?:md5|sha1)["']\s*\)/gi,
           /crypto\.(?:createCipher|createDecipher)\s*\(/gi,
+          /Math\.random\s*\(\s*\)/gi, // When used for security
+          /DES|RC4|RC2|MD4/gi,
         ],
-        // Eval usage
+        // Eval and code injection
         dangerousEval: [
           /eval\s*\(/gi,
           /Function\s*\(\s*["'][^"']*["']\s*\)/gi,
-          /setTimeout\s*\([^,]*,\s*0\s*\)/gi,
+          /setTimeout\s*\([^,)]*\$\{[^}]*\}[^,)]*,/gi,
+          /setInterval\s*\([^,)]*\$\{[^}]*\}[^,)]*,/gi,
+          /new\s+Function\s*\(/gi,
+        ],
+        // SSRF patterns (NEW)
+        ssrf: [
+          /(?:axios|fetch|request|http\.get)\s*\([^)]*\$\{[^}]*\}[^)]*\)/gi,
+          /(?:axios|fetch|request)\s*\([^)]*\+[^)]*\)/gi,
+          /url\s*=\s*[^'"`]*\$\{[^}]*\}/gi,
+          /redirect\s*\([^)]*\$\{[^}]*\}[^)]*\)/gi,
+        ],
+        // Insecure deserialization (NEW)
+        insecureDeserialization: [
+          /JSON\.parse\s*\([^)]*\$\{[^}]*\}[^)]*\)/gi,
+          /unserialize\s*\(/gi,
+          /pickle\.loads\s*\(/gi,
+          /readObject\s*\(\s*\)/gi,
+          /yaml\.load\s*\([^,)]*\)/gi, // without safe_load
+        ],
+        // Prototype pollution (NEW)
+        prototypePollution: [
+          /__proto__/gi,
+          /constructor\s*\[\s*["']prototype["']\s*\]/gi,
+          /Object\.prototype/gi,
+          /merge\s*\([^)]*req\.(body|query|params)[^)]*\)/gi,
+          /assign\s*\([^)]*,\s*req\.(body|query|params)[^)]*\)/gi,
+        ],
+        // Insecure logging (NEW)
+        insecureLogging: [
+          /console\.(log|error|warn|info)\s*\([^)]*(?:password|token|secret|apikey|auth)[^)]*\)/gi,
+          /logger\.(log|error|warn|info)\s*\([^)]*(?:password|token|secret|apikey|auth)[^)]*\)/gi,
+          /fs\.writeFile[^(]*\([^)]*(?:password|token|secret)[^)]*\)/gi,
+        ],
+        // NoSQL injection (NEW)
+        nosqlInjection: [
+          /\$where\s*:\s*[^}]*\$\{[^}]*\}/gi,
+          /\$regex\s*:\s*[^}]*\$\{[^}]*\}/gi,
+          /find\s*\(\s*\{[^}]*\$\{[^}]*\}[^}]*\}\s*\)/gi,
+          /\.find\s*\(\s*req\.(body|query|params)\s*\)/gi,
+        ],
+        // XXE patterns (NEW)
+        xxe: [
+          /noent\s*:\s*true/gi,
+          /external_general_entities\s*:\s*true/gi,
+          /load_external_dtd\s*:\s*true/gi,
+          /DOMParser\s*\(\s*\)\.parseFromString\s*\([^)]*text\/xml/gi,
+        ],
+        // LDAP injection (NEW)
+        ldapInjection: [
+          /ldap.*search\s*\([^)]*\$\{[^}]*\}[^)]*\)/gi,
+          /\(uid=.*\$\{[^}]*\}\)/gi,
+          /searchFilter\s*=\s*[^;]*\$\{[^}]*\}/gi,
         ]
       }
     };
+    
+    // Track findings by function/route for better deduplication
+    this.findingGroups = new Map();
   }
 
   /**
@@ -53,6 +126,7 @@ class ASTVulnerabilityScanner {
    */
   scan(code, filename = 'unknown', language = 'javascript') {
     const findings = [];
+    this.findingGroups.clear();
     
     if (!code || typeof code !== 'string') {
       return findings;
@@ -63,6 +137,9 @@ class ASTVulnerabilityScanner {
     
     // Split code into lines for line number tracking
     const lines = code.split('\n');
+    
+    // Identify functions and routes for better grouping
+    const functionMap = this.identifyFunctions(code, lines);
     
     // Check each pattern category
     Object.entries(languagePatterns).forEach(([category, patterns]) => {
@@ -85,13 +162,17 @@ class ASTVulnerabilityScanner {
             }
           }
           
+          // Find containing function
+          const containingFunction = this.findContainingFunction(lineNumber, functionMap);
+          
           // Create finding
           const finding = this.createFinding(
             category,
             match[0],
             filename,
             lineNumber,
-            language
+            language,
+            containingFunction
           );
           
           findings.push(finding);
@@ -102,83 +183,89 @@ class ASTVulnerabilityScanner {
     // Additional heuristic checks
     this.performHeuristicChecks(code, filename, language, findings);
     
-    // Deduplicate findings
-    return this.deduplicateFindings(findings);
+    // Smart deduplication with grouping
+    return this.smartDeduplicateFindings(findings);
   }
 
   /**
-   * Create a finding object
+   * Identify functions and routes in code
    */
-  createFinding(category, matchedCode, filename, line, language) {
-    const categoryMappings = {
-      sqlInjection: {
-        cwe: 'CWE-89',
-        title: 'SQL Injection',
-        severity: 'critical',
-        owasp: { category: 'A03:2021 - Injection' }
-      },
-      commandInjection: {
-        cwe: 'CWE-78',
-        title: 'OS Command Injection',
-        severity: 'critical',
-        owasp: { category: 'A03:2021 - Injection' }
-      },
-      xss: {
-        cwe: 'CWE-79',
-        title: 'Cross-Site Scripting (XSS)',
-        severity: 'high',
-        owasp: { category: 'A03:2021 - Injection' }
-      },
-      hardcodedSecrets: {
-        cwe: 'CWE-798',
-        title: 'Use of Hard-coded Credentials',
-        severity: 'high',
-        owasp: { category: 'A07:2021 - Identification and Authentication Failures' }
-      },
-      pathTraversal: {
-        cwe: 'CWE-22',
-        title: 'Path Traversal',
-        severity: 'high',
-        owasp: { category: 'A01:2021 - Broken Access Control' }
-      },
-      weakCrypto: {
-        cwe: 'CWE-327',
-        title: 'Use of Broken or Weak Cryptographic Algorithm',
-        severity: 'medium',
-        owasp: { category: 'A02:2021 - Cryptographic Failures' }
-      },
-      dangerousEval: {
-        cwe: 'CWE-94',
-        title: 'Code Injection',
-        severity: 'high',
-        owasp: { category: 'A03:2021 - Injection' }
-      }
-    };
+  identifyFunctions(code, lines) {
+    const functionMap = new Map();
+    const patterns = [
+      /function\s+(\w+)\s*\(/g,
+      /const\s+(\w+)\s*=\s*(?:async\s+)?(?:function|\([^)]*\)\s*=>)/g,
+      /app\.(get|post|put|delete|patch)\s*\(\s*["']([^"']+)["']/g,
+      /router\.(get|post|put|delete|patch)\s*\(\s*["']([^"']+)["']/g,
+    ];
     
-    const mapping = categoryMappings[category] || {
-      cwe: 'CWE-1',
-      title: 'Security Issue',
-      severity: 'medium',
-      owasp: { category: 'A06:2021 - Vulnerable and Outdated Components' }
-    };
+    lines.forEach((line, index) => {
+      patterns.forEach(pattern => {
+        pattern.lastIndex = 0;
+        const match = pattern.exec(line);
+        if (match) {
+          const funcName = match[2] || match[1] || `anonymous_${index}`;
+          functionMap.set(index + 1, funcName);
+        }
+      });
+    });
+    
+    return functionMap;
+  }
+
+  /**
+   * Find containing function for a line number
+   */
+  findContainingFunction(lineNumber, functionMap) {
+    let closestFunc = 'global';
+    let closestLine = 0;
+    
+    for (const [line, func] of functionMap.entries()) {
+      if (line <= lineNumber && line > closestLine) {
+        closestLine = line;
+        closestFunc = func;
+      }
+    }
+    
+    return closestFunc;
+  }
+
+  /**
+   * Create a finding object with enhanced metadata
+   */
+  createFinding(category, matchedCode, filename, line, language, containingFunction = 'global') {
+    // Get CWE ID from category
+    const cweId = Taxonomy.getCweByCategory(category);
+    
+    // Get taxonomy information
+    const t = Taxonomy.getByCwe(cweId) || {};
+    const severity = t.defaultSeverity || 'medium';
+    const owasp = t.owasp ? { category: t.owasp } : { category: 'A06:2021 - Vulnerable and Outdated Components' };
+    
+    // Get enhanced remediation from knowledge base
+    const remediation = remediationKnowledge.getRemediation(cweId, language);
     
     return {
       id: `${category}-${filename}-${line}`,
       file: filename,
       line: line,
       column: 0,
-      severity: mapping.severity,
-      title: mapping.title,
-      message: `${mapping.title} vulnerability detected`,
-      description: `Potential ${mapping.title} vulnerability found in ${filename} at line ${line}`,
-      cwe: mapping.cwe,
-      cweId: mapping.cwe,
-      owasp: mapping.owasp,
+      function: containingFunction,
+      severity: severity,
+      title: t.title || 'Security Issue',
+      message: `${t.title || 'Security Issue'} vulnerability detected`,
+      description: `Potential ${t.title || 'security issue'} found in ${filename} at line ${line}`,
+      cwe: cweId,
+      cweId: cweId,
+      owasp: owasp,
+      category: t.category || 'unknown',
       check_id: category,
       snippet: matchedCode.substring(0, 100),
       language: language,
-      cvss: this.estimateCVSS(mapping.severity),
-      remediation: this.getRemediation(mapping.cwe)
+      cvss: this.estimateCVSS(severity),
+      remediation: remediation.languageSpecific || remediation,
+      risk: remediation.risk,
+      testing: remediation.testing
     };
   }
 
@@ -186,7 +273,6 @@ class ASTVulnerabilityScanner {
    * Perform additional heuristic checks
    */
   performHeuristicChecks(code, filename, language, findings) {
-    // Check for missing input validation
     if (language === 'javascript') {
       // Check for Express routes without validation
       if (code.includes('app.post') || code.includes('app.put')) {
@@ -195,13 +281,15 @@ class ASTVulnerabilityScanner {
             id: 'missing-validation-' + filename,
             file: filename,
             line: 0,
+            function: 'global',
             severity: 'medium',
             title: 'Missing Input Validation',
             message: 'API endpoints detected without explicit input validation',
             description: 'Consider using express-validator, joi, or yup for input validation',
             cwe: 'CWE-20',
             owasp: { category: 'A03:2021 - Injection' },
-            cvss: { baseScore: 5.3 }
+            cvss: { baseScore: 5.3 },
+            remediation: remediationKnowledge.getRemediation('CWE-20', language)
           });
         }
       }
@@ -212,31 +300,87 @@ class ASTVulnerabilityScanner {
           id: 'missing-helmet-' + filename,
           file: filename,
           line: 0,
+          function: 'global',
           severity: 'low',
           title: 'Missing Security Headers',
           message: 'Express app without Helmet security headers',
           description: 'Consider using helmet middleware to set security headers',
           cwe: 'CWE-693',
           owasp: { category: 'A05:2021 - Security Misconfiguration' },
-          cvss: { baseScore: 3.1 }
-          });
+          cvss: { baseScore: 3.1 },
+          remediation: remediationKnowledge.getRemediation('CWE-693', language)
+        });
+      }
+      
+      // Check for missing CSRF protection
+      if (code.includes('app.post') && !code.includes('csrf') && !code.includes('csurf')) {
+        findings.push({
+          id: 'missing-csrf-' + filename,
+          file: filename,
+          line: 0,
+          function: 'global',
+          severity: 'medium',
+          title: 'Missing CSRF Protection',
+          message: 'POST endpoints without CSRF protection',
+          description: 'Consider implementing CSRF tokens',
+          cwe: 'CWE-352',
+          owasp: { category: 'A01:2021 - Broken Access Control' },
+          cvss: { baseScore: 6.5 },
+          remediation: remediationKnowledge.getRemediation('CWE-352', language)
+        });
+      }
+      
+      // Check for open redirects
+      if (code.match(/res\.redirect\s*\([^)]*req\.(query|params|body)/gi)) {
+        findings.push({
+          id: 'open-redirect-' + filename,
+          file: filename,
+          line: 0,
+          function: 'global',
+          severity: 'medium',
+          title: 'Open Redirect',
+          message: 'Potential open redirect vulnerability',
+          description: 'Validate redirect URLs against a whitelist',
+          cwe: 'CWE-601',
+          owasp: { category: 'A01:2021 - Broken Access Control' },
+          cvss: { baseScore: 6.1 },
+          remediation: remediationKnowledge.getRemediation('CWE-601', language)
+        });
       }
     }
   }
 
   /**
-   * Deduplicate findings
+   * Smart deduplication with grouping by function/route
    */
-  deduplicateFindings(findings) {
-    const seen = new Set();
-    return findings.filter(finding => {
-      const key = `${finding.file}-${finding.line}-${finding.cwe}`;
-      if (seen.has(key)) {
-        return false;
+  smartDeduplicateFindings(findings) {
+    const grouped = new Map();
+    
+    findings.forEach(finding => {
+      const key = `${finding.file}-${finding.function}-${finding.cwe}`;
+      
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          ...finding,
+          lines: [finding.line],
+          occurrences: 1
+        });
+      } else {
+        const existing = grouped.get(key);
+        existing.lines.push(finding.line);
+        existing.occurrences++;
+        
+        // Update message to show multiple occurrences
+        if (existing.occurrences === 2) {
+          existing.message = `${existing.title} vulnerability detected (multiple occurrences)`;
+          existing.description = `${existing.title} found in ${existing.file} at lines: ${existing.lines.join(', ')}`;
+        } else {
+          existing.description = `${existing.title} found in ${existing.file} at lines: ${existing.lines.join(', ')}`;
+        }
       }
-      seen.add(key);
-      return true;
     });
+    
+    return Array.from(grouped.values());
   }
 
   /**
@@ -252,25 +396,6 @@ class ASTVulnerabilityScanner {
     };
     
     return scores[severity] || scores.medium;
-  }
-
-  /**
-   * Get remediation advice
-   */
-  getRemediation(cwe) {
-    const remediations = {
-      'CWE-89': 'Use parameterized queries or prepared statements',
-      'CWE-78': 'Avoid shell commands or use safe alternatives like spawn with argument arrays',
-      'CWE-79': 'Encode output and implement Content Security Policy',
-      'CWE-798': 'Use environment variables or secure vaults for credentials',
-      'CWE-22': 'Validate and sanitize file paths, use path.join()',
-      'CWE-327': 'Use strong cryptographic algorithms (SHA-256, AES-256)',
-      'CWE-94': 'Avoid eval() and Function constructor, use JSON.parse() for data',
-      'CWE-20': 'Implement input validation for all user inputs',
-      'CWE-693': 'Configure security headers and follow security best practices'
-    };
-    
-    return remediations[cwe] || 'Review and apply security best practices';
   }
 }
 
