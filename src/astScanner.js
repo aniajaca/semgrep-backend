@@ -48,7 +48,7 @@ class ASTVulnerabilityScanner {
           /require\s*\([^)]*\+[^)]*\)/gi,
           /createReadStream\s*\([^)]*\+[^)]*\)/gi,
           /sendFile\s*\([^)]*\+[^)]*\)/gi,
-          /\.\.\/|\.\.\\\/gi,
+          /\.\.\/|\.\.\\/gi,
         ],
         // Weak crypto
         weakCrypto: [
