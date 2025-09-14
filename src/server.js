@@ -269,22 +269,20 @@ function calculateRiskIndex(findings) {
   return Math.min(100, Math.round(totalRisk / Math.max(1, findings.length)));
 }
 
-/**
- * Enhanced code scanning endpoint - supports both string and file path
- */
 app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
   console.log('=== CODE SCAN REQUEST RECEIVED ===');
   
   const startTime = Date.now();
+  let tempDir = null;
   
   try {
     const { 
-      code,           // Direct code string (for AST scanner)
-      path: targetPath,  // File/directory path (for Semgrep)
+      code,
+      path: targetPath,
       language = 'javascript',
-      languages,      // For multi-language scanning
+      languages,
       filename = 'code.js',
-      engine = 'auto',  // 'ast', 'semgrep', or 'auto'
+      engine = 'auto',
       riskConfig = {},
       context = {}
     } = req.body;
@@ -298,23 +296,34 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
     }
     
     console.log('Scan type:', code ? 'code string' : 'file path');
-    console.log('Engine:', engine);
-    console.log('Languages:', languages || [language]);
+    console.log('Language:', language);
+    console.log('Filename:', filename);
+    console.log('Semgrep available:', semgrepAvailable);
     
     const allFindings = [];
     let usedEngine = null;
+    let actualTargetPath = targetPath;
     
     // Sanitize configurations
     const sanitizedConfig = sanitizeRiskConfig(riskConfig);
     const sanitizedContext = sanitizeContextFactors(context);
     
-    // If path provided and Semgrep available, use Semgrep
-    if (targetPath && (engine === 'semgrep' || (engine === 'auto' && semgrepAvailable))) {
+    // CREATE TEMP FILE FOR SEMGREP WHEN CODE STRING PROVIDED
+    if (code && !targetPath && semgrepAvailable) {
+      tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'neperia-'));
+      const tempFile = path.join(tempDir, filename);
+      await fs.writeFile(tempFile, code);
+      actualTargetPath = tempDir;
+      console.log('Created temp file for Semgrep:', tempFile);
+    }
+    
+    // ALWAYS USE SEMGREP IF AVAILABLE
+    if (actualTargetPath && semgrepAvailable) {
       try {
-        // Auto-detect languages if not specified
-        const scanLanguages = languages || await detectLanguages(targetPath);
+        // Determine languages to scan
+        const scanLanguages = languages || [language];
         
-        console.log('Running Semgrep scan on path:', targetPath);
+        console.log('Running Semgrep scan on path:', actualTargetPath);
         console.log('Languages:', scanLanguages);
         
         const semgrepOptions = {
@@ -324,7 +333,7 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
           rulesets: config.semgrepConfig?.rulesets || ['auto']
         };
         
-        const semgrepFindings = await runSemgrep(targetPath, semgrepOptions);
+        const semgrepFindings = await runSemgrep(actualTargetPath, semgrepOptions);
         allFindings.push(...semgrepFindings);
         usedEngine = 'semgrep';
         
@@ -332,21 +341,21 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
       } catch (semgrepError) {
         console.error('Semgrep scan failed:', semgrepError.message);
         
-        // Fall back to AST scanner if available
-        if (code || engine === 'auto') {
-          console.log('Falling back to AST scanner');
+        // Fall back to AST only for JavaScript
+        if (language === 'javascript' && code) {
+          console.log('Falling back to AST scanner for JavaScript');
+          usedEngine = null;
         } else {
-          throw semgrepError;
+          throw new Error(`Semgrep failed for ${language}: ${semgrepError.message}`);
         }
       }
     }
     
-    // If code provided or Semgrep failed, use AST scanner
-    if (code && (usedEngine === null || engine === 'ast')) {
-      console.log('Running AST scanner on code string');
-      const astFindings = astScanner.scan(code, filename, language);
+    // ONLY use AST as fallback for JavaScript when Semgrep not available or failed
+    if (code && !semgrepAvailable && language === 'javascript') {
+      console.log('Semgrep not available, using AST scanner for JavaScript');
+      const astFindings = astScanner.scan(code, filename, 'javascript');
       
-      // Convert to normalized format
       const normalizedAst = astFindings.map(f => ({
         engine: 'ast',
         ruleId: f.check_id,
@@ -363,43 +372,27 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
       }));
       
       allFindings.push(...normalizedAst);
-      usedEngine = usedEngine || 'ast';
+      usedEngine = 'ast';
       
       console.log(`AST scanner found ${astFindings.length} issues`);
     }
     
-    // If path provided but no code, scan files with AST scanner
-    if (targetPath && !code && usedEngine !== 'semgrep') {
-      console.log('Scanning files with AST scanner');
-      const jsFiles = await getJavaScriptFiles(targetPath);
-      
-      for (const file of jsFiles.slice(0, config.scanning.maxFilesPerScan || 100)) {
-        try {
-          const fileContent = await fs.readFile(file, 'utf8');
-          const fileFindings = astScanner.scan(fileContent, path.relative(targetPath, file), 'javascript');
-          
-          const normalizedFile = fileFindings.map(f => ({
-            engine: 'ast',
-            ruleId: f.check_id,
-            category: 'sast',
-            severity: f.severity.toUpperCase(),
-            message: f.message,
-            cwe: [f.cweId],
-            owasp: [f.owasp?.category || 'A06:2021'],
-            file: path.relative(targetPath, file),
-            startLine: f.line,
-            endLine: f.line,
-            snippet: f.snippet,
-            confidence: 'MEDIUM'
-          }));
-          
-          allFindings.push(...normalizedFile);
-        } catch (fileError) {
-          console.error(`Error scanning file ${file}:`, fileError.message);
-        }
+    // Error if non-JavaScript without Semgrep
+    if (language !== 'javascript' && !semgrepAvailable) {
+      return res.status(400).json({
+        status: 'error',
+        message: `Cannot scan ${language} files. Semgrep is required for ${language} scanning.`
+      });
+    }
+    
+    // Clean up temp directory
+    if (tempDir) {
+      try {
+        await fs.rm(tempDir, { recursive: true, force: true });
+        console.log('Cleaned up temp directory');
+      } catch (cleanupError) {
+        console.error('Failed to clean up temp directory:', cleanupError);
       }
-      
-      usedEngine = 'ast';
     }
     
     // Normalize and enrich all findings
@@ -411,12 +404,11 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
     const calc = new EnhancedRiskCalculator(sanitizedConfig);
     
     const scoredFindings = deduplicated.map(finding => {
-      // Extract CWE ID properly - handle both array and object formats
       const cweId = extractCweId(finding.cwe);
       
       const vuln = {
         severity: normalizeSeverity(finding.severity),
-        cwe: cweId,  // Now guaranteed to be a string
+        cwe: cweId,
         cweId: cweId,
         file: finding.file,
         line: finding.startLine
@@ -426,7 +418,7 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
       
       return {
         ...finding,
-        cwe: cweId,  // Ensure CWE is a string in the output
+        cwe: cweId,
         cvssBase: riskResult.original.cvss,
         adjustedScore: riskResult.adjusted.score,
         adjustedSeverity: riskResult.adjusted.severity,
@@ -439,14 +431,13 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
     // Sort by adjusted score
     scoredFindings.sort((a, b) => b.adjustedScore - a.adjustedScore);
     
-    // Normalize findings for calculateFileRisk
+    // Calculate overall risk
     const normalizedForRisk = scoredFindings.map(f => ({
       ...f,
       cwe: extractCweId(f.cwe),
       cweId: extractCweId(f.cwe)
     }));
     
-    // Calculate overall risk
     const { score, risk } = calc.calculateFileRisk(normalizedForRisk, sanitizedContext);
     
     // Build severity distribution
@@ -470,6 +461,7 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
       totalFindings: scoredFindings.length,
       engine: usedEngine,
       semgrepAvailable,
+      language: language,
       countsBySeverity: severityDistribution,
       top5: scoredFindings.slice(0, 5).map(f => ({
         file: path.basename(f.file),
@@ -494,6 +486,8 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
       metadata: {
         scanned_at: new Date().toISOString(),
         scan_time: `${endTime - startTime}ms`,
+        language: language,
+        semgrepVersion: semgrepVersion,
         configuration: {
           customConfig: Object.keys(riskConfig).length > 0,
           contextProvided: Object.keys(context).length > 0,
@@ -504,6 +498,16 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
     
   } catch (error) {
     console.error('Scan error:', error);
+    
+    // Clean up temp directory on error
+    if (tempDir) {
+      try {
+        await fs.rm(tempDir, { recursive: true, force: true });
+      } catch (cleanupError) {
+        console.error('Failed to clean up temp directory:', cleanupError);
+      }
+    }
+    
     res.status(500).json({ 
       status: 'error', 
       message: 'Code scan failed',
