@@ -10,6 +10,3 @@ cmds = [
 
 [start]
 cmd = "npm start"
-
-[providers]
-node = false
