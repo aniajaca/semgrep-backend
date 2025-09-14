@@ -1,11 +1,15 @@
 [phases.setup]
-   nixPkgs = ["python310", "nodejs-18_x"]
-   
-   [phases.install]
-   cmds = [
-     "npm install",
-     "pip install semgrep"
-   ]
-   
-   [start]
-   cmd = "npm start"
+nixPkgs = ["python310", "nodejs-18_x"]
+aptPkgs = ["python3-pip"]
+
+[phases.install]
+cmds = [
+  "npm install",
+  "pip install semgrep"
+]
+
+[start]
+cmd = "npm start"
+
+[providers]
+node = false
