@@ -6,7 +6,6 @@ const { exec } = require('child_process');
 const { promisify } = require('util');
 const execAsync = promisify(exec);
 
-
 /**
  * Execute Semgrep with real security rules
  * @param {string} targetPath - Path to scan
@@ -14,6 +13,20 @@ const execAsync = promisify(exec);
  * @returns {Promise<Array>} Normalized findings
  */
 async function runSemgrep(targetPath, options = {}) {
+  // Debug checks - INSIDE the function
+  const homeDir = process.env.HOME || '/root';
+  const semgrepDir = path.join(homeDir, '.semgrep');
+  console.log('Semgrep cache directory:', semgrepDir);
+  console.log('Directory exists?', await fs.access(semgrepDir).then(() => true).catch(() => false));
+  
+  // Test network connectivity
+  try {
+    const testConnection = await execAsync('curl -I https://semgrep.dev 2>&1');
+    console.log('Registry connectivity test:', testConnection.stdout.substring(0, 200));
+  } catch (e) {
+    console.log('Cannot reach Semgrep registry:', e.message);
+  }
+
   // Validate target path exists
   try {
     await fs.access(targetPath);
@@ -35,46 +48,32 @@ async function runSemgrep(targetPath, options = {}) {
       });
     } else {
       // DEFAULT: Use comprehensive security rules from Semgrep registry
-      // semgrepArgs.push('--config', 'auto');  // Auto includes all security rules
-      // Or use specific high-quality rulesets:
       semgrepArgs.push('--config', 'p/security');
       semgrepArgs.push('--config', 'p/owasp-top-ten');
       semgrepArgs.push('--config', 'p/r2c-security-audit');
 
-    // Add language-specific rulesets based on what's being scannedd
-  if (options.languages) {
-    if (options.languages.includes('javascript')) {
-      semgrepArgs.push('--config', 'p/javascript');
-    }
-    if (options.languages.includes('python')) {
-      semgrepArgs.push('--config', 'p/python');
-    }
-    if (options.languages.includes('java')) {
-      semgrepArgs.push('--config', 'p/java');
-    }
-  }
-    
-    
+      // Add language-specific rulesets based on what's being scanned
+      if (options.languages) {
+        if (options.languages.includes('javascript')) {
+          semgrepArgs.push('--config', 'p/javascript');
+        }
+        if (options.languages.includes('python')) {
+          semgrepArgs.push('--config', 'p/python');
+        }
+        if (options.languages.includes('java')) {
+          semgrepArgs.push('--config', 'p/java');
+        }
+      }
     }
     
     // Core arguments
     semgrepArgs.push(
       '--json',           // JSON output for parsing
-      '--quiet',          // Suppress non-JSON output
+      '--verbose',        // Show what is happening
       '--no-git-ignore',  // Scan everything (we handle excludes)
-      '--metrics', 'off', // Disable telemetry
+      '--metrics', 'on',  // Enable metrics for registry access
       '--no-rewrite-rule-ids' // Keep original rule IDs
     );
-    
-    // CORRECT - fix it to this
-//if (options.severityFilter !== false) {
-  // Semgrep wants individual --severity flags, not comma-separated
-  //const severities = (options.severity || 'ERROR,WARNING').split(',');
-  //severities.forEach(sev => {
-    //semgrepArgs.push('--severity', sev.trim());
-  //});
-//}
-    
 
     // Add timeout (important for large codebases)
     if (options.timeout) {
@@ -151,6 +150,7 @@ async function runSemgrep(targetPath, options = {}) {
 
     semgrep.stderr.on('data', (chunk) => {
       stderr += chunk.toString();
+      console.log('Semgrep stderr chunk:', chunk.toString()); // Debug output
     });
 
     semgrep.on('error', (error) => {
@@ -162,19 +162,23 @@ async function runSemgrep(targetPath, options = {}) {
     });
 
     semgrep.on('close', (code) => {
+      // Add debugging
+      console.log('Semgrep exit code:', code);
+      console.log('Semgrep stdout length:', stdout.length);
+      console.log('Semgrep stderr (first 500 chars):', stderr.substring(0, 500));
+      
+      if (stdout) {
+        try {
+          const parsed = JSON.parse(stdout || '{}');
+          console.log('Semgrep raw results count:', parsed.results?.length || 0);
+          if (parsed.results && parsed.results.length > 0) {
+            console.log('First result:', JSON.stringify(parsed.results[0], null, 2));
+          }
+        } catch (e) {
+          console.log('Could not parse stdout as JSON');
+        }
+      }
 
-      // Add this debugging
-  console.log('Semgrep exit code:', code);
-  console.log('Semgrep stdout length:', stdout.length);
-  console.log('Semgrep stderr:', stderr);
-  
-  if (stdout) {
-    const parsed = JSON.parse(stdout || '{}');
-    console.log('Semgrep raw results count:', parsed.results?.length || 0);
-    if (parsed.results && parsed.results.length > 0) {
-      console.log('First result:', JSON.stringify(parsed.results[0], null, 2));
-    }
-  }
       // Semgrep returns non-zero when it finds issues, which is expected
       if (code !== 0 && code !== 1 && !stdout) {
         reject(new Error(`Semgrep failed with code ${code}: ${stderr}`));
@@ -202,20 +206,6 @@ function normalizeResults(semgrepOutput) {
   if (!semgrepOutput.results || !Array.isArray(semgrepOutput.results)) {
     return [];
   }
-
-  /* Filter out test files and other noise
-  const filtered = semgrepOutput.results.filter(result => {
-    const path = result.path || '';
-    // Skip test files
-    // if (path.includes('test') || path.includes('spec') || path.includes('__tests__')) {
-      return false;
-    }
-    // Skip example/demo files
-    if (path.includes('example') || path.includes('demo') || path.includes('sample')) {
-      return false;
-    }
-    return true;
-  });*/
 
   return semgrepOutput.results.map(result => {
     // Map Semgrep severity to our format
@@ -404,6 +394,7 @@ async function checkSemgrepAvailable() {
     return false;
   }
 }
+
 /**
  * Get Semgrep version
  * @returns {Promise<string|null>} Version string or null
