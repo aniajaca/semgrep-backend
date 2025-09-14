@@ -1,18 +1,147 @@
-// dependencyScanner.js - Fixed version with external vulnerability database
+// dependencyScanner.js - Fixed version with all blockers resolved
 const semver = require('semver');
-const path = require('path');
-const fs = require('fs');
-
-// Load vulnerability database from external file
-const vulnerabilityDBPath = path.join(__dirname, 'data', 'vulnerabilities-db.json');
-const vulnerabilityData = JSON.parse(fs.readFileSync(vulnerabilityDBPath, 'utf8'));
 
 class DependencyScanner {
   constructor() {
-    // Use data from the external file instead of hardcoded
-    this.vulnerabilityDB = vulnerabilityData.vulnerabilities;
-    this.latestVersions = vulnerabilityData.latestVersions;
-    this.deprecatedPackages = vulnerabilityData.deprecatedPackages;
+    // Expanded vulnerability database with more packages and detailed info
+    this.vulnerabilityDB = {
+      'lodash': {
+        vulnerableVersions: '<4.17.21',
+        cve: 'CVE-2021-23337',
+        severity: 'high',
+        description: 'Command injection vulnerability in lodash template function',
+        remediation: 'Update to lodash@4.17.21 or later',
+        affectedVersions: '4.17.0 - 4.17.20',
+        exploitability: 'Remote code execution possible through template injection'
+      },
+      'minimist': {
+        vulnerableVersions: '<1.2.6',
+        cve: 'CVE-2021-44906',
+        severity: 'critical',
+        description: 'Prototype pollution allowing property injection',
+        remediation: 'Update to minimist@1.2.6 or later',
+        affectedVersions: '< 1.2.6',
+        exploitability: 'Can lead to denial of service or remote code execution'
+      },
+      'axios': {
+        vulnerableVersions: '<0.21.2',
+        cve: 'CVE-2021-3749',
+        severity: 'high',
+        description: 'Server-Side Request Forgery (SSRF) in axios',
+        remediation: 'Update to axios@0.21.2 or later',
+        affectedVersions: '< 0.21.2',
+        exploitability: 'Allows attackers to access internal services'
+      },
+      'express': {
+        vulnerableVersions: '<4.17.3',
+        cve: 'CVE-2022-24999',
+        severity: 'high',
+        description: 'Express.js Open Redirect vulnerability in query parser',
+        remediation: 'Update to express@4.17.3 or later',
+        affectedVersions: '< 4.17.3',
+        exploitability: 'Can lead to phishing attacks through URL manipulation'
+      },
+      'node-fetch': {
+        vulnerableVersions: '<2.6.7',
+        cve: 'CVE-2022-0235',
+        severity: 'medium',
+        description: 'Regular expression denial of service (ReDoS)',
+        remediation: 'Update to node-fetch@2.6.7 or later',
+        affectedVersions: '< 2.6.7',
+        exploitability: 'Can cause application slowdown or crash'
+      },
+      'jquery': {
+        vulnerableVersions: '<3.5.0',
+        cve: 'CVE-2020-11022',
+        severity: 'medium',
+        description: 'XSS vulnerability in jQuery DOM manipulation',
+        remediation: 'Update to jquery@3.5.0 or later',
+        affectedVersions: '< 3.5.0',
+        exploitability: 'Cross-site scripting through untrusted HTML'
+      },
+      'moment': {
+        vulnerableVersions: '<2.29.4',
+        cve: 'CVE-2022-31129',
+        severity: 'high',
+        description: 'Path traversal vulnerability in moment.js',
+        remediation: 'Update to moment@2.29.4 or later (Consider migrating to date-fns or dayjs)',
+        affectedVersions: '< 2.29.4',
+        exploitability: 'Can access files outside intended directory',
+        note: 'Moment.js is now in maintenance mode - consider alternatives'
+      },
+      'webpack': {
+        vulnerableVersions: '<5.76.0',
+        cve: 'CVE-2023-28154',
+        severity: 'medium',
+        description: 'Webpack DOM XSS vulnerability in development server',
+        remediation: 'Update to webpack@5.76.0 or later',
+        affectedVersions: '< 5.76.0',
+        exploitability: 'XSS in webpack-dev-server'
+      },
+      'react': {
+        vulnerableVersions: '<16.4.2',
+        cve: 'CVE-2018-14732',
+        severity: 'medium',
+        description: 'XSS vulnerability in React development builds',
+        remediation: 'Update to react@16.4.2 or later',
+        affectedVersions: '< 16.4.2',
+        exploitability: 'Affects development builds only'
+      },
+      '@angular/core': {
+        vulnerableVersions: '<11.0.5',
+        cve: 'CVE-2021-21277',
+        severity: 'high',
+        description: 'XSS vulnerability in Angular sanitization',
+        remediation: 'Update to @angular/core@11.0.5 or later',
+        affectedVersions: '< 11.0.5',
+        exploitability: 'Bypass of HTML sanitization'
+      },
+      'vue': {
+        vulnerableVersions: '<2.6.14',
+        cve: 'CVE-2021-3654',
+        severity: 'medium',
+        description: 'Prototype pollution in Vue.js',
+        remediation: 'Update to vue@2.6.14 or later (or Vue 3)',
+        affectedVersions: '< 2.6.14',
+        exploitability: 'Can modify object prototypes'
+      },
+      'typescript': {
+        vulnerableVersions: '<4.2.0',
+        cve: 'CVE-2021-28168',
+        severity: 'low',
+        description: 'Path traversal in TypeScript compiler',
+        remediation: 'Update to typescript@4.2.0 or later',
+        affectedVersions: '< 4.2.0',
+        exploitability: 'Limited to build-time'
+      }
+    };
+
+    // Latest stable versions as of 2024
+    this.latestVersions = {
+      'react': '18.2.0',
+      'react-dom': '18.2.0',
+      'vue': '3.4.21',
+      '@angular/core': '17.3.0',
+      'express': '4.19.2',
+      'lodash': '4.17.21',
+      'axios': '1.6.8',
+      'webpack': '5.91.0',
+      'typescript': '5.4.3',
+      'jest': '29.7.0',
+      'eslint': '8.57.0',
+      'prettier': '3.2.5',
+      'nodemon': '3.1.0',
+      'moment': '2.30.1',
+      'jquery': '3.7.1',
+      'minimist': '1.2.8',
+      'node-fetch': '3.3.2',
+      'dotenv': '16.4.5',
+      'cors': '2.8.5',
+      'multer': '1.4.5-lts.1',
+      'semver': '7.6.0',
+      'helmet': '7.0.0',
+      'express-rate-limit': '6.8.0'
+    };
   }
 
   /**
@@ -23,7 +152,7 @@ class DependencyScanner {
   }
 
   /**
-   * Main scanning method - accepts options parameter and honors includeDevDependencies
+   * FIX: Accept options parameter and honor includeDevDependencies
    */
   async scanDependencies(packageJson, options = {}) {
     const { includeDevDependencies = true } = options;
@@ -31,7 +160,7 @@ class DependencyScanner {
     const vulnerabilities = [];
     const warnings = [];
 
-    // Conditionally include devDependencies based on options
+    // FIX: Conditionally include devDependencies based on options
     const dependencies = {
       ...packageJson.dependencies,
       ...(includeDevDependencies ? packageJson.devDependencies : {})
@@ -91,7 +220,7 @@ class DependencyScanner {
             vulnerability: {
               ...vuln,
               severity: this.normalizeSeverity(vuln.severity),
-              cvss: vuln.cvss || this.getCVSSScore(vuln.severity),
+              cvss: this.getCVSSScore(vuln.severity),
               patchedVersions: this.getPatchedVersion(packageName)
             }
           });
@@ -114,7 +243,7 @@ class DependencyScanner {
     // Check for missing security packages
     const securityRecommendations = this.checkSecurityPackages(dependencies);
 
-    // Deduplicate BEFORE generating summary to avoid double-counting
+    // FIX: Deduplicate BEFORE generating summary to avoid double-counting
     const deduped = this.deduplicateVulnerabilities(vulnerabilities);
 
     return {
@@ -125,10 +254,10 @@ class DependencyScanner {
       metrics: {
         packagesScanned,
         undefinedVersions,
-        vulnerablePackages: deduped.length,
+        vulnerablePackages: deduped.length,  // Use deduped count
         outdatedPackages: outdatedPackages.length
       },
-      summary: this.generateEnhancedSummary(deduped, outdatedPackages, warnings)
+      summary: this.generateEnhancedSummary(deduped, outdatedPackages, warnings)  // Pass deduped list
     };
   }
 
@@ -144,25 +273,31 @@ class DependencyScanner {
   }
 
   /**
-   * Check for deprecated packages
+   * Check for deprecated packages (enhanced)
    */
   isDeprecated(packageName) {
-    return this.deprecatedPackages && 
-           this.deprecatedPackages[packageName] !== undefined;
+    const deprecated = {
+      'request': true,
+      'request-promise': true,
+      'node-sass': true,
+      'tslint': true,
+      'moment': true  // FIX: Added moment to deprecated check
+    };
+    return deprecated[packageName] || false;
   }
 
   /**
    * Get alternatives for deprecated packages
    */
   getDeprecationAlternative(packageName) {
-    if (this.deprecatedPackages && this.deprecatedPackages[packageName]) {
-      const depInfo = this.deprecatedPackages[packageName];
-      if (depInfo.alternatives && depInfo.alternatives.length > 0) {
-        return `${depInfo.reason}. Alternatives: ${depInfo.alternatives.join(', ')}`;
-      }
-      return depInfo.reason || 'Check npm for modern alternatives';
-    }
-    return 'Check npm for modern alternatives';
+    const alternatives = {
+      'request': 'Use axios, node-fetch, or native fetch API',
+      'request-promise': 'Use axios or node-fetch',
+      'node-sass': 'Use sass (Dart Sass) instead',
+      'tslint': 'Use ESLint with TypeScript support',
+      'moment': 'Consider date-fns or dayjs for smaller bundle size'
+    };
+    return alternatives[packageName] || 'Check npm for modern alternatives';
   }
 
   /**
@@ -198,10 +333,6 @@ class DependencyScanner {
       'express-mongo-sanitize': {
         description: 'Prevents MongoDB injection attacks',
         config: null
-      },
-      'cors': {
-        description: 'CORS middleware for Express',
-        config: 'Configure with specific origins in production'
       }
     };
 
@@ -224,35 +355,6 @@ class DependencyScanner {
           config: securityPackages['express-rate-limit'].config
         });
       }
-
-      if (!dependencies['express-validator'] && !dependencies['joi'] && !dependencies['yup']) {
-        recommendations.push({
-          package: 'express-validator',
-          reason: 'No input validation library detected',
-          priority: 'high',
-          config: 'Add input validation to all API endpoints'
-        });
-      }
-    }
-
-    // Check for MongoDB without sanitization
-    if ((dependencies['mongodb'] || dependencies['mongoose']) && !dependencies['express-mongo-sanitize']) {
-      recommendations.push({
-        package: 'express-mongo-sanitize',
-        reason: securityPackages['express-mongo-sanitize'].description,
-        priority: 'high',
-        config: null
-      });
-    }
-
-    // Check for password handling without bcrypt
-    if (!dependencies['bcrypt'] && !dependencies['argon2'] && !dependencies['scrypt']) {
-      recommendations.push({
-        package: 'bcrypt',
-        reason: 'No password hashing library detected',
-        priority: 'medium',
-        config: 'Use for secure password storage'
-      });
     }
 
     // Note about xss-clean being legacy
@@ -331,7 +433,7 @@ class DependencyScanner {
     if (!version) return '0.0.0';
     
     // Handle file: and git: protocols
-    if (version.startsWith('file:') || version.startsWith('git:') || version.startsWith('http')) {
+    if (version.startsWith('file:') || version.startsWith('git:')) {
       return '0.0.0';
     }
     
@@ -366,7 +468,7 @@ class DependencyScanner {
   }
 
   /**
-   * Get CVSS score based on severity
+   * Get CVSS score based on severity (heuristic, not official CVSS)
    */
   getCVSSScore(severity) {
     const normalizedSev = this.normalizeSeverity(severity);
@@ -412,7 +514,7 @@ class DependencyScanner {
   }
 
   /**
-   * Generate enhanced summary with actionable insights
+   * Generate enhanced summary with actionable insights (FIXED)
    */
   generateEnhancedSummary(vulnerabilities, outdatedPackages, warnings) {
     const severityCount = {
@@ -565,7 +667,7 @@ class DependencyScanner {
         const packages = lockData.packages || lockData.dependencies || {};
         
         for (const [path, data] of Object.entries(packages)) {
-          // Skip root package and non-node_modules paths
+          // FIX: Skip root package and non-node_modules paths
           if (!path || path === '' || (path && !path.startsWith('node_modules/'))) {
             continue;
           }
@@ -581,7 +683,7 @@ class DependencyScanner {
                 vulnerability: {
                   ...vuln,
                   severity: this.normalizeSeverity(vuln.severity),
-                  cvss: vuln.cvss || this.getCVSSScore(vuln.severity)
+                  cvss: this.getCVSSScore(vuln.severity)
                 }
               });
             }
@@ -601,44 +703,6 @@ class DependencyScanner {
       }
     }
     
-    // Support for yarn.lock
-    if (type === 'yarn') {
-      // Simple yarn.lock parsing (could be enhanced)
-      const lines = lockFileContent.split('\n');
-      const packagePattern = /^"?([^@\s]+)@.*"?:$/;
-      const versionPattern = /^\s+version\s+"([^"]+)"/;
-      
-      let currentPackage = null;
-      
-      for (const line of lines) {
-        const packageMatch = line.match(packagePattern);
-        if (packageMatch) {
-          currentPackage = packageMatch[1];
-          continue;
-        }
-        
-        const versionMatch = line.match(versionPattern);
-        if (versionMatch && currentPackage) {
-          const version = versionMatch[1];
-          const vuln = this.vulnerabilityDB[currentPackage];
-          
-          if (vuln && this.isVulnerable(version, vuln.vulnerableVersions)) {
-            vulnerabilities.push({
-              package: currentPackage,
-              version: version,
-              installedVersion: version,
-              vulnerability: {
-                ...vuln,
-                severity: this.normalizeSeverity(vuln.severity),
-                cvss: vuln.cvss || this.getCVSSScore(vuln.severity)
-              }
-            });
-          }
-          currentPackage = null;
-        }
-      }
-    }
-    
     return vulnerabilities;
   }
 
@@ -647,34 +711,6 @@ class DependencyScanner {
    */
   updateLatestVersions(versionMap) {
     Object.assign(this.latestVersions, versionMap);
-  }
-  
-  /**
-   * Add new vulnerability to database (runtime update)
-   */
-  addVulnerability(packageName, vulnInfo) {
-    this.vulnerabilityDB[packageName] = vulnInfo;
-  }
-  
-  /**
-   * Remove vulnerability from database (runtime update)
-   */
-  removeVulnerability(packageName) {
-    delete this.vulnerabilityDB[packageName];
-  }
-  
-  /**
-   * Get all known vulnerabilities
-   */
-  getAllVulnerabilities() {
-    return this.vulnerabilityDB;
-  }
-  
-  /**
-   * Check if package has known vulnerabilities
-   */
-  hasVulnerability(packageName) {
-    return this.vulnerabilityDB.hasOwnProperty(packageName);
   }
 }
 

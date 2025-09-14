@@ -1,6 +1,7 @@
 // enhancedRiskCalculator.js - Security-focused version (no business/compliance)
 const crypto = require('crypto');
 const { CustomEnvironmentalFactorSystem } = require('./customEnvironmentalFactors');
+const Taxonomy = require('./taxonomy');
 
 // Title-case helper for consistent formatting across server and reports
 function toTitle(s='') {
@@ -181,62 +182,82 @@ class EnhancedRiskCalculator {
     return false;
   }
 
-  /**
-   * Get CWE category
-   */
   getCweCategory(cwe) {
-    if (!cwe) return 'unknown';
-    
-    const cweUpper = cwe.toUpperCase();
-    for (const [category, data] of Object.entries(this.cweCategories)) {
-      if (data.cwes.includes(cweUpper)) {
-        return category;
-      }
-    }
-    
-    // Fallback: try to guess from CWE number ranges
-    const cweNum = parseInt(cweUpper.replace('CWE-', ''));
-    if (cweNum >= 77 && cweNum <= 91) return 'injection';
-    if (cweNum >= 287 && cweNum <= 308) return 'authentication';
-    if (cweNum >= 310 && cweNum <= 330) return 'cryptography';
-    if (cweNum >= 284 && cweNum <= 285) return 'accessControl';
-    
-    return 'unknown';
-  }
-
+  if (!cwe) return 'unknown';
+  return Taxonomy.getCategoryForCwe(cwe);
+}
   /**
-   * Calculate normalized file score (0-100 scale)
-   * THIS is the single source of truth for file scoring
-   */
-  calculateNormalizedFileScore(severityDistribution) {
-    let rawScore = 0;
-    const points = this.baseConfig.fileLevel.severityPoints;
-    
-    Object.keys(severityDistribution).forEach(severity => {
-      rawScore += (severityDistribution[severity] || 0) * (points[severity] || 0);
-    });
-    
-    // Dynamic max score calculation
-    const maxPossibleScore = this.baseConfig.fileLevel.normalization.maxPossibleScore;
-    
-    // Normalize to 0-100 with logarithmic scaling for outliers
-    // This prevents volume alone from making everything "critical"
-    let normalizedScore;
-    if (rawScore <= maxPossibleScore) {
-      normalizedScore = (rawScore / maxPossibleScore) * 100;
-    } else {
-      // Log scaling adds max 20 points for extreme outliers
-      const excess = rawScore - maxPossibleScore;
-      const logScale = Math.log10(excess + 1) / Math.log10(maxPossibleScore) * 20;
-      normalizedScore = 80 + logScale;
-    }
-    
+ * Calculate normalized file score (0-100 scale)
+ * FIXED: Dynamic scaling based on actual vulnerabilities
+ */
+calculateNormalizedFileScore(severityDistribution) {
+  let rawScore = 0;
+  const points = this.baseConfig.fileLevel.severityPoints;
+  
+  // Calculate raw score
+  Object.keys(severityDistribution).forEach(severity => {
+    rawScore += (severityDistribution[severity] || 0) * (points[severity] || 0);
+  });
+  
+  // Calculate total vulnerability count
+  const totalVulns = Object.values(severityDistribution).reduce((sum, count) => sum + count, 0);
+  
+  // Handle empty case
+  if (totalVulns === 0) {
     return {
-      raw: rawScore,
-      normalized: Math.min(100, Math.round(normalizedScore * 10) / 10),
+      raw: 0,
+      normalized: 0,
       scale: '0-100'
     };
   }
+  
+  // Dynamic normalization based on actual vulnerabilities
+  // Use a sliding scale that considers both count and severity
+  let normalizedScore;
+  
+  // Option 1: Pure ratio-based (more aggressive)
+  // Calculate what the max score would be if all vulns were critical
+  const maxPossibleForThisFile = totalVulns * points.critical;
+  if (maxPossibleForThisFile > 0) {
+    normalizedScore = (rawScore / maxPossibleForThisFile) * 100;
+  }
+  
+  // Option 2: Hybrid approach (recommended)
+  // Considers both severity distribution and absolute count
+  const severityRatio = rawScore / Math.max(1, totalVulns * points.critical);
+  const volumePenalty = Math.min(1, totalVulns / 20); // Penalty increases up to 20 vulns
+  normalizedScore = (severityRatio * 70) + (volumePenalty * 30); // 70% severity, 30% volume
+  
+  // Option 3: Threshold-based (most nuanced)
+  // Different scaling based on volume brackets
+  if (totalVulns <= 5) {
+    // Few vulnerabilities: pure severity ratio
+    normalizedScore = (rawScore / (totalVulns * points.critical)) * 100;
+  } else if (totalVulns <= 20) {
+    // Moderate vulnerabilities: balanced approach
+    const severityScore = (rawScore / (totalVulns * points.critical)) * 60;
+    const volumeScore = (totalVulns / 20) * 40;
+    normalizedScore = severityScore + volumeScore;
+  } else {
+    // Many vulnerabilities: volume becomes more important
+    const severityScore = (rawScore / (totalVulns * points.critical)) * 40;
+    const volumeScore = Math.min(60, (totalVulns / 30) * 60);
+    normalizedScore = severityScore + volumeScore;
+  }
+  
+  // Ensure we stay within bounds
+  normalizedScore = Math.min(100, Math.max(0, normalizedScore));
+  
+  return {
+    raw: rawScore,
+    normalized: Math.round(normalizedScore * 10) / 10,
+    scale: '0-100',
+    metadata: {
+      totalVulnerabilities: totalVulns,
+      averagePointsPerVuln: totalVulns > 0 ? (rawScore / totalVulns).toFixed(1) : 0
+    }
+  };
+}
 
   /**
    * Create cache key using SHA-256 hash for stability

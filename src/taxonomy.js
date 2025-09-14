@@ -78,7 +78,34 @@ class Taxonomy {
     }
     return results;
   }
+  /**
+ * Get category for a specific CWE
+ * @param {string} cwe - CWE identifier
+ * @returns {string} Category name
+ */
+getCategoryForCwe(cwe) {
+  if (!cwe) return 'unknown';
   
+  // Normalize CWE format
+  const normalized = cwe.toUpperCase().startsWith('CWE-') 
+    ? cwe.toUpperCase() 
+    : `CWE-${cwe}`;
+  
+  // Look up in our CWE map
+  const cweData = this.cweMap[normalized];
+  if (cweData && cweData.category) {
+    return cweData.category;
+  }
+  
+  // Fallback: check category patterns
+  for (const [category, cweId] of Object.entries(this.categoryPatterns)) {
+    if (cweId === normalized) {
+      return category;
+    }
+  }
+  
+  return 'unknown';
+}
   /**
    * Get severity ranking (for sorting)
    */

@@ -1,30 +1,33 @@
-// server.js - Enhanced with user configuration and context support (COMPLETE VERSION)
+// server.js - Production server with Semgrep integration and full security features
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
+const fs = require('fs').promises;
 const os = require('os');
 
-// Import the enhanced risk calculator
-const EnhancedRiskCalculator = require('./enhancedRiskCalculator');
-
-// Import the AST vulnerability scanner
-const { ASTVulnerabilityScanner } = require('./astScanner');
-const classifier = new ASTVulnerabilityScanner();
-
-// Import dependency scanner
-const { DependencyScanner } = require('./dependencyScanner');
-const depScanner = new DependencyScanner();
-
-// Import taxonomy for new endpoints
-const Taxonomy = require('./taxonomy');
-
-// Import and configure rate limiting
+// Security and utility imports
 const rateLimit = require('express-rate-limit');
 
+// Scanner imports
+const { ASTVulnerabilityScanner } = require('./astScanner');
+const { DependencyScanner } = require('./dependencyScanner');
+const { runSemgrep, checkSemgrepAvailable, getSemgrepVersion } = require('./semgrepAdapter');
+const { normalizeFindings, enrichFindings, deduplicateFindings } = require('../lib/normalize');
+
+// Risk calculation
+const EnhancedRiskCalculator = require('./enhancedRiskCalculator');
+const Taxonomy = require('./taxonomy');
+
+// Configuration
+const config = require('./config/scanner.config.json');
+
+// Initialize scanners
+const astScanner = new ASTVulnerabilityScanner();
+const depScanner = new DependencyScanner();
+
 // Helper function for creating rate limiters
-function rateLimiter(max, windowMs) {
+function createRateLimiter(max, windowMs) {
   return rateLimit({
     windowMs: windowMs,
     max: max,
@@ -60,6 +63,10 @@ app.use(cors({
 // Body parsing middleware
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Global Semgrep availability flag
+let semgrepAvailable = false;
+let semgrepVersion = null;
 
 /**
  * Sanitize and validate risk configuration
@@ -101,22 +108,6 @@ function sanitizeRiskConfig(cfg = {}) {
     }
   }
   
-  // Sanitize normalization settings
-  if (config.normalization) {
-    if (config.normalization.minScore != null) {
-      config.normalization.minScore = Math.max(0, Math.min(100, Number(config.normalization.minScore) || 0));
-    }
-    if (config.normalization.maxScore != null) {
-      config.normalization.maxScore = Math.max(0, Math.min(1000, Number(config.normalization.maxScore) || 100));
-    }
-    if (config.normalization.targetMin != null) {
-      config.normalization.targetMin = Math.max(0, Math.min(100, Number(config.normalization.targetMin) || 0));
-    }
-    if (config.normalization.targetMax != null) {
-      config.normalization.targetMax = Math.max(0, Math.min(100, Number(config.normalization.targetMax) || 100));
-    }
-  }
-  
   return config;
 }
 
@@ -126,6 +117,19 @@ function sanitizeRiskConfig(cfg = {}) {
 function sanitizeContextFactors(context = {}) {
   const sanitized = { ...context };
   
+  // Sanitize boolean context flags
+  const booleanFlags = [
+    'internetFacing', 'production', 'handlesPI', 'legacyCode',
+    'businessCritical', 'compliance', 'thirdPartyIntegration', 'complexAuth'
+  ];
+  
+  booleanFlags.forEach(flag => {
+    if (sanitized[flag] !== undefined) {
+      sanitized[flag] = !!sanitized[flag];
+    }
+  });
+  
+  // Sanitize custom factors
   if (sanitized.factors) {
     Object.keys(sanitized.factors).forEach(factorName => {
       const factor = sanitized.factors[factorName];
@@ -145,168 +149,266 @@ function normalizeSeverity(severity) {
   return (severity || 'info').toString().toLowerCase();
 }
 
-// ============================================================================
-// TAXONOMY ENDPOINTS (NEW)
-// ============================================================================
-
 /**
- * Get CWE details
+ * Get JavaScript/TypeScript files from a directory
  */
-app.get('/api/taxonomy/cwe/:id', (req, res) => {
-  const info = Taxonomy.getByCwe(req.params.id);
-  if (!info) {
-    return res.status(404).json({ 
-      status: 'error',
-      message: 'Unknown CWE',
-      cwe: req.params.id 
-    });
-  }
-  res.json({
-    status: 'success',
-    data: info
-  });
-});
-
-/**
- * Get all vulnerability categories
- */
-app.get('/api/taxonomy/categories', (req, res) => {
-  const categories = {};
-  
-  // Group CWEs by category from the taxonomy
-  if (Taxonomy.cweMap) {
-    Object.entries(Taxonomy.cweMap).forEach(([cwe, data]) => {
-      if (!categories[data.category]) {
-        categories[data.category] = {
-          name: data.category,
-          cwes: []
-        };
+async function getJavaScriptFiles(dir, files = []) {
+  try {
+    const items = await fs.readdir(dir, { withFileTypes: true });
+    
+    for (const item of items) {
+      const fullPath = path.join(dir, item.name);
+      
+      // Skip excluded directories
+      if (config.scanning.excludePaths.includes(item.name)) {
+        continue;
       }
-      categories[data.category].cwes.push({
-        id: cwe,
-        title: data.title,
-        severity: data.defaultSeverity,
-        owasp: data.owasp
-      });
-    });
-  }
-  
-  res.json({
-    status: 'success',
-    data: categories
-  });
-});
-
-/**
- * Get severity rankings with colors for UI
- */
-app.get('/api/taxonomy/severities', (req, res) => {
-  res.json({
-    status: 'success',
-    data: {
-      critical: { 
-        rank: 5, 
-        color: '#dc2626',
-        label: 'Critical',
-        description: 'Immediate action required'
-      },
-      high: { 
-        rank: 4, 
-        color: '#ea580c',
-        label: 'High',
-        description: 'Address within 48 hours'
-      },
-      medium: { 
-        rank: 3, 
-        color: '#ca8a04',
-        label: 'Medium',
-        description: 'Schedule in next sprint'
-      },
-      low: { 
-        rank: 2, 
-        color: '#65a30d',
-        label: 'Low',
-        description: 'Include in maintenance'
-      },
-      info: { 
-        rank: 1, 
-        color: '#0891b2',
-        label: 'Info',
-        description: 'For awareness only'
+      
+      if (item.isDirectory()) {
+        await getJavaScriptFiles(fullPath, files);
+      } else if (item.name.match(/\.(js|jsx|ts|tsx)$/)) {
+        files.push(fullPath);
       }
     }
-  });
-});
+  } catch (error) {
+    console.error(`Error reading directory ${dir}:`, error.message);
+  }
+  
+  return files;
+}
 
 /**
- * Get scanner statistics
+ * Detect languages in a directory
  */
-app.get('/api/stats', (req, res) => {
-  res.json({
-    status: 'success',
-    data: {
-      version: '4.0.0',
-      supportedLanguages: ['javascript', 'typescript'],
-      vulnerabilityCategories: Object.keys(Taxonomy.categoryPatterns || {}),
-      totalCWEs: Object.keys(Taxonomy.cweMap || {}).length,
-      features: {
-        astScanning: true,
-        dependencyScanning: true,
-        batchScanning: true,
-        customRiskConfig: true,
-        contextualAnalysis: true
+async function detectLanguages(targetPath) {
+  const languages = new Set();
+  
+  async function scanDir(dir) {
+    try {
+      const items = await fs.readdir(dir, { withFileTypes: true });
+      
+      for (const item of items) {
+        if (config.scanning.excludePaths.includes(item.name)) {
+          continue;
+        }
+        
+        const fullPath = path.join(dir, item.name);
+        
+        if (item.isDirectory()) {
+          await scanDir(fullPath);
+        } else {
+          const ext = path.extname(item.name);
+          if (['.js', '.jsx', '.ts', '.tsx'].includes(ext)) {
+            languages.add('javascript');
+          } else if (ext === '.py') {
+            languages.add('python');
+          } else if (ext === '.java') {
+            languages.add('java');
+          }
+        }
       }
+    } catch (error) {
+      console.error(`Error scanning directory ${dir}:`, error.message);
     }
-  });
-});
-
-// ============================================================================
-// SCANNING ENDPOINTS (EXISTING)
-// ============================================================================
+  }
+  
+  await scanDir(targetPath);
+  return Array.from(languages);
+}
 
 /**
- * Enhanced code scanning endpoint
+ * Calculate risk index for summaries
  */
-app.post('/scan-code', rateLimiter(50, 60000), async (req, res) => {
+function calculateRiskIndex(findings) {
+  if (!findings || findings.length === 0) return 0;
+  
+  const weights = {
+    critical: 10,
+    high: 5,
+    medium: 2,
+    low: 0.5,
+    info: 0.1
+  };
+  
+  let totalRisk = 0;
+  findings.forEach(f => {
+    const severity = normalizeSeverity(f.adjustedSeverity || f.severity);
+    const weight = weights[severity] || 1;
+    const score = f.adjustedScore || f.cvssBase || 5;
+    totalRisk += score * weight;
+  });
+  
+  return Math.min(100, Math.round(totalRisk / Math.max(1, findings.length)));
+}
+
+/**
+ * Enhanced code scanning endpoint - supports both string and file path
+ */
+app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
   console.log('=== CODE SCAN REQUEST RECEIVED ===');
-  console.log('Origin:', req.headers.origin);
   
   const startTime = Date.now();
   
   try {
     const { 
-      code, 
-      language = 'javascript', 
+      code,           // Direct code string (for AST scanner)
+      path: targetPath,  // File/directory path (for Semgrep)
+      language = 'javascript',
+      languages,      // For multi-language scanning
       filename = 'code.js',
+      engine = 'auto',  // 'ast', 'semgrep', or 'auto'
       riskConfig = {},
       context = {}
     } = req.body;
     
-    if (!code || typeof code !== 'string' || code.trim() === '') {
+    // Validate input
+    if (!code && !targetPath) {
       return res.status(400).json({ 
         status: 'error', 
-        message: 'No code provided' 
+        message: 'No code or path provided' 
       });
     }
-
-    console.log('Code length:', code.length);
-    console.log('Language:', language);
-    console.log('Risk config provided:', Object.keys(riskConfig).length > 0);
-    console.log('Context provided:', Object.keys(context).length > 0);
     
-    // Scan for vulnerabilities
-    const findings = classifier.scan(code, filename, language);
-    console.log(`Found ${findings.length} vulnerabilities`);
+    console.log('Scan type:', code ? 'code string' : 'file path');
+    console.log('Engine:', engine);
+    console.log('Languages:', languages || [language]);
+    
+    const allFindings = [];
+    let usedEngine = null;
     
     // Sanitize configurations
     const sanitizedConfig = sanitizeRiskConfig(riskConfig);
     const sanitizedContext = sanitizeContextFactors(context);
     
-    // Create risk calculator instance
+    // If path provided and Semgrep available, use Semgrep
+    if (targetPath && (engine === 'semgrep' || (engine === 'auto' && semgrepAvailable))) {
+      try {
+        // Auto-detect languages if not specified
+        const scanLanguages = languages || await detectLanguages(targetPath);
+        
+        console.log('Running Semgrep scan on path:', targetPath);
+        console.log('Languages:', scanLanguages);
+        
+        const semgrepOptions = {
+          languages: scanLanguages,
+          severity: config.semgrepConfig?.severity || 'ERROR,WARNING',
+          timeout: config.semgrepConfig?.timeout || 30,
+          rulesets: config.semgrepConfig?.rulesets || ['auto']
+        };
+        
+        const semgrepFindings = await runSemgrep(targetPath, semgrepOptions);
+        allFindings.push(...semgrepFindings);
+        usedEngine = 'semgrep';
+        
+        console.log(`Semgrep found ${semgrepFindings.length} issues`);
+      } catch (semgrepError) {
+        console.error('Semgrep scan failed:', semgrepError.message);
+        
+        // Fall back to AST scanner if available
+        if (code || engine === 'auto') {
+          console.log('Falling back to AST scanner');
+        } else {
+          throw semgrepError;
+        }
+      }
+    }
+    
+    // If code provided or Semgrep failed, use AST scanner
+    if (code && (usedEngine === null || engine === 'ast')) {
+      console.log('Running AST scanner on code string');
+      const astFindings = astScanner.scan(code, filename, language);
+      
+      // Convert to normalized format
+      const normalizedAst = astFindings.map(f => ({
+        engine: 'ast',
+        ruleId: f.check_id,
+        category: 'sast',
+        severity: f.severity.toUpperCase(),
+        message: f.message,
+        cwe: [f.cweId],
+        owasp: [f.owasp?.category || 'A06:2021'],
+        file: f.file,
+        startLine: f.line,
+        endLine: f.line,
+        snippet: f.snippet,
+        confidence: 'HIGH'
+      }));
+      
+      allFindings.push(...normalizedAst);
+      usedEngine = usedEngine || 'ast';
+      
+      console.log(`AST scanner found ${astFindings.length} issues`);
+    }
+    
+    // If path provided but no code, scan files with AST scanner
+    if (targetPath && !code && usedEngine !== 'semgrep') {
+      console.log('Scanning files with AST scanner');
+      const jsFiles = await getJavaScriptFiles(targetPath);
+      
+      for (const file of jsFiles.slice(0, config.scanning.maxFilesPerScan || 100)) {
+        try {
+          const fileContent = await fs.readFile(file, 'utf8');
+          const fileFindings = astScanner.scan(fileContent, path.relative(targetPath, file), 'javascript');
+          
+          const normalizedFile = fileFindings.map(f => ({
+            engine: 'ast',
+            ruleId: f.check_id,
+            category: 'sast',
+            severity: f.severity.toUpperCase(),
+            message: f.message,
+            cwe: [f.cweId],
+            owasp: [f.owasp?.category || 'A06:2021'],
+            file: path.relative(targetPath, file),
+            startLine: f.line,
+            endLine: f.line,
+            snippet: f.snippet,
+            confidence: 'MEDIUM'
+          }));
+          
+          allFindings.push(...normalizedFile);
+        } catch (fileError) {
+          console.error(`Error scanning file ${file}:`, fileError.message);
+        }
+      }
+      
+      usedEngine = 'ast';
+    }
+    
+    // Normalize and enrich all findings
+    const normalized = normalizeFindings(allFindings);
+    const enriched = enrichFindings(normalized);
+    const deduplicated = deduplicateFindings(enriched);
+    
+    // Create risk calculator and score findings
     const calc = new EnhancedRiskCalculator(sanitizedConfig);
     
-    // Calculate risk scores
-    const { score, risk } = calc.calculateFileRisk(findings, sanitizedContext);
+    const scoredFindings = deduplicated.map(finding => {
+      const vuln = {
+        severity: normalizeSeverity(finding.severity),
+        cwe: finding.cwe[0] || 'CWE-1',
+        cweId: finding.cwe[0] || 'CWE-1',
+        file: finding.file,
+        line: finding.startLine
+      };
+      
+      const riskResult = calc.calculateVulnerabilityRisk(vuln, sanitizedContext);
+      
+      return {
+        ...finding,
+        cvssBase: riskResult.original.cvss,
+        adjustedScore: riskResult.adjusted.score,
+        adjustedSeverity: riskResult.adjusted.severity,
+        priority: riskResult.adjusted.priority.priority,
+        environmentalFactors: riskResult.factors.applied.map(f => f.id),
+        remediation: riskResult.remediation
+      };
+    });
+    
+    // Sort by adjusted score
+    scoredFindings.sort((a, b) => b.adjustedScore - a.adjustedScore);
+    
+    // Calculate overall risk
+    const { score, risk } = calc.calculateFileRisk(scoredFindings, sanitizedContext);
     
     // Build severity distribution
     const severityDistribution = {
@@ -317,75 +419,46 @@ app.post('/scan-code', rateLimiter(50, 60000), async (req, res) => {
       info: 0
     };
     
-    findings.forEach(f => {
-      const severity = normalizeSeverity(f.severity);
+    scoredFindings.forEach(f => {
+      const severity = normalizeSeverity(f.adjustedSeverity);
       if (severityDistribution.hasOwnProperty(severity)) {
         severityDistribution[severity]++;
       }
     });
     
-    // Build top risks
-    const topRisks = findings
-      .filter(f => {
-        const sev = normalizeSeverity(f.severity);
-        return sev === 'critical' || sev === 'high';
-      })
-      .slice(0, 3)
-      .map(f => ({
-        title: f.title || f.check_id || 'Security Issue',
-        severity: normalizeSeverity(f.severity),
-        category: f.owasp?.category || 'OWASP A06'
-      }));
-    
-    const businessPriority = risk.priority;
-    
-    // Generate recommendation
-    let recommendation = '';
-    if (risk.level === 'critical') {
-      recommendation = 'Immediate action required. Deploy fixes to production ASAP.';
-    } else if (risk.level === 'high') {
-      recommendation = 'High priority remediation needed. Address within 48 hours.';
-    } else if (risk.level === 'medium') {
-      recommendation = 'Schedule remediation in next sprint.';
-    } else if (risk.level === 'low') {
-      recommendation = 'Include in regular maintenance cycle.';
-    } else {
-      recommendation = 'Maintain current security posture.';
-    }
+    // Build summary
+    const summary = {
+      totalFindings: scoredFindings.length,
+      engine: usedEngine,
+      semgrepAvailable,
+      countsBySeverity: severityDistribution,
+      top5: scoredFindings.slice(0, 5).map(f => ({
+        file: path.basename(f.file),
+        line: f.startLine,
+        severity: f.adjustedSeverity,
+        score: f.adjustedScore,
+        message: f.message
+      })),
+      adjustedRiskIndex: calculateRiskIndex(scoredFindings),
+      context: sanitizedContext
+    };
     
     const endTime = Date.now();
     
-    // Response
     res.json({
       status: 'success',
-      language,
-      findings,
+      engine: usedEngine,
+      findings: scoredFindings,
       score,
       risk,
-      riskScore: score.final,
-      riskAssessment: {
-        riskScore: score.final,
-        riskLevel: risk.level.charAt(0).toUpperCase() + risk.level.slice(1),
-        severityDistribution,
-        topRisks,
-        businessPriority,
-        confidence: risk.confidence,
-        recommendation,
-        factorImpacts: score.factorImpacts || {}
-      },
-      vulnerabilities: {
-        total: findings.length,
-        distribution: severityDistribution,
-        categories: [...new Set(findings.map(f => f.owasp?.category || 'Unknown'))]
-      },
+      summary,
       metadata: {
         scanned_at: new Date().toISOString(),
-        code_length: code.length,
-        findings_count: findings.length,
         scan_time: `${endTime - startTime}ms`,
         configuration: {
           customConfig: Object.keys(riskConfig).length > 0,
-          contextProvided: Object.keys(context).length > 0
+          contextProvided: Object.keys(context).length > 0,
+          engine: usedEngine
         }
       }
     });
@@ -404,7 +477,7 @@ app.post('/scan-code', rateLimiter(50, 60000), async (req, res) => {
 /**
  * Enhanced dependency scanning endpoint
  */
-app.post('/scan-dependencies', async (req, res) => {
+app.post('/scan-dependencies', createRateLimiter(50, 60000), async (req, res) => {
   console.log('=== DEPENDENCY SCAN REQUEST RECEIVED ===');
   
   try {
@@ -413,23 +486,59 @@ app.post('/scan-dependencies', async (req, res) => {
       packageLock,
       lockFile,
       lockFileType = 'npm',
+      path: projectPath,  // Alternative: scan from file path
       includeDevDependencies = false,
       riskConfig = {},
       context = {}
     } = req.body;
     
-    if (!packageJson) {
+    // Handle file-based scanning
+    let pkgJson = packageJson;
+    let lockData = packageLock || lockFile;
+    
+    if (projectPath && !packageJson) {
+      try {
+        const pkgPath = path.join(projectPath, 'package.json');
+        const pkgContent = await fs.readFile(pkgPath, 'utf8');
+        pkgJson = JSON.parse(pkgContent);
+        
+        // Try to find lock file
+        const lockPaths = [
+          path.join(projectPath, 'package-lock.json'),
+          path.join(projectPath, 'yarn.lock'),
+          path.join(projectPath, 'pnpm-lock.yaml')
+        ];
+        
+        for (const lockPath of lockPaths) {
+          try {
+            lockData = await fs.readFile(lockPath, 'utf8');
+            if (lockPath.includes('yarn')) lockFileType = 'yarn';
+            if (lockPath.includes('pnpm')) lockFileType = 'pnpm';
+            break;
+          } catch (e) {
+            // Continue to next lock file
+          }
+        }
+      } catch (error) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Could not read package.json from path',
+          error: error.message
+        });
+      }
+    }
+    
+    if (!pkgJson) {
       return res.status(400).json({
         status: 'error',
-        message: 'No package.json provided'
+        message: 'No package.json provided or found'
       });
     }
     
-    console.log('Risk config provided:', Object.keys(riskConfig).length > 0);
-    console.log('Context provided:', Object.keys(context).length > 0);
-    
     // Parse packageJson if string
-    const pkgJson = typeof packageJson === 'string' ? JSON.parse(packageJson) : packageJson;
+    if (typeof pkgJson === 'string') {
+      pkgJson = JSON.parse(pkgJson);
+    }
     
     // Scan dependencies
     const scanResults = await depScanner.scanDependencies(pkgJson, {
@@ -437,14 +546,12 @@ app.post('/scan-dependencies', async (req, res) => {
     });
     
     // Process lock file if provided
-    if (lockFile || packageLock) {
+    if (lockData) {
       try {
-        const lockVulns = await depScanner.scanLockFile(
-          lockFile || packageLock, 
-          lockFileType
-        );
+        const lockVulns = await depScanner.scanLockFile(lockData, lockFileType);
         if (lockVulns && lockVulns.length > 0) {
           scanResults.vulnerabilities.push(...lockVulns);
+          // Deduplicate
           scanResults.vulnerabilities = depScanner.deduplicateVulnerabilities(scanResults.vulnerabilities);
           scanResults.summary.totalVulnerabilities = scanResults.vulnerabilities.length;
         }
@@ -453,10 +560,36 @@ app.post('/scan-dependencies', async (req, res) => {
       }
     }
     
-    // Calculate risk scores
+    // Sanitize configurations
     const sanitizedConfig = sanitizeRiskConfig(riskConfig);
     const sanitizedContext = sanitizeContextFactors(context);
+    
+    // Calculate risk scores
     const calc = new EnhancedRiskCalculator(sanitizedConfig);
+    
+    // Score each vulnerability
+    const scoredVulnerabilities = scanResults.vulnerabilities.map(vuln => {
+      const v = {
+        severity: normalizeSeverity(vuln.severity),
+        cwe: vuln.cwe || 'CWE-1',
+        cweId: vuln.cwe || 'CWE-1',
+        cvss: vuln.cvss
+      };
+      
+      const riskResult = calc.calculateVulnerabilityRisk(v, sanitizedContext);
+      
+      return {
+        ...vuln,
+        cvssBase: vuln.cvss?.baseScore || riskResult.original.cvss,
+        adjustedScore: riskResult.adjusted.score,
+        adjustedSeverity: riskResult.adjusted.severity,
+        priority: riskResult.adjusted.priority.priority,
+        remediation: riskResult.remediation
+      };
+    });
+    
+    // Sort by adjusted score
+    scoredVulnerabilities.sort((a, b) => b.adjustedScore - a.adjustedScore);
     
     // Get severity distribution
     const dist = scanResults.summary?.severityDistribution || {
@@ -467,12 +600,13 @@ app.post('/scan-dependencies', async (req, res) => {
       info: 0
     };
     
-    // Calculate risk
+    // Calculate overall risk
     const { score, risk } = calc.calculateFromSeverityDistribution(dist, sanitizedContext);
     
-    // Enhance results
+    // Build enhanced results
     const enhancedResults = {
       ...scanResults,
+      vulnerabilities: scoredVulnerabilities,
       score,
       risk,
       summary: {
@@ -480,7 +614,14 @@ app.post('/scan-dependencies', async (req, res) => {
         riskScore: score.final,
         riskLevel: risk.level.charAt(0).toUpperCase() + risk.level.slice(1),
         confidence: risk.confidence,
-        priority: risk.priority
+        priority: risk.priority,
+        adjustedRiskIndex: calculateRiskIndex(scoredVulnerabilities),
+        top5: scoredVulnerabilities.slice(0, 5).map(v => ({
+          package: v.package,
+          vulnerability: v.vulnerability,
+          severity: v.adjustedSeverity,
+          score: v.adjustedScore
+        }))
       }
     };
     
@@ -493,7 +634,7 @@ app.post('/scan-dependencies', async (req, res) => {
           customConfig: Object.keys(riskConfig).length > 0,
           contextProvided: Object.keys(context).length > 0,
           includeDevDependencies,
-          lockFileScanned: !!(lockFile || packageLock)
+          lockFileScanned: !!lockData
         }
       }
     });
@@ -510,9 +651,186 @@ app.post('/scan-dependencies', async (req, res) => {
 });
 
 /**
+ * Combined scan endpoint - both code and dependencies
+ */
+app.post('/scan', createRateLimiter(20, 60000), async (req, res) => {
+  console.log('=== COMBINED SCAN REQUEST RECEIVED ===');
+  
+  try {
+    const { 
+      path: projectPath,
+      riskConfig = {},
+      context = {}
+    } = req.body;
+    
+    if (!projectPath) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'No project path provided'
+      });
+    }
+    
+    // Check if path exists
+    try {
+      await fs.access(projectPath);
+    } catch (error) {
+      return res.status(400).json({
+        status: 'error',
+        message: `Project path does not exist: ${projectPath}`
+      });
+    }
+    
+    // Run both scans in parallel by calling the logic directly
+const [codeResult, depResult] = await Promise.allSettled([
+  // Code scan
+  (async () => {
+    try {
+      const languages = await detectLanguages(projectPath);
+      const allFindings = [];
+      
+      if (semgrepAvailable) {
+        const semgrepOptions = {
+          languages: languages,
+          severity: config.semgrepConfig?.severity || 'ERROR,WARNING',
+          timeout: config.semgrepConfig?.timeout || 30,
+          rulesets: config.semgrepConfig?.rulesets || ['auto']
+        };
+        const semgrepFindings = await runSemgrep(projectPath, semgrepOptions);
+        allFindings.push(...semgrepFindings);
+      }
+      
+      const normalized = normalizeFindings(allFindings);
+      const enriched = enrichFindings(normalized);
+      const deduplicated = deduplicateFindings(enriched);
+      
+      const calc = new EnhancedRiskCalculator(sanitizeRiskConfig(riskConfig));
+      const scoredFindings = deduplicated.map(finding => {
+        const vuln = {
+          severity: normalizeSeverity(finding.severity),
+          cwe: finding.cwe[0] || 'CWE-1',
+          cweId: finding.cwe[0] || 'CWE-1',
+          file: finding.file,
+          line: finding.startLine
+        };
+        const riskResult = calc.calculateVulnerabilityRisk(vuln, sanitizeContextFactors(context));
+        return {
+          ...finding,
+          cvssBase: riskResult.original.cvss,
+          adjustedScore: riskResult.adjusted.score,
+          adjustedSeverity: riskResult.adjusted.severity,
+          priority: riskResult.adjusted.priority.priority,
+          environmentalFactors: riskResult.factors.applied.map(f => f.id),
+          remediation: riskResult.remediation
+        };
+      });
+      
+      scoredFindings.sort((a, b) => b.adjustedScore - a.adjustedScore);
+      const { score, risk } = calc.calculateFileRisk(scoredFindings, sanitizeContextFactors(context));
+      
+      return {
+        status: 'success',
+        findings: scoredFindings,
+        score,
+        risk
+      };
+    } catch (error) {
+      return { status: 'error', error: error.message };
+    }
+  })(),
+  
+  // Dependency scan
+  (async () => {
+    try {
+      const pkgPath = path.join(projectPath, 'package.json');
+      const pkgContent = await fs.readFile(pkgPath, 'utf8');
+      const pkgJson = JSON.parse(pkgContent);
+      
+      const scanResults = await depScanner.scanDependencies(pkgJson, {
+        includeDevDependencies: false
+      });
+      
+      const calc = new EnhancedRiskCalculator(sanitizeRiskConfig(riskConfig));
+      const scoredVulnerabilities = scanResults.vulnerabilities.map(vuln => {
+        const v = {
+          severity: normalizeSeverity(vuln.vulnerability?.severity),
+          cwe: vuln.vulnerability?.cweId || 'CWE-1',
+          cweId: vuln.vulnerability?.cweId || 'CWE-1',
+          cvss: vuln.vulnerability?.cvss
+        };
+        const riskResult = calc.calculateVulnerabilityRisk(v, sanitizeContextFactors(context));
+        return {
+          ...vuln,
+          cvssBase: vuln.vulnerability?.cvss?.baseScore || riskResult.original.cvss,
+          adjustedScore: riskResult.adjusted.score,
+          adjustedSeverity: riskResult.adjusted.severity,
+          priority: riskResult.adjusted.priority.priority,
+          remediation: riskResult.remediation
+        };
+      });
+      
+      scoredVulnerabilities.sort((a, b) => b.adjustedScore - a.adjustedScore);
+      
+      return {
+        status: 'success',
+        vulnerabilities: scoredVulnerabilities,
+        ...scanResults
+      };
+    } catch (error) {
+      return { status: 'error', error: error.message };
+    }
+  })()
+]);
+    
+    // Combine findings for overall risk calculation
+    const allFindings = [
+      ...(results.code.findings || []),
+      ...(results.dependencies.vulnerabilities || [])
+    ];
+    
+    // Calculate combined risk index
+    const combinedRiskIndex = calculateRiskIndex(allFindings);
+    
+    res.json({
+      status: 'success',
+      results,
+      summary: {
+        totalIssues: allFindings.length,
+        codeIssues: results.code.findings?.length || 0,
+        dependencyIssues: results.dependencies.vulnerabilities?.length || 0,
+        combinedRiskIndex,
+        codeRiskScore: results.code.score?.final || 0,
+        dependencyRiskScore: results.dependencies.score?.final || 0,
+        overallRiskLevel: combinedRiskIndex >= 80 ? 'Critical' :
+                          combinedRiskIndex >= 60 ? 'High' :
+                          combinedRiskIndex >= 40 ? 'Medium' :
+                          combinedRiskIndex >= 20 ? 'Low' : 'Minimal'
+      },
+      metadata: {
+        scanned_at: new Date().toISOString(),
+        projectPath,
+        semgrepAvailable,
+        configuration: {
+          customConfig: Object.keys(riskConfig).length > 0,
+          contextProvided: Object.keys(context).length > 0
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Combined scan error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Combined scan failed',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
  * File upload scanning endpoint
  */
-app.post('/scan-file', async (req, res) => {
+app.post('/scan-file', createRateLimiter(50, 60000), async (req, res) => {
   console.log('=== FILE SCAN REQUEST RECEIVED ===');
   
   try {
@@ -531,12 +849,14 @@ app.post('/scan-file', async (req, res) => {
       });
     }
     
-    // Scan the file
-    const findings = classifier.scan(content, filename, language);
+    // Scan the file with AST scanner
+    const findings = astScanner.scan(content, filename, language);
     
-    // Calculate risk
+    // Sanitize configurations
     const sanitizedConfig = sanitizeRiskConfig(riskConfig);
     const sanitizedContext = sanitizeContextFactors(context);
+    
+    // Calculate risk
     const calc = new EnhancedRiskCalculator(sanitizedConfig);
     const { score, risk } = calc.calculateFileRisk(findings, sanitizedContext);
     
@@ -557,6 +877,7 @@ app.post('/scan-file', async (req, res) => {
       metadata: {
         scanned_at: new Date().toISOString(),
         file_size: content.length,
+        engine: 'ast',
         configuration: {
           customConfig: Object.keys(riskConfig).length > 0,
           contextProvided: Object.keys(context).length > 0
@@ -578,7 +899,7 @@ app.post('/scan-file', async (req, res) => {
 /**
  * Batch scanning endpoint
  */
-app.post('/scan-batch', rateLimiter(20, 60000), async (req, res) => {
+app.post('/scan-batch', createRateLimiter(20, 60000), async (req, res) => {
   console.log('=== BATCH SCAN REQUEST RECEIVED ===');
   
   try {
@@ -603,13 +924,13 @@ app.post('/scan-batch', rateLimiter(20, 60000), async (req, res) => {
     let totalFindings = [];
     
     // Scan each file
-    for (const file of files) {
+    for (const file of files.slice(0, 100)) { // Limit to 100 files
       try {
         const { content, filename = 'unknown', language = 'javascript' } = file;
         
         if (!content) continue;
         
-        const findings = classifier.scan(content, filename, language);
+        const findings = astScanner.scan(content, filename, language);
         totalFindings = totalFindings.concat(findings);
         
         results.push({
@@ -641,10 +962,12 @@ app.post('/scan-batch', rateLimiter(20, 60000), async (req, res) => {
         critical: totalFindings.filter(f => normalizeSeverity(f.severity) === 'critical').length,
         high: totalFindings.filter(f => normalizeSeverity(f.severity) === 'high').length,
         medium: totalFindings.filter(f => normalizeSeverity(f.severity) === 'medium').length,
-        low: totalFindings.filter(f => normalizeSeverity(f.severity) === 'low').length
+        low: totalFindings.filter(f => normalizeSeverity(f.severity) === 'low').length,
+        adjustedRiskIndex: calculateRiskIndex(totalFindings)
       },
       metadata: {
         scanned_at: new Date().toISOString(),
+        engine: 'ast',
         configuration: {
           customConfig: Object.keys(riskConfig).length > 0,
           contextProvided: Object.keys(context).length > 0
@@ -663,56 +986,26 @@ app.post('/scan-batch', rateLimiter(20, 60000), async (req, res) => {
   }
 });
 
-// ============================================================================
-// CONFIGURATION & HEALTH ENDPOINTS
-// ============================================================================
-
-/**
- * Get current default configuration (FIXED to match calculator)
- */
-app.get('/config/defaults', (req, res) => {
-  res.json({
-    status: 'success',
-    defaults: {
-      severityPoints: {
-        critical: 25,  // Fixed to match calculator
-        high: 15,      // Fixed to match calculator
-        medium: 8,     // Fixed to match calculator
-        low: 3,        // Fixed to match calculator
-        info: 1        // Fixed to match calculator
-      },
-      riskThresholds: {
-        critical: 80,
-        high: 60,
-        medium: 40,
-        low: 20,
-        minimal: 0
-      },
-      normalization: {
-        enabled: true,
-        dynamicScaling: true,
-        description: 'Uses dynamic scaling based on actual vulnerability count'
-      },
-      factors: {
-        internetFacing: { enabled: false, weight: 1.5 },
-        production: { enabled: false, weight: 1.3 },
-        handlesPI: { enabled: false, weight: 1.4 },
-        legacyCode: { enabled: false, weight: 1.2 },
-        businessCritical: { enabled: false, weight: 1.6 }
-      }
-    }
-  });
-});
-
 /**
  * Health check endpoints
  */
-app.get('/health', (req, res) => {
+app.get('/health', async (req, res) => {
+  // Check Semgrep availability
+  const semgrepStatus = semgrepAvailable ? 'available' : 'not installed';
+  
   res.json({ 
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     memory: process.memoryUsage(),
+    services: {
+      ast: 'ready',
+      semgrep: semgrepStatus,
+      semgrepVersion: semgrepVersion,
+      dependency: 'ready',
+      riskCalculator: 'ready',
+      taxonomy: 'ready'
+    },
     features: {
       customRiskConfig: true,
       contextualAnalysis: true,
@@ -720,8 +1013,9 @@ app.get('/health', (req, res) => {
       batchScanning: true,
       dependencyScanning: true,
       astScanning: true,
+      semgrepScanning: semgrepAvailable,
       helmetSecurity: true,
-      taxonomyEndpoints: true
+      rateLimiting: true
     }
   });
 });
@@ -731,47 +1025,123 @@ app.get('/healthz', (req, res) => {
 });
 
 /**
+ * Get current default configuration
+ */
+app.get('/config/defaults', (req, res) => {
+  res.json({
+    status: 'success',
+    defaults: {
+      severityPoints: config.scoring?.baseScoreMapping || {
+        critical: 25,
+        high: 15,
+        medium: 8,
+        low: 3,
+        info: 1
+      },
+      riskThresholds: {
+        critical: 80,
+        high: 60,
+        medium: 40,
+        low: 20,
+        minimal: 0
+      },
+      environmentalFactors: {
+        internetFacing: { additive: 0.6, description: 'Component exposed to internet' },
+        production: { additive: 0.4, description: 'Running in production' },
+        handlesPI: { additive: 0.4, description: 'Processes personal information' },
+        legacyCode: { additive: 0.2, description: 'Legacy system with technical debt' }
+      },
+      semgrep: {
+        available: semgrepAvailable,
+        version: semgrepVersion,
+        rulesets: config.semgrepConfig?.rulesets || ['auto']
+      }
+    }
+  });
+});
+
+/**
+ * Get scanner capabilities
+ */
+app.get('/capabilities', async (req, res) => {
+  const languages = ['javascript', 'typescript'];
+  
+  if (semgrepAvailable) {
+    languages.push('python', 'java', 'go', 'ruby', 'php', 'csharp');
+  }
+  
+  res.json({
+    status: 'success',
+    capabilities: {
+      languages,
+      engines: {
+        ast: {
+          available: true,
+          languages: ['javascript', 'typescript'],
+          features: ['pattern-matching', 'cwe-mapping', 'owasp-classification']
+        },
+        semgrep: {
+          available: semgrepAvailable,
+          version: semgrepVersion,
+          languages: semgrepAvailable ? ['javascript', 'python', 'java', 'go', 'ruby', 'php', 'csharp'] : [],
+          rulesets: config.semgrepConfig?.rulesets || ['auto'],
+          features: ['production-rules', 'cross-file-analysis', 'taint-analysis']
+        }
+      },
+      scoring: {
+        cvss: true,
+        environmental: true,
+        contextual: true,
+        customizable: true
+      },
+      reporting: {
+        formats: ['json', 'html', 'pdf'],
+        realtime: true,
+        batch: true
+      }
+    }
+  });
+});
+
+/**
  * Root endpoint with API information
  */
 app.get('/', (req, res) => {
   res.json({
-    name: 'Neperia Security Scanner - Enhanced Edition',
-    version: '4.0',
+    name: 'Neperia Security Scanner - Production Edition',
+    version: '5.0',
     status: 'operational',
     endpoints: {
-      scanning: {
-        'POST /scan-code': 'Scan code with custom risk configuration',
-        'POST /scan-dependencies': 'Scan dependencies with custom risk configuration',
-        'POST /scan-file': 'Scan uploaded file with custom risk configuration',
-        'POST /scan-batch': 'Batch scan multiple files'
-      },
-      taxonomy: {
-        'GET /api/taxonomy/cwe/:id': 'Get CWE details',
-        'GET /api/taxonomy/categories': 'Get all vulnerability categories',
-        'GET /api/taxonomy/severities': 'Get severity rankings',
-        'GET /api/stats': 'Get scanner statistics'
-      },
-      configuration: {
-        'GET /config/defaults': 'Get default configuration values',
-        'GET /health': 'Health check with feature status',
-        'GET /healthz': 'Simple health check'
-      }
+      'POST /scan-code': 'Scan code with AST or Semgrep',
+      'POST /scan-dependencies': 'Scan dependencies for vulnerabilities',
+      'POST /scan': 'Combined code and dependency scanning',
+      'POST /scan-file': 'Scan uploaded file content',
+      'POST /scan-batch': 'Batch scan multiple files',
+      'GET /config/defaults': 'Get default configuration values',
+      'GET /capabilities': 'Get scanner capabilities',
+      'GET /health': 'Detailed health check',
+      'GET /healthz': 'Simple health check'
     },
     features: [
+      'Production Semgrep integration (2000+ rules)',
+      'AST-based vulnerability detection',
+      'Dependency vulnerability scanning',
       'User-configurable risk scoring',
       'Contextual risk analysis',
-      'Centralized taxonomy system',
-      'Dynamic risk normalization',
-      'Enhanced remediation guidance',
-      'Smart vulnerability deduplication',
+      'Environmental factor adjustments',
       'Batch file scanning',
-      'Dependency vulnerability scanning',
       'OWASP/CWE/CVSS classification',
-      'AST-based code analysis',
-      'Helmet security headers'
+      'Helmet security headers',
+      'Rate limiting protection'
     ],
-    supported_languages: ['javascript', 'typescript'],
-    api_version: '4.0.0'
+    engines: {
+      ast: 'Built-in AST scanner for JavaScript/TypeScript',
+      semgrep: semgrepAvailable ? `Semgrep ${semgrepVersion} (production rules)` : 'Not installed (run: pip install semgrep)'
+    },
+    supported_languages: semgrepAvailable ? 
+      ['javascript', 'typescript', 'python', 'java', 'go', 'ruby', 'php', 'csharp'] :
+      ['javascript', 'typescript'],
+    api_version: '5.0.0'
   });
 });
 
@@ -784,6 +1154,18 @@ app.use('*', (req, res) => {
     message: 'Route not found',
     path: req.originalUrl,
     method: req.method,
+    available_routes: [
+      'GET /',
+      'GET /health',
+      'GET /healthz',
+      'GET /config/defaults',
+      'GET /capabilities',
+      'POST /scan-code',
+      'POST /scan-dependencies',
+      'POST /scan',
+      'POST /scan-file',
+      'POST /scan-batch'
+    ],
     timestamp: new Date().toISOString()
   });
 });
@@ -807,45 +1189,54 @@ app.use((error, req, res, next) => {
 });
 
 /**
- * Start server
+ * Initialize and start server
  */
-const server = app.listen(PORT, '0.0.0.0', () => {
+async function initialize() {
+  // Check Semgrep availability
+  semgrepAvailable = await checkSemgrepAvailable();
+  if (semgrepAvailable) {
+    semgrepVersion = await getSemgrepVersion();
+    console.log(`✓ Semgrep ${semgrepVersion} is available`);
+  } else {
+    console.log('⚠ Semgrep not found - AST scanner only mode');
+    console.log('  To enable Semgrep: pip install semgrep');
+  }
+}
+
+// Start server
+const server = app.listen(PORT, '0.0.0.0', async () => {
+  await initialize();
+  
   console.log(`
 ╔══════════════════════════════════════════════════════════════╗
-║     NEPERIA SECURITY SCANNER - ENHANCED EDITION v4.0        ║
+║     NEPERIA SECURITY SCANNER - PRODUCTION EDITION v5.0      ║
 ╠══════════════════════════════════════════════════════════════╣
 ║  Server running on port ${PORT}                                 ║
 ║  Status: OPERATIONAL                                         ║
 ║                                                              ║
+║  ENGINES:                                                    ║
+║  ✓ AST Scanner (JavaScript/TypeScript)                       ║
+║  ${semgrepAvailable ? '✓' : '✗'} Semgrep ${semgrepAvailable ? `(${semgrepVersion})` : '(not installed)'}                              ║
+║                                                              ║
 ║  FEATURES:                                                   ║
-║  ✓ Centralized taxonomy system                              ║
-║  ✓ Dynamic risk normalization                               ║
 ║  ✓ User-configurable risk scoring                           ║
 ║  ✓ Contextual risk analysis                                 ║
-║  ✓ Enhanced remediation guidance                            ║
-║  ✓ Smart vulnerability deduplication                        ║
-║  ✓ Batch file scanning                                      ║
+║  ✓ Environmental factor adjustments                         ║
 ║  ✓ Dependency vulnerability scanning                        ║
-║  ✓ AST-based vulnerability detection                        ║
+║  ✓ Batch file scanning                                      ║
+║  ✓ OWASP/CWE/CVSS classification                           ║
+║  ✓ Helmet security headers                                  ║
+║  ✓ Rate limiting protection                                 ║
 ║                                                              ║
 ║  ENDPOINTS:                                                  ║
-║  Scanning:                                                   ║
 ║  • POST /scan-code         - Code analysis                   ║
 ║  • POST /scan-dependencies - Dependency analysis             ║
+║  • POST /scan              - Combined analysis               ║
 ║  • POST /scan-file         - File analysis                   ║
-║  • POST /scan-batch        - Batch file analysis             ║
+║  • POST /scan-batch        - Batch analysis                  ║
+║  • GET /capabilities       - Scanner capabilities            ║
 ║                                                              ║
-║  Taxonomy:                                                   ║
-║  • GET /api/taxonomy/cwe/:id    - CWE details               ║
-║  • GET /api/taxonomy/categories - Categories                 ║
-║  • GET /api/taxonomy/severities - Severity info             ║
-║  • GET /api/stats               - Statistics                ║
-║                                                              ║
-║  Configuration:                                              ║
-║  • GET /config/defaults    - Default configurations          ║
-║  • GET /health            - Health check                     ║
-║                                                              ║
-║  Pass 'riskConfig' and 'context' in request body            ║
+║  ${semgrepAvailable ? 'Production mode: Using Semgrep registry rules' : 'Limited mode: Install Semgrep for full capabilities'}         ║
 ╚══════════════════════════════════════════════════════════════╝
   `);
 });

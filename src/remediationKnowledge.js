@@ -615,6 +615,8 @@ LdapQuery query = LdapQueryBuilder.query()
 };
 
 // Export helper functions
+const Taxonomy = require('./taxonomy');
+
 module.exports.getRemediation = function(cweId, language = 'javascript') {
   const remediation = module.exports[cweId];
   if (!remediation) {
@@ -634,39 +636,19 @@ module.exports.getRemediation = function(cweId, language = 'javascript') {
   };
 };
 
+// Delegate severity to taxonomy (single source of truth)
 module.exports.getSeverity = function(cweId) {
-  const severityMap = {
-    'CWE-89': 'critical',  // SQL Injection
-    'CWE-78': 'critical',  // Command Injection
-    'CWE-79': 'high',      // XSS
-    'CWE-798': 'high',     // Hardcoded Credentials
-    'CWE-327': 'medium',   // Weak Crypto
-    'CWE-22': 'high',      // Path Traversal
-    'CWE-502': 'critical', // Insecure Deserialization
-    'CWE-611': 'high',     // XXE
-    'CWE-90': 'high'       // LDAP Injection
-  };
-  
-  return severityMap[cweId] || 'medium';
+  const info = Taxonomy.getByCwe(cweId);
+  return info?.defaultSeverity || 'medium';
 };
 
+// Delegate OWASP to taxonomy (single source of truth)
 module.exports.getOWASP = function(cweId) {
-  const owaspMap = {
-    'CWE-89': 'A03:2021',  // Injection
-    'CWE-78': 'A03:2021',  // Injection
-    'CWE-79': 'A03:2021',  // Injection
-    'CWE-798': 'A07:2021', // Auth Failures
-    'CWE-327': 'A02:2021', // Crypto Failures
-    'CWE-22': 'A01:2021',  // Broken Access Control
-    'CWE-502': 'A08:2021', // Software and Data Integrity Failures
-    'CWE-611': 'A05:2021', // Security Misconfiguration
-    'CWE-90': 'A03:2021'   // Injection
-  };
-  
-  return owaspMap[cweId] || 'A06:2021';
+  const info = Taxonomy.getByCwe(cweId);
+  return info?.owasp || 'A06:2021 - Vulnerable and Outdated Components';
 };
 
-// New helper function to get a one-liner remediation for list views
+// Keep the one-liner helper as is
 module.exports.getOneLiner = function(cweId) {
   const r = module.exports[cweId];
   if (!r) return 'Review and apply security best practices';
@@ -676,4 +658,5 @@ module.exports.getOneLiner = function(cweId) {
          r.remediation?.fix || 
          r.title || 
          'Remediate per OWASP guidance';
+};
 };
