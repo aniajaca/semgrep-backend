@@ -190,11 +190,11 @@ function normalizeResults(semgrepOutput) {
     return [];
   }
 
-  // Filter out test files and other noise
+  /* Filter out test files and other noise
   const filtered = semgrepOutput.results.filter(result => {
     const path = result.path || '';
     // Skip test files
-    if (path.includes('test') || path.includes('spec') || path.includes('__tests__')) {
+    // if (path.includes('test') || path.includes('spec') || path.includes('__tests__')) {
       return false;
     }
     // Skip example/demo files
@@ -202,9 +202,9 @@ function normalizeResults(semgrepOutput) {
       return false;
     }
     return true;
-  });
+  });*/
 
-  return filtered.map(result => {
+  return semgrepOutput.results.map(result => {
     // Map Semgrep severity to our format
     const severityMap = {
       'ERROR': 'CRITICAL',
