@@ -1,5 +1,5 @@
 // lib/normalize.js - Utilities for normalizing and enriching findings
-const Taxonomy = require('../src/taxonomy');
+const Taxonomy = require('../../taxonomy');
 
 /**
  * Normalize findings from different scanners to consistent format

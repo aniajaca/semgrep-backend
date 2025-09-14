@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 // scripts/scan.js - CLI scanner for code analysis
-const { runSemgrep, checkSemgrepAvailable } = require('../semgrepAdapter');
-const { ASTVulnerabilityScanner } = require('../astScanner');
-const { normalizeFindings, enrichFindings } = require('../lib/normalize');
-const EnhancedRiskCalculator = require('../enhancedRiskCalculator');
+const { runSemgrep, checkSemgrepAvailable } = require('../src/semgrepAdapter');
+const { ASTVulnerabilityScanner } = require('../src/astScanner');
+const { normalizeFindings, enrichFindings } = require('../src/data/lib/normalize');
+const EnhancedRiskCalculator = require('../src/enhancedRiskCalculator');
 const fs = require('fs').promises;
 const path = require('path');
 
