@@ -9,7 +9,7 @@ const os = require('os');
 // Security and utility imports
 const rateLimit = require('express-rate-limit');
 
-// Scanner importss
+// Scanner imports
 const { ASTVulnerabilityScanner } = require('./astScanner');
 const { DependencyScanner } = require('./dependencyScanner');
 const { runSemgrep, checkSemgrepAvailable, getSemgrepVersion } = require('./semgrepAdapter');
@@ -33,12 +33,20 @@ function createRateLimiter(max, windowMs) {
     max: max,
     standardHeaders: true,
     legacyHeaders: false,
-    message: 'Too many requests from this IP, please try again later.'
+    message: 'Too many requests from this IP, please try again later.',
+    // Skip validation for X-Forwarded-For header
+    skip: (req) => false,
+    keyGenerator: (req) => {
+      return req.ip || req.connection.remoteAddress || 'unknown';
+    }
   });
 }
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Trust proxy headers (fixes X-Forwarded-For warning)
+app.set('trust proxy', true);
 
 // Security middleware - Helmet with proper CSP
 app.use(helmet({
@@ -67,6 +75,26 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Global Semgrep availability flag
 let semgrepAvailable = false;
 let semgrepVersion = null;
+
+/**
+ * Helper function to extract CWE ID from various formats
+ */
+function extractCweId(cweField) {
+  if (!cweField) return 'CWE-1';
+  
+  // Handle array format (from normalization)
+  if (Array.isArray(cweField)) {
+    return cweField[0] || 'CWE-1';
+  }
+  
+  // Handle object format (from AST scanner)
+  if (typeof cweField === 'object' && cweField !== null) {
+    return cweField.id || cweField.cweId || 'CWE-1';
+  }
+  
+  // Already a string
+  return String(cweField);
+}
 
 /**
  * Sanitize and validate risk configuration
@@ -383,10 +411,13 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
     const calc = new EnhancedRiskCalculator(sanitizedConfig);
     
     const scoredFindings = deduplicated.map(finding => {
+      // Extract CWE ID properly - handle both array and object formats
+      const cweId = extractCweId(finding.cwe);
+      
       const vuln = {
         severity: normalizeSeverity(finding.severity),
-        cwe: finding.cwe[0] || 'CWE-1',
-        cweId: finding.cwe[0] || 'CWE-1',
+        cwe: cweId,  // Now guaranteed to be a string
+        cweId: cweId,
         file: finding.file,
         line: finding.startLine
       };
@@ -395,6 +426,7 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
       
       return {
         ...finding,
+        cwe: cweId,  // Ensure CWE is a string in the output
         cvssBase: riskResult.original.cvss,
         adjustedScore: riskResult.adjusted.score,
         adjustedSeverity: riskResult.adjusted.severity,
@@ -407,8 +439,15 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
     // Sort by adjusted score
     scoredFindings.sort((a, b) => b.adjustedScore - a.adjustedScore);
     
+    // Normalize findings for calculateFileRisk
+    const normalizedForRisk = scoredFindings.map(f => ({
+      ...f,
+      cwe: extractCweId(f.cwe),
+      cweId: extractCweId(f.cwe)
+    }));
+    
     // Calculate overall risk
-    const { score, risk } = calc.calculateFileRisk(scoredFindings, sanitizedContext);
+    const { score, risk } = calc.calculateFileRisk(normalizedForRisk, sanitizedContext);
     
     // Build severity distribution
     const severityDistribution = {
@@ -486,7 +525,7 @@ app.post('/scan-dependencies', createRateLimiter(50, 60000), async (req, res) =>
       packageLock,
       lockFile,
       lockFileType = 'npm',
-      path: projectPath,  // Alternative: scan from file path
+      path: projectPath,
       includeDevDependencies = false,
       riskConfig = {},
       context = {}
@@ -551,7 +590,6 @@ app.post('/scan-dependencies', createRateLimiter(50, 60000), async (req, res) =>
         const lockVulns = await depScanner.scanLockFile(lockData, lockFileType);
         if (lockVulns && lockVulns.length > 0) {
           scanResults.vulnerabilities.push(...lockVulns);
-          // Deduplicate
           scanResults.vulnerabilities = depScanner.deduplicateVulnerabilities(scanResults.vulnerabilities);
           scanResults.summary.totalVulnerabilities = scanResults.vulnerabilities.length;
         }
@@ -569,10 +607,12 @@ app.post('/scan-dependencies', createRateLimiter(50, 60000), async (req, res) =>
     
     // Score each vulnerability
     const scoredVulnerabilities = scanResults.vulnerabilities.map(vuln => {
+      const cweId = extractCweId(vuln.cwe || vuln.cweId);
+      
       const v = {
         severity: normalizeSeverity(vuln.severity),
-        cwe: vuln.cwe || 'CWE-1',
-        cweId: vuln.cwe || 'CWE-1',
+        cwe: cweId,
+        cweId: cweId,
         cvss: vuln.cvss
       };
       
@@ -580,6 +620,7 @@ app.post('/scan-dependencies', createRateLimiter(50, 60000), async (req, res) =>
       
       return {
         ...vuln,
+        cwe: cweId,  // Ensure CWE is a string
         cvssBase: vuln.cvss?.baseScore || riskResult.original.cvss,
         adjustedScore: riskResult.adjusted.score,
         adjustedSeverity: riskResult.adjusted.severity,
@@ -680,106 +721,123 @@ app.post('/scan', createRateLimiter(20, 60000), async (req, res) => {
       });
     }
     
-    // Run both scans in parallel by calling the logic directly
-const [codeResult, depResult] = await Promise.allSettled([
-  // Code scan
-  (async () => {
-    try {
-      const languages = await detectLanguages(projectPath);
-      const allFindings = [];
+    // Run both scans in parallel
+    const [codeResult, depResult] = await Promise.allSettled([
+      // Code scan
+      (async () => {
+        try {
+          const languages = await detectLanguages(projectPath);
+          const allFindings = [];
+          
+          if (semgrepAvailable) {
+            const semgrepOptions = {
+              languages: languages,
+              severity: config.semgrepConfig?.severity || 'ERROR,WARNING',
+              timeout: config.semgrepConfig?.timeout || 30,
+              rulesets: config.semgrepConfig?.rulesets || ['auto']
+            };
+            const semgrepFindings = await runSemgrep(projectPath, semgrepOptions);
+            allFindings.push(...semgrepFindings);
+          }
+          
+          const normalized = normalizeFindings(allFindings);
+          const enriched = enrichFindings(normalized);
+          const deduplicated = deduplicateFindings(enriched);
+          
+          const calc = new EnhancedRiskCalculator(sanitizeRiskConfig(riskConfig));
+          const scoredFindings = deduplicated.map(finding => {
+            const cweId = extractCweId(finding.cwe);
+            const vuln = {
+              severity: normalizeSeverity(finding.severity),
+              cwe: cweId,
+              cweId: cweId,
+              file: finding.file,
+              line: finding.startLine
+            };
+            const riskResult = calc.calculateVulnerabilityRisk(vuln, sanitizeContextFactors(context));
+            return {
+              ...finding,
+              cwe: cweId,
+              cvssBase: riskResult.original.cvss,
+              adjustedScore: riskResult.adjusted.score,
+              adjustedSeverity: riskResult.adjusted.severity,
+              priority: riskResult.adjusted.priority.priority,
+              environmentalFactors: riskResult.factors.applied.map(f => f.id),
+              remediation: riskResult.remediation
+            };
+          });
+          
+          scoredFindings.sort((a, b) => b.adjustedScore - a.adjustedScore);
+          
+          const normalizedForRisk = scoredFindings.map(f => ({
+            ...f,
+            cwe: extractCweId(f.cwe),
+            cweId: extractCweId(f.cwe)
+          }));
+          
+          const { score, risk } = calc.calculateFileRisk(normalizedForRisk, sanitizeContextFactors(context));
+          
+          return {
+            status: 'success',
+            findings: scoredFindings,
+            score,
+            risk
+          };
+        } catch (error) {
+          return { status: 'error', error: error.message };
+        }
+      })(),
       
-      if (semgrepAvailable) {
-        const semgrepOptions = {
-          languages: languages,
-          severity: config.semgrepConfig?.severity || 'ERROR,WARNING',
-          timeout: config.semgrepConfig?.timeout || 30,
-          rulesets: config.semgrepConfig?.rulesets || ['auto']
-        };
-        const semgrepFindings = await runSemgrep(projectPath, semgrepOptions);
-        allFindings.push(...semgrepFindings);
-      }
-      
-      const normalized = normalizeFindings(allFindings);
-      const enriched = enrichFindings(normalized);
-      const deduplicated = deduplicateFindings(enriched);
-      
-      const calc = new EnhancedRiskCalculator(sanitizeRiskConfig(riskConfig));
-      const scoredFindings = deduplicated.map(finding => {
-        const vuln = {
-          severity: normalizeSeverity(finding.severity),
-          cwe: finding.cwe[0] || 'CWE-1',
-          cweId: finding.cwe[0] || 'CWE-1',
-          file: finding.file,
-          line: finding.startLine
-        };
-        const riskResult = calc.calculateVulnerabilityRisk(vuln, sanitizeContextFactors(context));
-        return {
-          ...finding,
-          cvssBase: riskResult.original.cvss,
-          adjustedScore: riskResult.adjusted.score,
-          adjustedSeverity: riskResult.adjusted.severity,
-          priority: riskResult.adjusted.priority.priority,
-          environmentalFactors: riskResult.factors.applied.map(f => f.id),
-          remediation: riskResult.remediation
-        };
-      });
-      
-      scoredFindings.sort((a, b) => b.adjustedScore - a.adjustedScore);
-      const { score, risk } = calc.calculateFileRisk(scoredFindings, sanitizeContextFactors(context));
-      
-      return {
-        status: 'success',
-        findings: scoredFindings,
-        score,
-        risk
-      };
-    } catch (error) {
-      return { status: 'error', error: error.message };
-    }
-  })(),
-  
-  // Dependency scan
-  (async () => {
-    try {
-      const pkgPath = path.join(projectPath, 'package.json');
-      const pkgContent = await fs.readFile(pkgPath, 'utf8');
-      const pkgJson = JSON.parse(pkgContent);
-      
-      const scanResults = await depScanner.scanDependencies(pkgJson, {
-        includeDevDependencies: false
-      });
-      
-      const calc = new EnhancedRiskCalculator(sanitizeRiskConfig(riskConfig));
-      const scoredVulnerabilities = scanResults.vulnerabilities.map(vuln => {
-        const v = {
-          severity: normalizeSeverity(vuln.vulnerability?.severity),
-          cwe: vuln.vulnerability?.cweId || 'CWE-1',
-          cweId: vuln.vulnerability?.cweId || 'CWE-1',
-          cvss: vuln.vulnerability?.cvss
-        };
-        const riskResult = calc.calculateVulnerabilityRisk(v, sanitizeContextFactors(context));
-        return {
-          ...vuln,
-          cvssBase: vuln.vulnerability?.cvss?.baseScore || riskResult.original.cvss,
-          adjustedScore: riskResult.adjusted.score,
-          adjustedSeverity: riskResult.adjusted.severity,
-          priority: riskResult.adjusted.priority.priority,
-          remediation: riskResult.remediation
-        };
-      });
-      
-      scoredVulnerabilities.sort((a, b) => b.adjustedScore - a.adjustedScore);
-      
-      return {
-        status: 'success',
-        vulnerabilities: scoredVulnerabilities,
-        ...scanResults
-      };
-    } catch (error) {
-      return { status: 'error', error: error.message };
-    }
-  })()
-]);
+      // Dependency scan
+      (async () => {
+        try {
+          const pkgPath = path.join(projectPath, 'package.json');
+          const pkgContent = await fs.readFile(pkgPath, 'utf8');
+          const pkgJson = JSON.parse(pkgContent);
+          
+          const scanResults = await depScanner.scanDependencies(pkgJson, {
+            includeDevDependencies: false
+          });
+          
+          const calc = new EnhancedRiskCalculator(sanitizeRiskConfig(riskConfig));
+          const scoredVulnerabilities = scanResults.vulnerabilities.map(vuln => {
+            const cweId = extractCweId(vuln.vulnerability?.cweId || vuln.cwe);
+            const v = {
+              severity: normalizeSeverity(vuln.vulnerability?.severity),
+              cwe: cweId,
+              cweId: cweId,
+              cvss: vuln.vulnerability?.cvss
+            };
+            const riskResult = calc.calculateVulnerabilityRisk(v, sanitizeContextFactors(context));
+            return {
+              ...vuln,
+              cwe: cweId,
+              cvssBase: vuln.vulnerability?.cvss?.baseScore || riskResult.original.cvss,
+              adjustedScore: riskResult.adjusted.score,
+              adjustedSeverity: riskResult.adjusted.severity,
+              priority: riskResult.adjusted.priority.priority,
+              remediation: riskResult.remediation
+            };
+          });
+          
+          scoredVulnerabilities.sort((a, b) => b.adjustedScore - a.adjustedScore);
+          
+          return {
+            status: 'success',
+            vulnerabilities: scoredVulnerabilities,
+            ...scanResults
+          };
+        } catch (error) {
+          return { status: 'error', error: error.message };
+        }
+      })()
+    ]);
+    
+    // Process results
+    const results = {
+      code: codeResult.status === 'fulfilled' ? codeResult.value : { status: 'error', findings: [], error: codeResult.reason?.message },
+      dependencies: depResult.status === 'fulfilled' ? depResult.value : { status: 'error', vulnerabilities: [], error: depResult.reason?.message }
+    };
     
     // Combine findings for overall risk calculation
     const allFindings = [
@@ -852,27 +910,34 @@ app.post('/scan-file', createRateLimiter(50, 60000), async (req, res) => {
     // Scan the file with AST scanner
     const findings = astScanner.scan(content, filename, language);
     
+    // Normalize findings to ensure CWE is a string
+    const normalizedFindings = findings.map(f => ({
+      ...f,
+      cwe: extractCweId(f.cwe || f.cweId),
+      cweId: extractCweId(f.cweId || f.cwe)
+    }));
+    
     // Sanitize configurations
     const sanitizedConfig = sanitizeRiskConfig(riskConfig);
     const sanitizedContext = sanitizeContextFactors(context);
     
     // Calculate risk
     const calc = new EnhancedRiskCalculator(sanitizedConfig);
-    const { score, risk } = calc.calculateFileRisk(findings, sanitizedContext);
+    const { score, risk } = calc.calculateFileRisk(normalizedFindings, sanitizedContext);
     
     res.json({
       status: 'success',
       filename,
       language,
-      findings,
+      findings: normalizedFindings,
       score,
       risk,
       vulnerabilities: {
-        total: findings.length,
-        critical: findings.filter(f => normalizeSeverity(f.severity) === 'critical').length,
-        high: findings.filter(f => normalizeSeverity(f.severity) === 'high').length,
-        medium: findings.filter(f => normalizeSeverity(f.severity) === 'medium').length,
-        low: findings.filter(f => normalizeSeverity(f.severity) === 'low').length
+        total: normalizedFindings.length,
+        critical: normalizedFindings.filter(f => normalizeSeverity(f.severity) === 'critical').length,
+        high: normalizedFindings.filter(f => normalizeSeverity(f.severity) === 'high').length,
+        medium: normalizedFindings.filter(f => normalizeSeverity(f.severity) === 'medium').length,
+        low: normalizedFindings.filter(f => normalizeSeverity(f.severity) === 'low').length
       },
       metadata: {
         scanned_at: new Date().toISOString(),
@@ -924,20 +989,28 @@ app.post('/scan-batch', createRateLimiter(20, 60000), async (req, res) => {
     let totalFindings = [];
     
     // Scan each file
-    for (const file of files.slice(0, 100)) { // Limit to 100 files
+    for (const file of files.slice(0, 100)) {
       try {
         const { content, filename = 'unknown', language = 'javascript' } = file;
         
         if (!content) continue;
         
         const findings = astScanner.scan(content, filename, language);
-        totalFindings = totalFindings.concat(findings);
+        
+        // Normalize findings
+        const normalizedFindings = findings.map(f => ({
+          ...f,
+          cwe: extractCweId(f.cwe || f.cweId),
+          cweId: extractCweId(f.cweId || f.cwe)
+        }));
+        
+        totalFindings = totalFindings.concat(normalizedFindings);
         
         results.push({
           filename,
           language,
-          findings: findings.length,
-          vulnerabilities: findings
+          findings: normalizedFindings.length,
+          vulnerabilities: normalizedFindings
         });
       } catch (fileError) {
         console.error(`Error scanning file ${file.filename}:`, fileError);
@@ -986,11 +1059,13 @@ app.post('/scan-batch', createRateLimiter(20, 60000), async (req, res) => {
   }
 });
 
+// Keep all the other endpoints (health, config, capabilities, etc.) the same...
+// [Rest of the code remains unchanged from line 1000 onwards]
+
 /**
  * Health check endpoints
  */
 app.get('/health', async (req, res) => {
-  // Check Semgrep availability
   const semgrepStatus = semgrepAvailable ? 'available' : 'not installed';
   
   res.json({ 
@@ -1192,7 +1267,6 @@ app.use((error, req, res, next) => {
  * Initialize and start server
  */
 async function initialize() {
-  // Check Semgrep availability
   semgrepAvailable = await checkSemgrepAvailable();
   if (semgrepAvailable) {
     semgrepVersion = await getSemgrepVersion();
