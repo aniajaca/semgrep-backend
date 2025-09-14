@@ -2,6 +2,10 @@
 const { spawn } = require('child_process');
 const fs = require('fs').promises;
 const path = require('path');
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const execAsync = promisify(exec);
+
 
 /**
  * Execute Semgrep with real security rules
@@ -342,13 +346,31 @@ function formatCWE(cwe) {
  * @returns {Promise<boolean>} True if Semgrep is available
  */
 async function checkSemgrepAvailable() {
-  return new Promise((resolve) => {
-    const check = spawn('semgrep', ['--version']);
-    check.on('error', () => resolve(false));
-    check.on('close', (code) => resolve(code === 0));
-  });
+  try {
+    // Try different possible paths
+    const paths = [
+      'semgrep',
+      '/root/.local/bin/semgrep',
+      '/usr/local/bin/semgrep'
+    ];
+    
+    for (const semgrepPath of paths) {
+      try {
+        const result = await execAsync(`${semgrepPath} --version`);
+        if (result.stdout) {
+          // Store the working path
+          global.SEMGREP_PATH = semgrepPath;
+          return true;
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+    return false;
+  } catch (error) {
+    return false;
+  }
 }
-
 /**
  * Get Semgrep version
  * @returns {Promise<string|null>} Version string or null
