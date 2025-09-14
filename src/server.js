@@ -9,11 +9,11 @@ const os = require('os');
 // Security and utility imports
 const rateLimit = require('express-rate-limit');
 
-// Scanner imports
+// Scanner importss
 const { ASTVulnerabilityScanner } = require('./astScanner');
 const { DependencyScanner } = require('./dependencyScanner');
 const { runSemgrep, checkSemgrepAvailable, getSemgrepVersion } = require('./semgrepAdapter');
-const { normalizeFindings, enrichFindings, deduplicateFindings } = require('../lib/normalize');
+const { normalizeFindings, enrichFindings, deduplicateFindings } = require('./lib/normalize');
 
 // Risk calculation
 const EnhancedRiskCalculator = require('./enhancedRiskCalculator');
