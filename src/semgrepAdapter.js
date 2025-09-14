@@ -40,8 +40,8 @@ async function runSemgrep(targetPath, options = {}) {
       semgrepArgs.push('--config', 'p/security');
       semgrepArgs.push('--config', 'p/owasp-top-ten');
       semgrepArgs.push('--config', 'p/r2c-security-audit');
-      
-    // Add language-specific rulesets based on what's being scanned
+
+    // Add language-specific rulesets based on what's being scannedd
   if (options.languages) {
     if (options.languages.includes('javascript')) {
       semgrepArgs.push('--config', 'p/javascript');
