@@ -162,6 +162,19 @@ async function runSemgrep(targetPath, options = {}) {
     });
 
     semgrep.on('close', (code) => {
+
+      // Add this debugging
+  console.log('Semgrep exit code:', code);
+  console.log('Semgrep stdout length:', stdout.length);
+  console.log('Semgrep stderr:', stderr);
+  
+  if (stdout) {
+    const parsed = JSON.parse(stdout || '{}');
+    console.log('Semgrep raw results count:', parsed.results?.length || 0);
+    if (parsed.results && parsed.results.length > 0) {
+      console.log('First result:', JSON.stringify(parsed.results[0], null, 2));
+    }
+  }
       // Semgrep returns non-zero when it finds issues, which is expected
       if (code !== 0 && code !== 1 && !stdout) {
         reject(new Error(`Semgrep failed with code ${code}: ${stderr}`));
