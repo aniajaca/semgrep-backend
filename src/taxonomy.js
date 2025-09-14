@@ -38,10 +38,13 @@ class Taxonomy {
   getByCwe(cweId) {
     if (!cweId) return null;
     
+    // Ensure cweId is a string
+    const cweString = String(cweId);
+    
     // Normalize CWE ID format
-    const normalized = cweId.toUpperCase().startsWith('CWE-') 
-      ? cweId.toUpperCase() 
-      : `CWE-${cweId}`;
+    const normalized = cweString.toUpperCase().startsWith('CWE-') 
+      ? cweString.toUpperCase() 
+      : `CWE-${cweString}`;
     
     return this.cweMap[normalized] || this.cweMap['CWE-1'];
   }
@@ -78,34 +81,39 @@ class Taxonomy {
     }
     return results;
   }
+  
   /**
- * Get category for a specific CWE
- * @param {string} cwe - CWE identifier
- * @returns {string} Category name
- */
-getCategoryForCwe(cwe) {
-  if (!cwe) return 'unknown';
-  
-  // Normalize CWE format
-  const normalized = cwe.toUpperCase().startsWith('CWE-') 
-    ? cwe.toUpperCase() 
-    : `CWE-${cwe}`;
-  
-  // Look up in our CWE map
-  const cweData = this.cweMap[normalized];
-  if (cweData && cweData.category) {
-    return cweData.category;
-  }
-  
-  // Fallback: check category patterns
-  for (const [category, cweId] of Object.entries(this.categoryPatterns)) {
-    if (cweId === normalized) {
-      return category;
+   * Get category for a specific CWE
+   * @param {string} cwe - CWE identifier
+   * @returns {string} Category name
+   */
+  getCategoryForCwe(cwe) {
+    if (!cwe) return 'unknown';
+    
+    // Ensure cwe is a string
+    const cweString = String(cwe);
+    
+    // Normalize CWE format
+    const normalized = cweString.toUpperCase().startsWith('CWE-') 
+      ? cweString.toUpperCase() 
+      : `CWE-${cweString}`;
+    
+    // Look up in our CWE map
+    const cweData = this.cweMap[normalized];
+    if (cweData && cweData.category) {
+      return cweData.category;
     }
+    
+    // Fallback: check category patterns
+    for (const [category, cweId] of Object.entries(this.categoryPatterns)) {
+      if (cweId === normalized) {
+        return category;
+      }
+    }
+    
+    return 'unknown';
   }
   
-  return 'unknown';
-}
   /**
    * Get severity ranking (for sorting)
    */
@@ -117,7 +125,7 @@ getCategoryForCwe(cwe) {
       'low': 2,
       'info': 1
     };
-    return ranks[severity] || 0;
+    return ranks[severity?.toLowerCase()] || 0;
   }
   
   /**
@@ -131,7 +139,15 @@ getCategoryForCwe(cwe) {
    * Get severity level info
    */
   getSeverityLevel(severity) {
-    return this.severityLevels?.[severity] || {
+    if (!severity) {
+      return {
+        score: 0,
+        color: '#999999',
+        sla: 'Not defined'
+      };
+    }
+    
+    return this.severityLevels?.[severity.toLowerCase()] || {
       score: 0,
       color: '#999999',
       sla: 'Not defined'
@@ -142,9 +158,14 @@ getCategoryForCwe(cwe) {
    * Check if CWE exists
    */
   hasCwe(cweId) {
-    const normalized = cweId.toUpperCase().startsWith('CWE-') 
-      ? cweId.toUpperCase() 
-      : `CWE-${cweId}`;
+    if (!cweId) return false;
+    
+    // Ensure cweId is a string
+    const cweString = String(cweId);
+    
+    const normalized = cweString.toUpperCase().startsWith('CWE-') 
+      ? cweString.toUpperCase() 
+      : `CWE-${cweString}`;
     return this.cweMap.hasOwnProperty(normalized);
   }
   
@@ -171,7 +192,7 @@ getCategoryForCwe(cwe) {
     };
     
     Object.values(this.cweMap).forEach(cwe => {
-      const severity = cwe.defaultSeverity || 'medium';
+      const severity = (cwe.defaultSeverity || 'medium').toLowerCase();
       if (counts.hasOwnProperty(severity)) {
         counts[severity]++;
       }
@@ -184,12 +205,14 @@ getCategoryForCwe(cwe) {
    * Search CWEs by title or description
    */
   searchCwes(searchTerm) {
-    const term = searchTerm.toLowerCase();
+    if (!searchTerm) return [];
+    
+    const term = String(searchTerm).toLowerCase();
     const results = [];
     
     for (const [id, data] of Object.entries(this.cweMap)) {
-      if (data.title.toLowerCase().includes(term) || 
-          data.category.toLowerCase().includes(term) ||
+      if ((data.title && data.title.toLowerCase().includes(term)) || 
+          (data.category && data.category.toLowerCase().includes(term)) ||
           id.toLowerCase().includes(term)) {
         results.push({ id, ...data });
       }
