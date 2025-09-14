@@ -51,10 +51,14 @@ async function runSemgrep(targetPath, options = {}) {
       '--no-rewrite-rule-ids' // Keep original rule IDs
     );
     
-    // Add severity filter (only ERROR and WARNING, skip INFO for performance)
-    if (options.severityFilter !== false) {
-      semgrepArgs.push('--severity', options.severity || 'ERROR,WARNING');
-    }
+    // CORRECT - fix it to this
+//if (options.severityFilter !== false) {
+  // Semgrep wants individual --severity flags, not comma-separated
+  //const severities = (options.severity || 'ERROR,WARNING').split(',');
+  //severities.forEach(sev => {
+    //semgrepArgs.push('--severity', sev.trim());
+  //});
+//}
     
     // Add timeout (important for large codebases)
     if (options.timeout) {
