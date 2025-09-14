@@ -659,4 +659,3 @@ module.exports.getOneLiner = function(cweId) {
          r.title || 
          'Remediate per OWASP guidance';
 };
-};
