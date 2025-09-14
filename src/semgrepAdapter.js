@@ -35,11 +35,26 @@ async function runSemgrep(targetPath, options = {}) {
       });
     } else {
       // DEFAULT: Use comprehensive security rules from Semgrep registry
-      semgrepArgs.push('--config', 'auto');  // Auto includes all security rules
+      // semgrepArgs.push('--config', 'auto');  // Auto includes all security rules
       // Or use specific high-quality rulesets:
-      // semgrepArgs.push('--config', 'p/security');
-      // semgrepArgs.push('--config', 'p/owasp-top-ten');
-      // semgrepArgs.push('--config', 'p/r2c-security-audit');
+      semgrepArgs.push('--config', 'p/security');
+      semgrepArgs.push('--config', 'p/owasp-top-ten');
+      semgrepArgs.push('--config', 'p/r2c-security-audit');
+      
+    // Add language-specific rulesets based on what's being scanned
+  if (options.languages) {
+    if (options.languages.includes('javascript')) {
+      semgrepArgs.push('--config', 'p/javascript');
+    }
+    if (options.languages.includes('python')) {
+      semgrepArgs.push('--config', 'p/python');
+    }
+    if (options.languages.includes('java')) {
+      semgrepArgs.push('--config', 'p/java');
+    }
+  }
+    
+    
     }
     
     // Core arguments
@@ -60,6 +75,7 @@ async function runSemgrep(targetPath, options = {}) {
   //});
 //}
     
+
     // Add timeout (important for large codebases)
     if (options.timeout) {
       semgrepArgs.push('--timeout', options.timeout.toString());
