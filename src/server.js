@@ -330,7 +330,7 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
           languages: scanLanguages,
           severity: config.semgrepConfig?.severity || 'ERROR,WARNING',
           timeout: config.semgrepConfig?.timeout || 30,
-          rulesets: config.semgrepConfig?.rulesets || ['auto']
+          rulesets: config.semgrepConfig?.rulesets || []
         };
         
         const semgrepFindings = await runSemgrep(actualTargetPath, semgrepOptions);
@@ -738,7 +738,7 @@ app.post('/scan', createRateLimiter(20, 60000), async (req, res) => {
               languages: languages,
               severity: config.semgrepConfig?.severity || 'ERROR,WARNING',
               timeout: config.semgrepConfig?.timeout || 30,
-              rulesets: config.semgrepConfig?.rulesets || ['auto']
+              rulesets: config.semgrepConfig?.rulesets || []
             };
             const semgrepFindings = await runSemgrep(projectPath, semgrepOptions);
             allFindings.push(...semgrepFindings);

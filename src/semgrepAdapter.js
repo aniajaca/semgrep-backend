@@ -42,7 +42,7 @@ async function runSemgrep(targetPath, options = {}) {
       // DEFAULT: Use comprehensive security rules from Semgrep registry
       semgrepArgs.push('--config', 'p/security');
       semgrepArgs.push('--config', 'p/owasp-top-ten');
-      semgrepArgs.push('--config', 'p/r2c-security-audit');
+      // semgrepArgs.push('--config', 'p/r2c-security-audit');
 
       // Add language-specific rulesets based on what's being scanned
       if (options.languages) {

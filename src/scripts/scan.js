@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 // scripts/scan.js - CLI scanner for code analysis
-const { runSemgrep, checkSemgrepAvailable } = require('../src/semgrepAdapter');
-const { ASTVulnerabilityScanner } = require('../src/astScanner');
-const { normalizeFindings, enrichFindings } = require('../src/data/lib/normalize');
-const EnhancedRiskCalculator = require('../src/enhancedRiskCalculator');
+const { runSemgrep, checkSemgrepAvailable } = require('../semgrepAdapter');
+const { ASTVulnerabilityScanner } = require('../astScanner');
+const { normalizeFindings, enrichFindings } = require('../data/lib/normalize');
+const EnhancedRiskCalculator = require('../enhancedRiskCalculator');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -307,7 +307,7 @@ async function scan(options) {
       // Use real Semgrep registry rules
       const semgrepOptions = {
         useCustomRules: false,  // Use registry, not custom rules
-        rulesets: ['auto'],     // 'auto' uses all security rules
+        rulesets: [],     // 'auto' uses all security rules
         languages: options.languages,
         exclude: ['node_modules', '.git', 'dist', 'build', '__pycache__', '.venv', 'venv', 'target'],
         severity: 'ERROR,WARNING',  // Skip INFO to reduce noise
