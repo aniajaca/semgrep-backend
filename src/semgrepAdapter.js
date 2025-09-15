@@ -19,14 +19,6 @@ async function runSemgrep(targetPath, options = {}) {
   console.log('Semgrep cache directory:', semgrepDir);
   console.log('Directory exists?', await fs.access(semgrepDir).then(() => true).catch(() => false));
   
-  // Test network connectivity
-  try {
-    const testConnection = await execAsync('curl -I https://semgrep.dev 2>&1');
-    console.log('Registry connectivity test:', testConnection.stdout.substring(0, 200));
-  } catch (e) {
-    console.log('Cannot reach Semgrep registry:', e.message);
-  }
-
   // Validate target path exists
   try {
     await fs.access(targetPath);
