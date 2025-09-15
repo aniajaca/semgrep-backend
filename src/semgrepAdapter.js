@@ -5,6 +5,8 @@ const path = require('path');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const execAsync = promisify(exec);
+const SnippetExtractor = require('./lib/snippetExtractor');
+const snippetExtractor = new SnippetExtractor();
 
 /**
  * Execute Semgrep with real security rules
@@ -13,12 +15,6 @@ const execAsync = promisify(exec);
  * @returns {Promise<Array>} Normalized findings
  */
 async function runSemgrep(targetPath, options = {}) {
-  // Debug checks - INSIDE the function
-  const homeDir = process.env.HOME || '/root';
-  const semgrepDir = path.join(homeDir, '.semgrep');
-  console.log('Semgrep cache directory:', semgrepDir);
-  console.log('Directory exists?', await fs.access(semgrepDir).then(() => true).catch(() => false));
-  
   // Validate target path exists
   try {
     await fs.access(targetPath);
@@ -31,22 +27,14 @@ async function runSemgrep(targetPath, options = {}) {
     
     // Use production rules based on configuration
     if (options.useCustomRules) {
-      // Use local custom rules if specifically requested
       semgrepArgs.push('--config', options.rulesPath || './rules');
     } else if (options.rulesets && options.rulesets.length > 0) {
-      // Use specific Semgrep registry rulesets
       options.rulesets.forEach(ruleset => {
         semgrepArgs.push('--config', ruleset);
       });
     } else {
-      // DEFAULT: Use comprehensive security rules from Semgrep registry
-      // semgrepArgs.push('--config', 'p/security');
-      // semgrepArgs.push('--config', 'p/owasp-top-ten');
-      // semgrepArgs.push('--config', 'p/r2c-security-audit');
-
       semgrepArgs.push('--config', 'auto');
-
-      // Add language-specific rulesets based on what's being scanned
+      
       if (options.languages) {
         if (options.languages.includes('javascript')) {
           semgrepArgs.push('--config', 'p/javascript');
@@ -62,22 +50,19 @@ async function runSemgrep(targetPath, options = {}) {
     
     // Core arguments
     semgrepArgs.push(
-      '--json',           // JSON output for parsing
-      '--verbose',        // Show what is happening
-      '--no-git-ignore',  // Scan everything (we handle excludes)
-      '--metrics', 'on',  // Enable metrics for registry access
-      '--no-rewrite-rule-ids' // Keep original rule IDs
+      '--json',
+      '--verbose',
+      '--no-git-ignore',
+      '--metrics', 'on',
+      '--no-rewrite-rule-ids',
+      '--max-lines-per-finding', '10'  // Add this for better snippets
     );
 
-    // Add timeout (important for large codebases)
-    if (options.timeout) {
-      semgrepArgs.push('--timeout', options.timeout.toString());
-    } else {
-      semgrepArgs.push('--timeout', '30'); // 30 seconds per rule
-    }
+    // Add timeout
+    semgrepArgs.push('--timeout', options.timeout?.toString() || '30');
     
-    // Add max target bytes (skip huge files)
-    semgrepArgs.push('--max-target-bytes', options.maxBytes || '1000000'); // 1MB default
+    // Add max target bytes
+    semgrepArgs.push('--max-target-bytes', options.maxBytes || '1000000');
     
     // Language filtering
     if (options.languages && options.languages.length > 0) {
@@ -103,7 +88,7 @@ async function runSemgrep(targetPath, options = {}) {
       });
     }
     
-    // Exclude patterns (critical for performance)
+    // Exclude patterns
     const defaultExcludes = [
       'node_modules', '.git', 'dist', 'build', '__pycache__', 
       '.venv', 'venv', 'target', 'vendor', '.next', '.nuxt',
@@ -116,22 +101,21 @@ async function runSemgrep(targetPath, options = {}) {
       semgrepArgs.push('--exclude', pattern);
     });
     
-    // Add target path at the end
+    // Add target path
     semgrepArgs.push(targetPath);
 
     console.log('Running Semgrep with args:', semgrepArgs.join(' '));
 
     const semgrep = spawn('semgrep', semgrepArgs, {
-      maxBuffer: 100 * 1024 * 1024, // 100MB buffer for large outputs
-      timeout: options.processTimeout || 600000 // 10 minute process timeout
+      maxBuffer: 100 * 1024 * 1024,
+      timeout: options.processTimeout || 600000
     });
 
     let stdout = '';
     let stderr = '';
     let outputSize = 0;
-    const maxOutputSize = 100 * 1024 * 1024; // 100MB max
+    const maxOutputSize = 100 * 1024 * 1024;
 
-    // Collect stdout in chunks to handle large outputs
     semgrep.stdout.on('data', (chunk) => {
       outputSize += chunk.length;
       if (outputSize > maxOutputSize) {
@@ -144,7 +128,6 @@ async function runSemgrep(targetPath, options = {}) {
 
     semgrep.stderr.on('data', (chunk) => {
       stderr += chunk.toString();
-      console.log('Semgrep stderr chunk:', chunk.toString()); // Debug output
     });
 
     semgrep.on('error', (error) => {
@@ -155,24 +138,7 @@ async function runSemgrep(targetPath, options = {}) {
       }
     });
 
-    semgrep.on('close', (code) => {
-      // Add debugging
-      console.log('Semgrep exit code:', code);
-      console.log('Semgrep stdout length:', stdout.length);
-      console.log('Semgrep stderr (first 500 chars):', stderr.substring(0, 500));
-      
-      if (stdout) {
-        try {
-          const parsed = JSON.parse(stdout || '{}');
-          console.log('Semgrep raw results count:', parsed.results?.length || 0);
-          if (parsed.results && parsed.results.length > 0) {
-            console.log('First result:', JSON.stringify(parsed.results[0], null, 2));
-          }
-        } catch (e) {
-          console.log('Could not parse stdout as JSON');
-        }
-      }
-
+    semgrep.on('close', async (code) => {
       // Semgrep returns non-zero when it finds issues, which is expected
       if (code !== 0 && code !== 1 && !stdout) {
         reject(new Error(`Semgrep failed with code ${code}: ${stderr}`));
@@ -181,7 +147,8 @@ async function runSemgrep(targetPath, options = {}) {
 
       try {
         const results = JSON.parse(stdout || '{}');
-        const findings = normalizeResults(results);
+        // Pass targetPath to normalizeResults for snippet extraction
+        const findings = await normalizeResults(results, targetPath);
         console.log(`Semgrep scan complete: ${findings.length} findings`);
         resolve(findings);
       } catch (parseError) {
@@ -194,79 +161,111 @@ async function runSemgrep(targetPath, options = {}) {
 /**
  * Normalize Semgrep results to our finding format
  * @param {Object} semgrepOutput - Raw Semgrep JSON output
- * @returns {Array} Normalized findings
+ * @param {string} targetPath - Target path for resolving file paths
+ * @returns {Promise<Array>} Normalized findings
  */
-function normalizeResults(semgrepOutput) {
+async function normalizeResults(semgrepOutput, targetPath = '.') {
   if (!semgrepOutput.results || !Array.isArray(semgrepOutput.results)) {
     return [];
   }
 
-  return semgrepOutput.results.map(result => {
-    // Map Semgrep severity to our format
-    const severityMap = {
-      'ERROR': 'CRITICAL',
-      'WARNING': 'HIGH',
-      'INFO': 'MEDIUM',
-      'INVENTORY': 'LOW',
-      'EXPERIMENTAL': 'LOW'
-    };
+  // Process results with proper snippet extraction
+  const enrichedResults = await Promise.all(
+    semgrepOutput.results.map(async (result) => {
+      // Map Semgrep severity to our format
+      const severityMap = {
+        'ERROR': 'CRITICAL',
+        'WARNING': 'HIGH',
+        'INFO': 'MEDIUM',
+        'INVENTORY': 'LOW',
+        'EXPERIMENTAL': 'LOW'
+      };
 
-    const severity = result.extra?.severity 
-      ? severityMap[result.extra.severity.toUpperCase()] || 'MEDIUM'
-      : 'MEDIUM';
+      const severity = result.extra?.severity 
+        ? severityMap[result.extra.severity.toUpperCase()] || 'MEDIUM'
+        : 'MEDIUM';
 
-    // Extract metadata
-    const metadata = result.extra?.metadata || {};
-    const cweList = extractCWE(metadata, result.check_id);
-    const owaspList = extractOWASP(metadata, result.check_id);
+      // Extract metadata
+      const metadata = result.extra?.metadata || {};
+      const cweList = extractCWE(metadata, result.check_id);
+      const owaspList = extractOWASP(metadata, result.check_id);
+      
+      // Get the snippet
+      let snippet = result.extra?.lines || '';
+      
+      // Check if snippet needs enhancement
+      const needsEnhancement = !snippet || 
+                               snippet.length < 30 || 
+                               snippet.toLowerCase().includes('requires') ||
+                               snippet.toLowerCase().includes('login');
+      
+      if (needsEnhancement) {
+        // Build full file path
+        const fullPath = path.isAbsolute(result.path) 
+          ? result.path 
+          : path.join(targetPath, result.path);
+        
+        // Extract proper snippet
+        const extractedSnippet = await snippetExtractor.extractSnippet(
+          fullPath,
+          result.start?.line || 1,
+          result.end?.line || result.start?.line || 1,
+          {
+            contextLines: 3,
+            maxLength: 600,
+            highlightLines: true,
+            includeLineNumbers: true
+          }
+        );
+        
+        if (extractedSnippet) {
+          snippet = extractedSnippet;
+        }
+      }
+      
+      return {
+        engine: 'semgrep',
+        ruleId: result.check_id || 'unknown',
+        category: metadata.category || 'sast',
+        severity: severity,
+        message: result.extra?.message || result.message || 'Security issue detected',
+        cwe: cweList,
+        owasp: owaspList,
+        file: result.path || 'unknown',
+        startLine: result.start?.line || 0,
+        endLine: result.end?.line || 0,
+        startColumn: result.start?.col || 0,
+        endColumn: result.end?.col || 0,
+        snippet: snippet,  // Now contains proper code
+        confidence: metadata.confidence || 'MEDIUM',
+        impact: metadata.impact || 'MEDIUM',
+        likelihood: metadata.likelihood || 'MEDIUM',
+        references: metadata.references || [],
+        fix: result.extra?.fix || metadata.fix || null,
+        fixRegex: result.extra?.fix_regex || null
+      };
+    })
+  );
 
-    // Build the normalized finding
-    return {
-      engine: 'semgrep',
-      ruleId: result.check_id || 'unknown',
-      category: metadata.category || 'sast',
-      severity: severity,
-      message: result.extra?.message || result.message || 'Security issue detected',
-      cwe: cweList,
-      owasp: owaspList,
-      file: result.path || 'unknown',
-      startLine: result.start?.line || 0,
-      endLine: result.end?.line || 0,
-      startColumn: result.start?.col || 0,
-      endColumn: result.end?.col || 0,
-      snippet: result.extra?.lines || '',
-      confidence: metadata.confidence || 'MEDIUM',
-      impact: metadata.impact || 'MEDIUM',
-      likelihood: metadata.likelihood || 'MEDIUM',
-      references: metadata.references || [],
-      fix: result.extra?.fix || metadata.fix || null,
-      fixRegex: result.extra?.fix_regex || null
-    };
-  });
+  return enrichedResults;
 }
 
 /**
  * Extract CWE identifiers from metadata and rule ID
- * @param {Object} metadata - Semgrep metadata
- * @param {string} ruleId - Rule identifier
- * @returns {Array<string>} CWE identifiers
  */
 function extractCWE(metadata, ruleId) {
   const cweList = [];
   
-  // Check various possible locations for CWE
   if (metadata.cwe) {
     if (Array.isArray(metadata.cwe)) {
       cweList.push(...metadata.cwe.map(formatCWE));
     } else if (typeof metadata.cwe === 'string') {
-      // Handle comma-separated CWEs
       metadata.cwe.split(',').forEach(cwe => {
         cweList.push(formatCWE(cwe.trim()));
       });
     }
   }
   
-  // Check 'cwe-id' field
   if (metadata['cwe-id']) {
     if (Array.isArray(metadata['cwe-id'])) {
       cweList.push(...metadata['cwe-id'].map(formatCWE));
@@ -275,20 +274,16 @@ function extractCWE(metadata, ruleId) {
     }
   }
   
-  // Try to extract from rule ID (many Semgrep rules include CWE in the ID)
   const cweMatch = ruleId.match(/cwe[- ]?(\d+)/i);
   if (cweMatch) {
     cweList.push(`CWE-${cweMatch[1]}`);
   }
   
-  return [...new Set(cweList)]; // Remove duplicates
+  return [...new Set(cweList)];
 }
 
 /**
  * Extract OWASP categories from metadata
- * @param {Object} metadata - Semgrep metadata
- * @param {string} ruleId - Rule identifier
- * @returns {Array<string>} OWASP categories
  */
 function extractOWASP(metadata, ruleId) {
   const owaspList = [];
@@ -297,21 +292,18 @@ function extractOWASP(metadata, ruleId) {
     if (Array.isArray(metadata.owasp)) {
       owaspList.push(...metadata.owasp);
     } else if (typeof metadata.owasp === 'string') {
-      // Handle comma-separated OWASP categories
       metadata.owasp.split(',').forEach(cat => {
         owaspList.push(cat.trim());
       });
     }
   }
   
-  // Check common OWASP field variations
   ['owasp-top-10', 'owasp_category', 'owasp-2021', 'owasp-2017'].forEach(field => {
     if (metadata[field]) {
       owaspList.push(metadata[field]);
     }
   });
   
-  // Map common vulnerability types to OWASP if not present
   if (owaspList.length === 0) {
     const owaspMapping = {
       'injection': 'A03:2021',
@@ -338,18 +330,14 @@ function extractOWASP(metadata, ruleId) {
 
 /**
  * Format CWE identifier to consistent format
- * @param {string} cwe - CWE identifier in various formats
- * @returns {string} Formatted CWE (e.g., "CWE-89")
  */
 function formatCWE(cwe) {
   const cweStr = String(cwe);
   
-  // Already formatted
   if (cweStr.match(/^CWE-\d+$/i)) {
     return cweStr.toUpperCase();
   }
   
-  // Extract number from various formats
   const match = cweStr.match(/\d+/);
   if (match) {
     return `CWE-${match[0]}`;
@@ -360,11 +348,9 @@ function formatCWE(cwe) {
 
 /**
  * Check if Semgrep is available
- * @returns {Promise<boolean>} True if Semgrep is available
  */
 async function checkSemgrepAvailable() {
   try {
-    // Try different possible paths
     const paths = [
       'semgrep',
       '/root/.local/bin/semgrep',
@@ -375,7 +361,6 @@ async function checkSemgrepAvailable() {
       try {
         const result = await execAsync(`${semgrepPath} --version`);
         if (result.stdout) {
-          // Store the working path
           global.SEMGREP_PATH = semgrepPath;
           return true;
         }
@@ -391,7 +376,6 @@ async function checkSemgrepAvailable() {
 
 /**
  * Get Semgrep version
- * @returns {Promise<string|null>} Version string or null
  */
 async function getSemgrepVersion() {
   return new Promise((resolve) => {

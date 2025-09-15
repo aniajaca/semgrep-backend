@@ -14,6 +14,8 @@ const { ASTVulnerabilityScanner } = require('./astScanner');
 const { DependencyScanner } = require('./dependencyScanner');
 const { runSemgrep, checkSemgrepAvailable, getSemgrepVersion } = require('./semgrepAdapter');
 const { normalizeFindings, enrichFindings, deduplicateFindings } = require('./lib/normalize');
+const SnippetExtractor = require('./lib/snippetExtractor');
+const snippetExtractor = new SnippetExtractor();
 
 // Risk calculation
 const EnhancedRiskCalculator = require('./enhancedRiskCalculator');
@@ -352,11 +354,43 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
     }
     
     // ONLY use AST as fallback for JavaScript when Semgrep not available or failed
-    if (code && !semgrepAvailable && language === 'javascript') {
-      console.log('Semgrep not available, using AST scanner for JavaScript');
-      const astFindings = astScanner.scan(code, filename, 'javascript');
+if (code && !semgrepAvailable && language === 'javascript') {
+  console.log('Semgrep not available, using AST scanner for JavaScript');
+  const astFindings = astScanner.scan(code, filename, 'javascript');
+  
+  // Enhance AST findings with proper snippets
+  const enhancedAstFindings = await Promise.all(
+    astFindings.map(async (f) => {
+      // If we're scanning code directly (not a file), use the provided code
+      let snippet = f.snippet;
       
-      const normalizedAst = astFindings.map(f => ({
+      if (tempDir) {
+        // If we created a temp file, extract from it
+        const tempFilePath = path.join(tempDir, filename);
+        const extractedSnippet = await snippetExtractor.extractSnippet(
+          tempFilePath,
+          f.line,
+          f.line,
+          { contextLines: 2, highlightLines: true }
+        );
+        if (extractedSnippet) {
+          snippet = extractedSnippet;
+        }
+      } else if (code) {
+        // Extract from the code string directly
+        const lines = code.split('\n');
+        const startIdx = Math.max(0, f.line - 3);
+        const endIdx = Math.min(lines.length, f.line + 2);
+        snippet = lines.slice(startIdx, endIdx)
+          .map((line, idx) => {
+            const lineNum = startIdx + idx + 1;
+            const prefix = lineNum === f.line ? '→' : ' ';
+            return `${prefix} ${lineNum.toString().padStart(4)}: ${line}`;
+          })
+          .join('\n');
+      }
+      
+      return {
         engine: 'ast',
         ruleId: f.check_id,
         category: 'sast',
@@ -367,15 +401,17 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
         file: f.file,
         startLine: f.line,
         endLine: f.line,
-        snippet: f.snippet,
+        snippet: snippet,  // Enhanced snippet
         confidence: 'HIGH'
-      }));
-      
-      allFindings.push(...normalizedAst);
-      usedEngine = 'ast';
-      
-      console.log(`AST scanner found ${astFindings.length} issues`);
-    }
+      };
+    })
+  );
+  
+  allFindings.push(...enhancedAstFindings);
+  usedEngine = 'ast';
+  
+  console.log(`AST scanner found ${astFindings.length} issues`);
+}
     
     // Error if non-JavaScript without Semgrep
     if (language !== 'javascript' && !semgrepAvailable) {
