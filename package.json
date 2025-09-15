@@ -4,7 +4,7 @@
   "description": "Production-ready vulnerability scanner with contextual risk scoring",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node src/server.js",
     "dev": "nodemon server.js",
     "test": "jest",
     "scan": "node scripts/scan.js"
