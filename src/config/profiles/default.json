@@ -1,0 +1,91 @@
+{
+  "version": "1.1.0",
+  "name": "default",
+  "description": "Default security profile with balanced risk scoring",
+  "contextFactors": {
+    "enabled": {
+      "internetFacing": true,
+      "production": true,
+      "handlesPI": true,
+      "legacyCode": true,
+      "businessCritical": true,
+      "compliance": true,
+      "thirdPartyIntegration": true,
+      "complexAuth": true
+    },
+    "weights": {
+      "internetFacing": 0.20,
+      "production": 0.15,
+      "handlesPI": 0.15,
+      "legacyCode": 0.10,
+      "businessCritical": 0.20,
+      "compliance": 0.15,
+      "thirdPartyIntegration": 0.10,
+      "complexAuth": 0.10
+    },
+    "totalLiftCap": 0.70
+  },
+  "baseScoring": {
+    "severityWeights": {
+      "critical": 1.0,
+      "high": 0.7,
+      "medium": 0.4,
+      "low": 0.1,
+      "info": 0.02
+    },
+    "cvssMultiplier": 10
+  },
+  "fileRisk": {
+    "topK": 5,
+    "weights": {
+      "core": 0.6,
+      "density": 0.2,
+      "diversity": 0.1,
+      "exposure": 0.1
+    },
+    "caps": {
+      "density": 30,
+      "diversity": 20,
+      "exposure": 25
+    },
+    "thresholds": {
+      "critical": 80,
+      "high": 60,
+      "medium": 40,
+      "low": 20,
+      "minimal": 0
+    }
+  },
+  "slaMapping": {
+    "P0": {
+      "threshold": 80,
+      "days": 7,
+      "description": "Critical - Immediate action required"
+    },
+    "P1": {
+      "threshold": 65,
+      "days": 14,
+      "description": "High - Urgent remediation needed"
+    },
+    "P2": {
+      "threshold": 50,
+      "days": 30,
+      "description": "Medium - Schedule for next sprint"
+    },
+    "P3": {
+      "threshold": 0,
+      "days": 90,
+      "description": "Low - Address in next quarter"
+    }
+  },
+  "features": {
+    "contextInference": {
+      "internetFacing": true,
+      "production": true,
+      "piiDetection": true,
+      "authDetection": true,
+      "encryptionDetection": true,
+      "dataFlowAnalysis": true
+    }
+  }
+}

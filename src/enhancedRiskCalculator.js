@@ -1,7 +1,7 @@
 // enhancedRiskCalculator.js - Security-focused version (no business/compliance)
 const crypto = require('crypto');
 const { CustomEnvironmentalFactorSystem } = require('./customEnvironmentalFactors');
-const Taxonomy = require('./taxonomy');
+const Taxonomy = require('../data/taxonomy');
 
 // Title-case helper for consistent formatting across server and reports
 function toTitle(s='') {

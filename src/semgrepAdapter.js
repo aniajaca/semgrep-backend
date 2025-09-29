@@ -106,7 +106,9 @@ async function runSemgrep(targetPath, options = {}) {
 
     console.log('Running Semgrep with args:', semgrepArgs.join(' '));
 
-    const semgrep = spawn('semgrep', semgrepArgs, {
+    const semgrepCommand = global.SEMGREP_PATH || 'semgrep';
+    const [cmd, ...cmdArgs] = semgrepCommand.split(' ');
+    const semgrep = spawn(cmd, [...cmdArgs, ...semgrepArgs], {
       maxBuffer: 100 * 1024 * 1024,
       timeout: options.processTimeout || 600000
     });
@@ -351,27 +353,21 @@ function formatCWE(cwe) {
  */
 async function checkSemgrepAvailable() {
   try {
-    const paths = [
-      'semgrep',
-      '/root/.local/bin/semgrep',
-      '/usr/local/bin/semgrep'
-    ];
-    
-    for (const semgrepPath of paths) {
-      try {
-        const result = await execAsync(`${semgrepPath} --version`);
-        if (result.stdout) {
-          global.SEMGREP_PATH = semgrepPath;
-          return true;
-        }
-      } catch (e) {
-        continue;
-      }
+    // Try python -m semgrep first (ignoring stderr deprecation warning)
+    const result1 = await execAsync('python -m semgrep --version');
+    // Even with stderr warning, it still works if we get stdout
+    global.SEMGREP_PATH = 'python -m semgrep';
+    return true;
+  } catch (e) {
+    // Check if the error contains version info (sometimes version goes to stderr)
+    if (e.stderr && e.stderr.includes('1.')) {
+      global.SEMGREP_PATH = 'python -m semgrep';
+      return true;
     }
-    return false;
-  } catch (error) {
-    return false;
   }
+
+  // Don't try regular semgrep since it's broken
+  return false;
 }
 
 /**
@@ -379,18 +375,26 @@ async function checkSemgrepAvailable() {
  */
 async function getSemgrepVersion() {
   return new Promise((resolve) => {
-    const check = spawn('semgrep', ['--version']);
+    const semgrepCommand = global.SEMGREP_PATH || 'python -m semgrep';
+    const [cmd, ...cmdArgs] = semgrepCommand.split(' ');
+    const check = spawn(cmd, [...cmdArgs, '--version']);
     let output = '';
+    let errorOutput = '';
     
     check.stdout.on('data', (data) => {
       output += data.toString();
     });
     
+    check.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+    
     check.on('error', () => resolve(null));
     check.on('close', (code) => {
-      if (code === 0) {
-        const version = output.trim();
-        resolve(version);
+      // Extract version from output or error (sometimes version is in stderr)
+      const versionMatch = (output + errorOutput).match(/\d+\.\d+\.\d+/);
+      if (versionMatch) {
+        resolve(versionMatch[0]);
       } else {
         resolve(null);
       }

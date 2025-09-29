@@ -1,7 +1,7 @@
 // astScanner.js - Enhanced AST-based vulnerability scanner with comprehensive patterns
 
 const remediationKnowledge = require('./remediationKnowledge');
-const Taxonomy = require('./taxonomy');
+const Taxonomy = require('../data/taxonomy');
 
 class ASTVulnerabilityScanner {
   constructor() {

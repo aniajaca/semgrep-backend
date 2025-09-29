@@ -615,7 +615,7 @@ LdapQuery query = LdapQueryBuilder.query()
 };
 
 // Export helper functions
-const Taxonomy = require('./taxonomy');
+const Taxonomy = require('../data/taxonomy');
 
 module.exports.getRemediation = function(cweId, language = 'javascript') {
   const remediation = module.exports[cweId];

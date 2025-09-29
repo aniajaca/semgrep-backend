@@ -3,8 +3,9 @@ FROM node:18-alpine
 # Install Python and pip for Semgrep
 RUN apk add --no-cache python3 py3-pip git curl
 
-# Install Semgrep
-RUN pip3 install semgrep --break-system-packages
+# Install Semgrep and ensure it's in PATH
+RUN pip3 install semgrep --break-system-packages && \
+    ln -s /usr/bin/python3 /usr/bin/python || true
 
 # Pre-cache Semgrep rules (do this AFTER installing Semgrep)
 RUN mkdir -p /tmp/test && \
@@ -23,7 +24,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install Node dependencies
-RUN npm install
+RUN npm ci --only=production
 
 # Copy the rest of the application
 COPY . .

@@ -1,0 +1,259 @@
+{
+  "version": "2.0.0",
+  "updatedAt": "2025-01-16T00:00:00Z",
+  "description": "Neperia Security Taxonomy - Comprehensive vulnerability classification",
+  
+  "cwe": {
+    "CWE-89": {
+      "id": "CWE-89",
+      "title": "SQL Injection",
+      "category": "injection",
+      "owasp": "A03:2021",
+      "defaultSeverity": "critical",
+      "cvssBase": 8.9,
+      "exploitability": "high",
+      "prevalence": "common",
+      "detectability": "easy",
+      "technicalImpact": "severe"
+    },
+    "CWE-78": {
+      "id": "CWE-78",
+      "title": "OS Command Injection",
+      "category": "injection",
+      "owasp": "A03:2021",
+      "defaultSeverity": "critical",
+      "cvssBase": 9.0,
+      "exploitability": "high",
+      "prevalence": "common",
+      "detectability": "easy",
+      "technicalImpact": "severe"
+    },
+    "CWE-79": {
+      "id": "CWE-79",
+      "title": "Cross-Site Scripting (XSS)",
+      "category": "xss",
+      "owasp": "A03:2021",
+      "defaultSeverity": "high",
+      "cvssBase": 6.5,
+      "exploitability": "high",
+      "prevalence": "widespread",
+      "detectability": "easy",
+      "technicalImpact": "moderate"
+    },
+    "CWE-798": {
+      "id": "CWE-798",
+      "title": "Use of Hard-coded Credentials",
+      "category": "authentication",
+      "owasp": "A07:2021",
+      "defaultSeverity": "critical",
+      "cvssBase": 7.5,
+      "exploitability": "easy",
+      "prevalence": "common",
+      "detectability": "easy",
+      "technicalImpact": "severe"
+    },
+    "CWE-22": {
+      "id": "CWE-22",
+      "title": "Path Traversal",
+      "category": "pathTraversal",
+      "owasp": "A01:2021",
+      "defaultSeverity": "high",
+      "cvssBase": 7.5,
+      "exploitability": "medium",
+      "prevalence": "common",
+      "detectability": "easy",
+      "technicalImpact": "moderate"
+    },
+    "CWE-327": {
+      "id": "CWE-327",
+      "title": "Use of Broken or Weak Cryptographic Algorithm",
+      "category": "cryptography",
+      "owasp": "A02:2021",
+      "defaultSeverity": "medium",
+      "cvssBase": 5.3,
+      "exploitability": "difficult",
+      "prevalence": "common",
+      "detectability": "moderate",
+      "technicalImpact": "moderate"
+    },
+    "CWE-502": {
+      "id": "CWE-502",
+      "title": "Deserialization of Untrusted Data",
+      "category": "deserialization",
+      "owasp": "A08:2021",
+      "defaultSeverity": "critical",
+      "cvssBase": 8.6,
+      "exploitability": "medium",
+      "prevalence": "common",
+      "detectability": "moderate",
+      "technicalImpact": "severe"
+    },
+    "CWE-918": {
+      "id": "CWE-918",
+      "title": "Server-Side Request Forgery (SSRF)",
+      "category": "ssrf",
+      "owasp": "A10:2021",
+      "defaultSeverity": "high",
+      "cvssBase": 7.5,
+      "exploitability": "medium",
+      "prevalence": "common",
+      "detectability": "moderate",
+      "technicalImpact": "severe"
+    },
+    "CWE-94": {
+      "id": "CWE-94",
+      "title": "Code Injection",
+      "category": "injection",
+      "owasp": "A03:2021",
+      "defaultSeverity": "critical",
+      "cvssBase": 8.5,
+      "exploitability": "medium",
+      "prevalence": "common",
+      "detectability": "easy",
+      "technicalImpact": "severe"
+    },
+    "CWE-1321": {
+      "id": "CWE-1321",
+      "title": "Prototype Pollution",
+      "category": "injection",
+      "owasp": "A03:2021",
+      "defaultSeverity": "high",
+      "cvssBase": 7.0,
+      "exploitability": "medium",
+      "prevalence": "common",
+      "detectability": "difficult",
+      "technicalImpact": "moderate"
+    }
+  },
+  
+  "categories": {
+    "injection": {
+      "name": "Injection",
+      "description": "Code/Command/Query injection vulnerabilities",
+      "priority": "critical",
+      "remediationEffort": "moderate",
+      "commonCauses": ["lack of input validation", "dynamic query construction", "insufficient escaping"]
+    },
+    "xss": {
+      "name": "Cross-Site Scripting",
+      "description": "Client-side code injection",
+      "priority": "high",
+      "remediationEffort": "simple",
+      "commonCauses": ["unescaped output", "DOM manipulation", "insufficient sanitization"]
+    },
+    "authentication": {
+      "name": "Authentication Failures",
+      "description": "Credential and session management issues",
+      "priority": "high",
+      "remediationEffort": "moderate",
+      "commonCauses": ["weak passwords", "hardcoded credentials", "session fixation"]
+    },
+    "cryptography": {
+      "name": "Cryptographic Failures",
+      "description": "Weak or misused cryptography",
+      "priority": "medium",
+      "remediationEffort": "complex",
+      "commonCauses": ["weak algorithms", "poor key management", "insufficient entropy"]
+    },
+    "pathTraversal": {
+      "name": "Path Traversal",
+      "description": "Unauthorized file system access",
+      "priority": "high",
+      "remediationEffort": "simple",
+      "commonCauses": ["insufficient path validation", "user-controlled paths"]
+    },
+    "deserialization": {
+      "name": "Insecure Deserialization",
+      "description": "Unsafe object deserialization",
+      "priority": "critical",
+      "remediationEffort": "complex",
+      "commonCauses": ["untrusted data deserialization", "type confusion"]
+    },
+    "accessControl": {
+      "name": "Broken Access Control",
+      "description": "Authorization and privilege failures",
+      "priority": "high",
+      "remediationEffort": "moderate",
+      "commonCauses": ["missing authorization", "privilege escalation", "IDOR"]
+    },
+    "ssrf": {
+      "name": "Server-Side Request Forgery",
+      "description": "Server makes unintended requests",
+      "priority": "high",
+      "remediationEffort": "moderate",
+      "commonCauses": ["user-controlled URLs", "insufficient URL validation"]
+    }
+  },
+  
+  "severityLevels": {
+    "critical": {
+      "score": 9.0,
+      "scoreRange": [9.0, 10.0],
+      "color": "#dc2626",
+      "textColor": "#ffffff",
+      "sla": "7 days",
+      "priority": "P0",
+      "description": "Immediate risk, fix immediately"
+    },
+    "high": {
+      "score": 7.0,
+      "scoreRange": [7.0, 8.9],
+      "color": "#ea580c",
+      "textColor": "#ffffff",
+      "sla": "14 days",
+      "priority": "P1",
+      "description": "High risk, fix urgently"
+    },
+    "medium": {
+      "score": 5.0,
+      "scoreRange": [4.0, 6.9],
+      "color": "#ca8a04",
+      "textColor": "#000000",
+      "sla": "30 days",
+      "priority": "P2",
+      "description": "Moderate risk, plan remediation"
+    },
+    "low": {
+      "score": 2.5,
+      "scoreRange": [0.1, 3.9],
+      "color": "#65a30d",
+      "textColor": "#000000",
+      "sla": "90 days",
+      "priority": "P3",
+      "description": "Low risk, fix when convenient"
+    },
+    "info": {
+      "score": 0.0,
+      "scoreRange": [0.0, 0.0],
+      "color": "#0891b2",
+      "textColor": "#ffffff",
+      "sla": "best effort",
+      "priority": "P4",
+      "description": "Informational, no immediate action"
+    }
+  },
+  
+  "cvssMapping": {
+    "description": "Maps CVSS scores to severity levels",
+    "ranges": [
+      { "min": 9.0, "max": 10.0, "severity": "critical" },
+      { "min": 7.0, "max": 8.9,  "severity": "high" },
+      { "min": 4.0, "max": 6.9,  "severity": "medium" },
+      { "min": 0.1, "max": 3.9,  "severity": "low" },
+      { "min": 0.0, "max": 0.0,  "severity": "info" }
+    ]
+  },
+  
+  "owaspTop10_2021": {
+    "A01:2021": { "name": "Broken Access Control", "movedFrom": "A05:2017" },
+    "A02:2021": { "name": "Cryptographic Failures", "previousName": "A03:2017 Sensitive Data Exposure" },
+    "A03:2021": { "name": "Injection", "movedFrom": "A01:2017" },
+    "A04:2021": { "name": "Insecure Design", "new": true },
+    "A05:2021": { "name": "Security Misconfiguration", "movedFrom": "A06:2017" },
+    "A06:2021": { "name": "Vulnerable and Outdated Components", "previousName": "A09:2017" },
+    "A07:2021": { "name": "Identification and Authentication Failures", "previousName": "A02:2017" },
+    "A08:2021": { "name": "Software and Data Integrity Failures", "new": true },
+    "A09:2021": { "name": "Security Logging and Monitoring Failures", "previousName": "A10:2017" },
+    "A10:2021": { "name": "Server-Side Request Forgery (SSRF)", "new": true }
+  }
+}

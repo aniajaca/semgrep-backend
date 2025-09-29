@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // scripts/scan.js - CLI scanner for code analysis
-const { runSemgrep, checkSemgrepAvailable } = require('../semgrepAdapter');
+const { runSemgrep,  } = require('../semgrepAdapter');
 const { ASTVulnerabilityScanner } = require('../astScanner');
 const { normalizeFindings, enrichFindings } = require('../data/lib/normalize');
 const EnhancedRiskCalculator = require('../enhancedRiskCalculator');
@@ -298,7 +298,7 @@ async function scan(options) {
   const allFindings = [];
   
   // Check if Semgrep is available
-  const semgrepAvailable = await checkSemgrepAvailable();
+  const semgrepAvailable = await ();
   
   if (semgrepAvailable) {
     if (options.verbose) console.log('✅ Semgrep is available');

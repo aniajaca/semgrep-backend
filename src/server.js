@@ -1,4 +1,4 @@
-// server.js - Production server with Semgrep integration and full security features
+// server.js - CORRECTED TOP SECTION
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -12,21 +12,26 @@ const rateLimit = require('express-rate-limit');
 // Scanner imports
 const { ASTVulnerabilityScanner } = require('./astScanner');
 const { DependencyScanner } = require('./dependencyScanner');
-const { runSemgrep, checkSemgrepAvailable, getSemgrepVersion } = require('./semgrepAdapter');
-const { normalizeFindings, enrichFindings, deduplicateFindings } = require('./lib/normalize');
+const { runSemgrep, checkSemgrepAvailable, getSemgrepVersion } = require('./semgrepAdapter');const { normalizeFindings, enrichFindings, deduplicateFindings } = require('./lib/normalize');
 const SnippetExtractor = require('./lib/snippetExtractor');
-const snippetExtractor = new SnippetExtractor();
+
+// Context and Profile imports (CORRECT ORDER)
+const ContextInferenceSystem = require('./contextInference');
+const ProfileManager = require('./contextInference/profiles/profileManager');
 
 // Risk calculation
 const EnhancedRiskCalculator = require('./enhancedRiskCalculator');
-const Taxonomy = require('./taxonomy');
+const Taxonomy = require('../data/taxonomy');
 
 // Configuration
 const config = require('./config/scanner.config.json');
 
-// Initialize scanners
+// Initialize scanners (AFTER imports)
 const astScanner = new ASTVulnerabilityScanner();
 const depScanner = new DependencyScanner();
+const snippetExtractor = new SnippetExtractor();
+const contextInference = new ContextInferenceSystem();
+const profileManager = new ProfileManager();
 
 // Helper function for creating rate limiters
 function createRateLimiter(max, windowMs) {
@@ -180,6 +185,103 @@ function normalizeSeverity(severity) {
 }
 
 /**
+ * Process findings through context inference and risk calculation
+ */
+async function processFindingsWithContext(findings, profile, manualContext = {}, code = null, targetPath = null) {
+  const profileManager = new ProfileManager();
+  const contextInference = new ContextInferenceSystem();
+  
+  // Get profile hash for provenance
+  const profileHash = profileManager.calculateProfileHash(profile);
+  
+  // Convert profile to calculator config
+  const calculatorConfig = profileManager.translateProfileToCalculatorConfig(profile);
+  
+  // Create calculator with profile config
+  const riskCalculator = new EnhancedRiskCalculator(calculatorConfig);
+  
+  // Process each finding
+  const enrichedFindings = [];
+  
+  for (const finding of findings) {
+    // Infer context
+    let inferredContext = {};
+    let contextEvidence = {};
+    
+    if (code || targetPath) {
+      const fileContent = code || await fs.readFile(
+        path.join(targetPath || '.', finding.file), 
+        'utf8'
+      ).catch(() => '');
+      
+      const inferenceResult = await contextInference.inferFindingContext(
+        finding,
+        fileContent,
+        targetPath,
+        { features: profile.features?.contextInference }
+      );
+      
+      // Separate evidence from values
+      Object.entries(inferenceResult).forEach(([factor, data]) => {
+        if (typeof data === 'object' && data.value !== undefined) {
+          inferredContext[factor] = data.value;
+          contextEvidence[factor] = {
+            confidence: data.confidence,
+            evidence: data.evidence
+          };
+        } else {
+          inferredContext[factor] = Boolean(data);
+        }
+      });
+    }
+    
+    // Merge with manual context
+    const finalContext = {
+      ...inferredContext,
+      ...manualContext
+    };
+    
+    // Apply profile's enabled factors
+    if (profile.contextFactors?.enabled) {
+      Object.entries(profile.contextFactors.enabled).forEach(([factor, enabled]) => {
+        if (!enabled) {
+          delete finalContext[factor];
+        }
+      });
+    }
+    
+    // Calculate risk
+    const vulnData = {
+      severity: normalizeSeverity(finding.severity),
+      cwe: extractCweId(finding.cwe),
+      cweId: extractCweId(finding.cwe),
+      cvss: finding.cvss,
+      file: finding.file,
+      line: finding.startLine || finding.line
+    };
+    
+    const riskResult = riskCalculator.calculateVulnerabilityRisk(vulnData, finalContext);
+    
+    // Enrich finding
+    enrichedFindings.push({
+      ...finding,
+      bts: riskResult.original.cvss,
+      crs: Math.min(100, riskResult.adjusted.score * 10),
+      adjustedSeverity: riskResult.adjusted.severity,
+      priority: riskResult.adjusted.priority,
+      context: finalContext,
+      contextEvidence: contextEvidence,
+      inferredFactors: Object.keys(inferredContext),
+      appliedFactors: riskResult.factors.applied.map(f => f.id),
+      remediation: riskResult.remediation,
+      sla: profile.slaMapping?.[riskResult.adjusted.priority.priority]?.days || 90
+    });
+  }
+  
+  return enrichedFindings;
+}
+
+/**
  * Get JavaScript/TypeScript files from a directory
  */
 async function getJavaScriptFiles(dir, files = []) {
@@ -271,6 +373,7 @@ function calculateRiskIndex(findings) {
   return Math.min(100, Math.round(totalRisk / Math.max(1, findings.length)));
 }
 
+// Replace the entire /scan-code endpoint with this corrected version:
 app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
   console.log('=== CODE SCAN REQUEST RECEIVED ===');
   
@@ -285,8 +388,8 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
       languages,
       filename = 'code.js',
       engine = 'auto',
-      riskConfig = {},
-      context = {}
+      profileId = 'default',  // Use profile instead of raw config
+      manualContext = {}      // Still allow manual overrides
     } = req.body;
     
     // Validate input
@@ -299,16 +402,31 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
     
     console.log('Scan type:', code ? 'code string' : 'file path');
     console.log('Language:', language);
-    console.log('Filename:', filename);
-    console.log('Semgrep available:', semgrepAvailable);
+    console.log('Profile:', profileId);
     
+    // Load the profile
+    let profile;
+    try {
+      profile = await profileManager.loadProfile(profileId);
+      console.log(`Loaded profile: ${profile.name}`);
+    } catch (error) {
+      console.log(`Profile ${profileId} not found, using default`);
+      profile = profileManager.getDefaultProfile();
+    }
+    
+    // Get profile hash for provenance
+    const profileHash = profileManager.calculateProfileHash(profile);
+    
+    // Convert profile to calculator config
+    const calculatorConfig = profileManager.translateProfileToCalculatorConfig(profile);
+    
+    // Create calculator with profile config
+    const riskCalculator = new EnhancedRiskCalculator(calculatorConfig);
+    
+    // Initialize findings array
     const allFindings = [];
     let usedEngine = null;
     let actualTargetPath = targetPath;
-    
-    // Sanitize configurations
-    const sanitizedConfig = sanitizeRiskConfig(riskConfig);
-    const sanitizedContext = sanitizeContextFactors(context);
     
     // CREATE TEMP FILE FOR SEMGREP WHEN CODE STRING PROVIDED
     if (code && !targetPath && semgrepAvailable) {
@@ -319,14 +437,11 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
       console.log('Created temp file for Semgrep:', tempFile);
     }
     
-    // ALWAYS USE SEMGREP IF AVAILABLE
+    // RUN SCANNERS
     if (actualTargetPath && semgrepAvailable) {
       try {
-        // Determine languages to scan
         const scanLanguages = languages || [language];
-        
         console.log('Running Semgrep scan on path:', actualTargetPath);
-        console.log('Languages:', scanLanguages);
         
         const semgrepOptions = {
           languages: scanLanguages,
@@ -343,7 +458,6 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
       } catch (semgrepError) {
         console.error('Semgrep scan failed:', semgrepError.message);
         
-        // Fall back to AST only for JavaScript
         if (language === 'javascript' && code) {
           console.log('Falling back to AST scanner for JavaScript');
           usedEngine = null;
@@ -353,44 +467,12 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
       }
     }
     
-    // ONLY use AST as fallback for JavaScript when Semgrep not available or failed
-if (code && !semgrepAvailable && language === 'javascript') {
-  console.log('Semgrep not available, using AST scanner for JavaScript');
-  const astFindings = astScanner.scan(code, filename, 'javascript');
-  
-  // Enhance AST findings with proper snippets
-  const enhancedAstFindings = await Promise.all(
-    astFindings.map(async (f) => {
-      // If we're scanning code directly (not a file), use the provided code
-      let snippet = f.snippet;
+    // Fallback to AST for JavaScript
+    if (!usedEngine && code && language === 'javascript') {
+      console.log('Using AST scanner for JavaScript');
+      const astFindings = astScanner.scan(code, filename, 'javascript');
       
-      if (tempDir) {
-        // If we created a temp file, extract from it
-        const tempFilePath = path.join(tempDir, filename);
-        const extractedSnippet = await snippetExtractor.extractSnippet(
-          tempFilePath,
-          f.line,
-          f.line,
-          { contextLines: 2, highlightLines: true }
-        );
-        if (extractedSnippet) {
-          snippet = extractedSnippet;
-        }
-      } else if (code) {
-        // Extract from the code string directly
-        const lines = code.split('\n');
-        const startIdx = Math.max(0, f.line - 3);
-        const endIdx = Math.min(lines.length, f.line + 2);
-        snippet = lines.slice(startIdx, endIdx)
-          .map((line, idx) => {
-            const lineNum = startIdx + idx + 1;
-            const prefix = lineNum === f.line ? '→' : ' ';
-            return `${prefix} ${lineNum.toString().padStart(4)}: ${line}`;
-          })
-          .join('\n');
-      }
-      
-      return {
+      const enhancedAstFindings = astFindings.map(f => ({
         engine: 'ast',
         ruleId: f.check_id,
         category: 'sast',
@@ -401,24 +483,14 @@ if (code && !semgrepAvailable && language === 'javascript') {
         file: f.file,
         startLine: f.line,
         endLine: f.line,
-        snippet: snippet,  // Enhanced snippet
+        snippet: f.snippet,
         confidence: 'HIGH'
-      };
-    })
-  );
-  
-  allFindings.push(...enhancedAstFindings);
-  usedEngine = 'ast';
-  
-  console.log(`AST scanner found ${astFindings.length} issues`);
-}
-    
-    // Error if non-JavaScript without Semgrep
-    if (language !== 'javascript' && !semgrepAvailable) {
-      return res.status(400).json({
-        status: 'error',
-        message: `Cannot scan ${language} files. Semgrep is required for ${language} scanning.`
-      });
+      }));
+      
+      allFindings.push(...enhancedAstFindings);
+      usedEngine = 'ast';
+      
+      console.log(`AST scanner found ${astFindings.length} issues`);
     }
     
     // Clean up temp directory
@@ -431,50 +503,104 @@ if (code && !semgrepAvailable && language === 'javascript') {
       }
     }
     
-    // Normalize and enrich all findings
+    // Normalize findings
     const normalized = normalizeFindings(allFindings);
     const enriched = enrichFindings(normalized);
     const deduplicated = deduplicateFindings(enriched);
     
-    // Create risk calculator and score findings
-    const calc = new EnhancedRiskCalculator(sanitizedConfig);
+    // CONTEXT INFERENCE INTEGRATION
+    const enrichedFindings = [];
     
-    const scoredFindings = deduplicated.map(finding => {
-      const cweId = extractCweId(finding.cwe);
+    for (const finding of deduplicated) {
+      // Step 1: Infer context for this finding
+      let inferredContext = {};
+      let contextEvidence = {};
       
-      const vuln = {
+      if (code || targetPath) {
+        const fileContent = code || await fs.readFile(
+          path.join(targetPath || '.', finding.file), 
+          'utf8'
+        ).catch(() => '');
+        
+        // Run context inference
+        const inferenceResult = await contextInference.inferFindingContext(
+          finding,
+          fileContent,
+          targetPath,
+          { features: profile.features?.contextInference }
+        );
+        
+        // Separate evidence from values
+        Object.entries(inferenceResult).forEach(([factor, data]) => {
+          if (typeof data === 'object' && data.value !== undefined) {
+            inferredContext[factor] = data.value;
+            contextEvidence[factor] = {
+              confidence: data.confidence,
+              evidence: data.evidence
+            };
+          } else {
+            inferredContext[factor] = Boolean(data);
+          }
+        });
+      }
+      
+      // Step 2: Merge with manual context (manual overrides inference)
+      const finalContext = {
+        ...inferredContext,
+        ...manualContext
+      };
+      
+      // Step 3: Apply profile's enabled factors
+      if (profile.contextFactors?.enabled) {
+        Object.entries(profile.contextFactors.enabled).forEach(([factor, enabled]) => {
+          if (!enabled) {
+            delete finalContext[factor];
+          }
+        });
+      }
+      
+      // Step 4: Calculate risk with real calculator
+      const vulnData = {
         severity: normalizeSeverity(finding.severity),
-        cwe: cweId,
-        cweId: cweId,
+        cwe: extractCweId(finding.cwe),
+        cweId: extractCweId(finding.cwe),
+        cvss: finding.cvss,
         file: finding.file,
-        line: finding.startLine
+        line: finding.startLine || finding.line
       };
       
-      const riskResult = calc.calculateVulnerabilityRisk(vuln, sanitizedContext);
+      const riskResult = riskCalculator.calculateVulnerabilityRisk(vulnData, finalContext);
       
-      return {
+      // Step 5: Enrich finding with all results
+      enrichedFindings.push({
         ...finding,
-        cwe: cweId,
-        cvssBase: riskResult.original.cvss,
-        adjustedScore: riskResult.adjusted.score,
+        
+        // Risk scores
+        bts: riskResult.original.cvss,
+        crs: Math.min(100, riskResult.adjusted.score * 10),
         adjustedSeverity: riskResult.adjusted.severity,
-        priority: riskResult.adjusted.priority.priority,
-        environmentalFactors: riskResult.factors.applied.map(f => f.id),
-        remediation: riskResult.remediation
-      };
-    });
+        priority: riskResult.adjusted.priority,
+        
+        // Context information
+        context: finalContext,
+        contextEvidence: contextEvidence,
+        inferredFactors: Object.keys(inferredContext),
+        appliedFactors: riskResult.factors.applied.map(f => f.id),
+        
+        // Remediation
+        remediation: riskResult.remediation,
+        sla: profile.slaMapping?.[riskResult.adjusted.priority.priority]?.days || 90
+      });
+    }
     
-    // Sort by adjusted score
-    scoredFindings.sort((a, b) => b.adjustedScore - a.adjustedScore);
+    // Sort by CRS descending
+    enrichedFindings.sort((a, b) => b.crs - a.crs);
     
-    // Calculate overall risk
-    const normalizedForRisk = scoredFindings.map(f => ({
-      ...f,
-      cwe: extractCweId(f.cwe),
-      cweId: extractCweId(f.cwe)
-    }));
-    
-    const { score, risk } = calc.calculateFileRisk(normalizedForRisk, sanitizedContext);
+    // Calculate overall project risk
+    const overallRisk = riskCalculator.calculateFileRisk(
+      enrichedFindings,
+      manualContext
+    );
     
     // Build severity distribution
     const severityDistribution = {
@@ -485,49 +611,51 @@ if (code && !semgrepAvailable && language === 'javascript') {
       info: 0
     };
     
-    scoredFindings.forEach(f => {
+    enrichedFindings.forEach(f => {
       const severity = normalizeSeverity(f.adjustedSeverity);
       if (severityDistribution.hasOwnProperty(severity)) {
         severityDistribution[severity]++;
       }
     });
     
-    // Build summary
-    const summary = {
-      totalFindings: scoredFindings.length,
-      engine: usedEngine,
-      semgrepAvailable,
-      language: language,
-      countsBySeverity: severityDistribution,
-      top5: scoredFindings.slice(0, 5).map(f => ({
-        file: path.basename(f.file),
-        line: f.startLine,
-        severity: f.adjustedSeverity,
-        score: f.adjustedScore,
-        message: f.message
-      })),
-      adjustedRiskIndex: calculateRiskIndex(scoredFindings),
-      context: sanitizedContext
-    };
-    
-    const endTime = Date.now();
-    
+    // Build response with provenance
     res.json({
       status: 'success',
       engine: usedEngine,
-      findings: scoredFindings,
-      score,
-      risk,
-      summary,
-      metadata: {
-        scanned_at: new Date().toISOString(),
-        scan_time: `${endTime - startTime}ms`,
-        language: language,
-        semgrepVersion: semgrepVersion,
+      findings: enrichedFindings,
+      overallRisk: {
+        score: overallRisk.score,
+        risk: overallRisk.risk,
+        level: overallRisk.risk.level,
+        priority: overallRisk.risk.priority
+      },
+      summary: {
+        totalFindings: enrichedFindings.length,
+        severityDistribution,
+        contextFactorsDetected: [...new Set(enrichedFindings.flatMap(f => f.inferredFactors))],
+        top5: enrichedFindings.slice(0, 5).map(f => ({
+          file: path.basename(f.file),
+          line: f.startLine || f.line,
+          cwe: f.cwe,
+          severity: f.adjustedSeverity,
+          crs: Math.round(f.crs),
+          priority: f.priority.priority,
+          message: f.message
+        }))
+      },
+      provenance: {
+        profileId: profileId,
+        profileHash: profileHash,
+        profileVersion: profile.version,
+        taxonomyVersion: '2.0.0',
+        contextInferenceVersion: '1.0.0',
+        timestamp: new Date().toISOString(),
+        scanDuration: `${Date.now() - startTime}ms`,
         configuration: {
-          customConfig: Object.keys(riskConfig).length > 0,
-          contextProvided: Object.keys(context).length > 0,
-          engine: usedEngine
+          language: language,
+          engine: usedEngine,
+          contextInferenceEnabled: true,
+          featuresEnabled: profile.features?.contextInference || {}
         }
       }
     });
@@ -535,7 +663,6 @@ if (code && !semgrepAvailable && language === 'javascript') {
   } catch (error) {
     console.error('Scan error:', error);
     
-    // Clean up temp directory on error
     if (tempDir) {
       try {
         await fs.rm(tempDir, { recursive: true, force: true });
@@ -1098,7 +1225,122 @@ app.post('/scan-batch', createRateLimiter(20, 60000), async (req, res) => {
     });
   }
 });
+/**
+ * Profile management endpoints
+ */
 
+// List all available profiles
+app.get('/profiles', async (req, res) => {
+  try {
+    const profiles = await profileManager.listProfiles();
+    res.json({
+      status: 'success',
+      profiles,
+      currentProfile: profileManager.currentProfile?.name || 'default'
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to list profiles',
+      error: error.message
+    });
+  }
+});
+
+// Get specific profile
+app.get('/profiles/:profileId', async (req, res) => {
+  try {
+    const profile = await profileManager.loadProfile(req.params.profileId);
+    res.json({
+      status: 'success',
+      profile
+    });
+  } catch (error) {
+    res.status(404).json({
+      status: 'error',
+      message: `Profile ${req.params.profileId} not found`,
+      error: error.message
+    });
+  }
+});
+
+// Create or update profile
+app.post('/profiles/:profileId', async (req, res) => {
+  try {
+    const { profile } = req.body;
+    if (!profile) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Profile configuration required'
+      });
+    }
+    
+    const result = await profileManager.saveProfile(req.params.profileId, profile);
+    res.json({
+      status: 'success',
+      ...result
+    });
+  } catch (error) {
+    res.status(400).json({
+      status: 'error',
+      message: 'Failed to save profile',
+      error: error.message
+    });
+  }
+});
+
+// Simulate profile changes
+app.post('/profiles/:profileId/simulate', async (req, res) => {
+  try {
+    const { newProfile, sampleFindings } = req.body;
+    
+    if (!newProfile || !sampleFindings) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'newProfile and sampleFindings required'
+      });
+    }
+    
+    const simulation = await profileManager.simulateProfile(newProfile, sampleFindings);
+    
+    res.json({
+      status: 'success',
+      simulation
+    });
+  } catch (error) {
+    res.status(400).json({
+      status: 'error', 
+      message: 'Simulation failed',
+      error: error.message
+    });
+  }
+});
+
+// Validate profile
+app.post('/profiles/validate', (req, res) => {
+  try {
+    const { profile } = req.body;
+    if (!profile) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Profile required for validation'
+      });
+    }
+    
+    const validation = profileManager.validateProfile(profile);
+    
+    res.json({
+      status: validation.valid ? 'success' : 'error',
+      validation
+    });
+  } catch (error) {
+    res.status(400).json({
+      status: 'error',
+      message: 'Validation failed',
+      error: error.message
+    });
+  }
+});
 // Keep all the other endpoints (health, config, capabilities, etc.) the same...
 // [Rest of the code remains unchanged from line 1000 onwards]
 
@@ -1227,11 +1469,16 @@ app.get('/', (req, res) => {
     version: '5.0',
     status: 'operational',
     endpoints: {
-      'POST /scan-code': 'Scan code with AST or Semgrep',
+      'POST /scan-code': 'Scan code with AST or Semgrep with context inference',
       'POST /scan-dependencies': 'Scan dependencies for vulnerabilities',
       'POST /scan': 'Combined code and dependency scanning',
       'POST /scan-file': 'Scan uploaded file content',
       'POST /scan-batch': 'Batch scan multiple files',
+      'GET /profiles': 'List all available risk profiles',
+      'GET /profiles/:profileId': 'Get specific profile configuration',
+      'POST /profiles/:profileId': 'Create or update risk profile',
+      'POST /profiles/:profileId/simulate': 'Simulate profile changes',
+      'POST /profiles/validate': 'Validate profile configuration',
       'GET /config/defaults': 'Get default configuration values',
       'GET /capabilities': 'Get scanner capabilities',
       'GET /health': 'Detailed health check',
@@ -1241,6 +1488,8 @@ app.get('/', (req, res) => {
       'Production Semgrep integration (2000+ rules)',
       'AST-based vulnerability detection',
       'Dependency vulnerability scanning',
+      'Context-aware risk scoring with automatic inference',
+      'Risk profile management and simulation',
       'User-configurable risk scoring',
       'Contextual risk analysis',
       'Environmental factor adjustments',
@@ -1263,6 +1512,9 @@ app.get('/', (req, res) => {
 /**
  * 404 handler
  */
+/**
+ * 404 handler
+ */
 app.use('*', (req, res) => {
   res.status(404).json({ 
     status: 'error', 
@@ -1275,16 +1527,20 @@ app.use('*', (req, res) => {
       'GET /healthz',
       'GET /config/defaults',
       'GET /capabilities',
+      'GET /profiles',
+      'GET /profiles/:profileId',
+      'POST /profiles/:profileId',
+      'POST /profiles/:profileId/simulate',
+      'POST /profiles/validate',
       'POST /scan-code',
       'POST /scan-dependencies',
       'POST /scan',
       'POST /scan-file',
-      'POST /scan-batch'
+      'POST /scan-batch',
     ],
     timestamp: new Date().toISOString()
   });
 });
-
 /**
  * Error handling middleware
  */
