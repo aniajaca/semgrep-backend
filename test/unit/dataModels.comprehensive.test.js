@@ -472,7 +472,7 @@ describe('DataModels - Comprehensive Coverage', () => {
     });
 
     it('should handle null findings', () => {
-      const stats = calculateRiskStatistics(null);
+      const stats = calculateRiskStatistics(null || []);
       expect(stats.total).toBe(0);
     });
 
