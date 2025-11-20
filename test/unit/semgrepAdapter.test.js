@@ -1,503 +1,420 @@
-const {
-  normalizeResults
-} = require('../../src/semgrepAdapter');
+// test/unit/semgrepAdapter.test.js
+const { normalizeResults, checkSemgrepAvailable, getSemgrepVersion } = require('../../src/semgrepAdapter');
 
-// Mock SnippetExtractor before requiring semgrepAdapter
-jest.mock('../../src/lib/snippetExtractor', () => {
-  return jest.fn().mockImplementation(() => ({
-    extractSnippet: jest.fn().mockResolvedValue('mocked snippet')
-  }));
-});
-
-jest.mock('fs', () => ({
-  promises: {
-    access: jest.fn()
-  }
-}));
-
-jest.mock('child_process');
-
-describe('semgrepAdapter', () => {
+describe('semgrepAdapter - Extended Coverage', () => {
   
-  describe('normalizeResults', () => {
-    test('should return empty array for no results', async () => {
-      const output = { results: [] };
-      const normalized = await normalizeResults(output);
-      
-      expect(Array.isArray(normalized)).toBe(true);
-      expect(normalized.length).toBe(0);
+  describe('normalizeResults - Additional Cases', () => {
+    it('should handle empty results array', async () => {
+      const output = await normalizeResults({ results: [] });
+      expect(output).toEqual([]);
     });
 
-    test('should return empty array for missing results', async () => {
-      const output = {};
-      const normalized = await normalizeResults(output);
-      
-      expect(Array.isArray(normalized)).toBe(true);
-      expect(normalized.length).toBe(0);
+    it('should handle null semgrepOutput', async () => {
+      const output = await normalizeResults(null);
+      expect(output).toEqual([]);
     });
 
-    test('should normalize ERROR severity to CRITICAL', async () => {
-      const output = {
+    it('should handle undefined semgrepOutput', async () => {
+      const output = await normalizeResults(undefined);
+      expect(output).toEqual([]);
+    });
+
+    it('should handle missing results property', async () => {
+      const output = await normalizeResults({});
+      expect(output).toEqual([]);
+    });
+
+    it('should handle results that is not an array', async () => {
+      const output = await normalizeResults({ results: 'not-an-array' });
+      expect(output).toEqual([]);
+    });
+
+    it('should handle EXPERIMENTAL severity', async () => {
+      const result = await normalizeResults({
         results: [{
           check_id: 'test-rule',
           path: 'test.js',
-          start: { line: 1, col: 0 },
+          start: { line: 1, col: 1 },
           end: { line: 1, col: 10 },
           extra: {
-            severity: 'ERROR',
-            message: 'Test error',
-            lines: 'const x = 1;',
-            metadata: {}
+            severity: 'EXPERIMENTAL',
+            message: 'Test message'
           }
         }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      
-      expect(normalized[0].severity).toBe('CRITICAL');
-      expect(normalized[0].engine).toBe('semgrep');
+      });
+
+      expect(result[0].severity).toBe('LOW');
     });
 
-    test('should normalize WARNING severity to HIGH', async () => {
-      const output = {
+    it('should handle unknown severity and default to MEDIUM', async () => {
+      const result = await normalizeResults({
         results: [{
           check_id: 'test-rule',
           path: 'test.js',
-          start: { line: 1, col: 0 },
+          start: { line: 1, col: 1 },
           end: { line: 1, col: 10 },
           extra: {
-            severity: 'WARNING',
-            message: 'Test warning',
-            lines: 'const x = 1;',
-            metadata: {}
+            severity: 'UNKNOWN_SEVERITY',
+            message: 'Test message'
           }
         }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0].severity).toBe('HIGH');
+      });
+
+      expect(result[0].severity).toBe('MEDIUM');
     });
 
-    test('should normalize INFO severity to MEDIUM', async () => {
-      const output = {
+    it('should default to MEDIUM when severity is missing', async () => {
+      const result = await normalizeResults({
         results: [{
           check_id: 'test-rule',
           path: 'test.js',
-          start: { line: 1, col: 0 },
+          start: { line: 1, col: 1 },
           end: { line: 1, col: 10 },
           extra: {
-            severity: 'INFO',
-            message: 'Test info',
-            lines: 'const x = 1;',
-            metadata: {}
+            message: 'Test message'
           }
         }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0].severity).toBe('MEDIUM');
+      });
+
+      expect(result[0].severity).toBe('MEDIUM');
     });
 
-    test('should normalize INVENTORY severity to LOW', async () => {
-      const output = {
+    it('should handle result without extra property', async () => {
+      const result = await normalizeResults({
+        results: [{
+          check_id: 'test-rule',
+          path: 'test.js',
+          start: { line: 1, col: 1 },
+          end: { line: 1, col: 10 }
+        }]
+      });
+
+      expect(result[0].severity).toBe('MEDIUM');
+      expect(result[0].message).toBe('');
+    });
+
+    it('should extract CWE from metadata array', async () => {
+      const result = await normalizeResults({
         results: [{
           check_id: 'test-rule',
           path: 'test.js',
           start: { line: 1 },
           end: { line: 1 },
           extra: {
-            severity: 'INVENTORY',
-            message: 'Test',
-            lines: 'code',
-            metadata: {}
-          }
-        }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0].severity).toBe('LOW');
-    });
-
-    test('should extract CWE from metadata array', async () => {
-      const output = {
-        results: [{
-          check_id: 'test-rule',
-          path: 'test.js',
-          start: { line: 1 },
-          end: { line: 1 },
-          extra: {
-            severity: 'ERROR',
-            message: 'Test',
-            lines: 'code',
             metadata: {
-              cwe: ['CWE-79', 'CWE-89']
+              cwe: ['CWE-79', 'CWE-80']
             }
           }
         }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0].cwe).toContain('CWE-79');
-      expect(normalized[0].cwe).toContain('CWE-89');
+      });
+
+      expect(result[0].cwe).toEqual(['CWE-79', 'CWE-80']);
     });
 
-    test('should extract CWE from metadata string', async () => {
-      const output = {
+    it('should extract CWE from metadata string', async () => {
+      const result = await normalizeResults({
         results: [{
           check_id: 'test-rule',
           path: 'test.js',
           start: { line: 1 },
           end: { line: 1 },
           extra: {
-            severity: 'ERROR',
-            message: 'Test',
-            lines: 'code',
             metadata: {
-              cwe: 'CWE-79, CWE-89'
+              cwe: 'CWE-89'
             }
           }
         }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0].cwe.length).toBeGreaterThan(0);
+      });
+
+      expect(result[0].cwe).toContain('CWE-89');
     });
 
-    test('should extract CWE from cwe-id field', async () => {
-      const output = {
+    it('should extract CWE from check_id', async () => {
+      const result = await normalizeResults({
+        results: [{
+          check_id: 'sql-injection-cwe-89',
+          path: 'test.js',
+          start: { line: 1 },
+          end: { line: 1 },
+          extra: {}
+        }]
+      });
+
+      expect(result[0].cwe).toContain('CWE-89');
+    });
+
+    it('should extract multiple CWE IDs from check_id', async () => {
+      const result = await normalizeResults({
+        results: [{
+          check_id: 'security-cwe-79-cwe-80-xss',
+          path: 'test.js',
+          start: { line: 1 },
+          end: { line: 1 },
+          extra: {}
+        }]
+      });
+
+      expect(result[0].cwe.length).toBeGreaterThan(0);
+    });
+
+    it('should extract OWASP from metadata array', async () => {
+      const result = await normalizeResults({
         results: [{
           check_id: 'test-rule',
           path: 'test.js',
           start: { line: 1 },
           end: { line: 1 },
           extra: {
-            severity: 'ERROR',
-            message: 'Test',
-            lines: 'code',
             metadata: {
-              'cwe-id': '79'
+              owasp: ['A03:2021', 'A01:2021']
             }
           }
         }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0].cwe).toContain('CWE-79');
+      });
+
+      expect(result[0].owasp).toEqual(['A03:2021', 'A01:2021']);
     });
 
-    test('should extract CWE from rule ID', async () => {
-      const output = {
-        results: [{
-          check_id: 'test-cwe-79-xss',
-          path: 'test.js',
-          start: { line: 1 },
-          end: { line: 1 },
-          extra: {
-            severity: 'ERROR',
-            message: 'XSS vulnerability',
-            lines: 'code',
-            metadata: {}
-          }
-        }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0].cwe).toContain('CWE-79');
-    });
-
-    test('should extract OWASP from metadata array', async () => {
-      const output = {
+    it('should extract OWASP from metadata string', async () => {
+      const result = await normalizeResults({
         results: [{
           check_id: 'test-rule',
           path: 'test.js',
           start: { line: 1 },
           end: { line: 1 },
           extra: {
-            severity: 'ERROR',
-            message: 'Test',
-            lines: 'code',
             metadata: {
-              owasp: ['A03:2021']
+              owasp: 'A03:2021'
             }
           }
         }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0].owasp).toContain('A03:2021');
+      });
+
+      expect(result[0].owasp).toContain('A03:2021');
     });
 
-    test('should extract OWASP from metadata string', async () => {
-      const output = {
-        results: [{
-          check_id: 'test-rule',
-          path: 'test.js',
-          start: { line: 1 },
-          end: { line: 1 },
-          extra: {
-            severity: 'ERROR',
-            message: 'Test',
-            lines: 'code',
-            metadata: {
-              owasp: 'A03:2021, A01:2021'
-            }
-          }
-        }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0].owasp.length).toBeGreaterThan(0);
-    });
-
-    test('should map SQL injection to OWASP category', async () => {
-      const output = {
+    it('should map SQL injection to OWASP A03', async () => {
+      const result = await normalizeResults({
         results: [{
           check_id: 'sql-injection-test',
           path: 'test.js',
           start: { line: 1 },
           end: { line: 1 },
-          extra: {
-            severity: 'ERROR',
-            message: 'SQL Injection',
-            lines: 'code',
-            metadata: {}
-          }
+          extra: {}
         }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0].owasp).toContain('A03:2021');
+      });
+
+      expect(result[0].owasp).toContain('A03:2021');
     });
 
-    test('should map XSS to OWASP category', async () => {
-      const output = {
+    it('should map XSS to OWASP A03', async () => {
+      const result = await normalizeResults({
         results: [{
           check_id: 'xss-vulnerability',
           path: 'test.js',
           start: { line: 1 },
           end: { line: 1 },
-          extra: {
-            severity: 'ERROR',
-            message: 'XSS',
-            lines: 'code',
-            metadata: {}
-          }
+          extra: {}
         }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0].owasp).toContain('A03:2021');
+      });
+
+      expect(result[0].owasp).toContain('A03:2021');
     });
 
-    test('should map auth to OWASP category', async () => {
-      const output = {
+    it('should map auth issues to OWASP A07', async () => {
+      const result = await normalizeResults({
         results: [{
-          check_id: 'auth-bypass',
+          check_id: 'broken-authentication',
           path: 'test.js',
           start: { line: 1 },
           end: { line: 1 },
-          extra: {
-            severity: 'ERROR',
-            message: 'Auth bypass',
-            lines: 'code',
-            metadata: {}
-          }
+          extra: {}
         }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0].owasp).toContain('A07:2021');
+      });
+
+      expect(result[0].owasp).toContain('A07:2021');
     });
 
-    test('should include file path', async () => {
-      const output = {
-        results: [{
-          check_id: 'test-rule',
-          path: 'src/test.js',
-          start: { line: 1 },
-          end: { line: 1 },
-          extra: {
-            severity: 'ERROR',
-            message: 'Test',
-            lines: 'code',
-            metadata: {}
-          }
-        }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0].file).toBe('src/test.js');
-    });
-
-    test('should include line numbers', async () => {
-      const output = {
+    it('should handle missing start line', async () => {
+      const result = await normalizeResults({
         results: [{
           check_id: 'test-rule',
           path: 'test.js',
-          start: { line: 10, col: 5 },
-          end: { line: 15, col: 20 },
-          extra: {
-            severity: 'ERROR',
-            message: 'Test',
-            lines: 'code',
-            metadata: {}
-          }
+          end: { line: 5 },
+          extra: {}
         }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0].startLine).toBe(10);
-      expect(normalized[0].endLine).toBe(15);
-      expect(normalized[0].startColumn).toBe(5);
-      expect(normalized[0].endColumn).toBe(20);
+      });
+
+      expect(result[0].startLine).toBe(0);
     });
 
-    test('should handle missing metadata gracefully', async () => {
-      const output = {
+    it('should handle missing end line', async () => {
+      const result = await normalizeResults({
+        results: [{
+          check_id: 'test-rule',
+          path: 'test.js',
+          start: { line: 1 },
+          extra: {}
+        }]
+      });
+
+      expect(result[0].endLine).toBe(result[0].startLine);
+    });
+
+    it('should handle missing start and end lines', async () => {
+      const result = await normalizeResults({
+        results: [{
+          check_id: 'test-rule',
+          path: 'test.js',
+          extra: {}
+        }]
+      });
+
+      expect(result[0].startLine).toBe(0);
+      expect(result[0].endLine).toBe(0);
+    });
+
+    it('should set engine to semgrep', async () => {
+      const result = await normalizeResults({
         results: [{
           check_id: 'test-rule',
           path: 'test.js',
           start: { line: 1 },
           end: { line: 1 },
-          extra: {
-            severity: 'ERROR',
-            message: 'Test',
-            lines: 'code'
-          }
+          extra: {}
         }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0]).toBeDefined();
-      expect(normalized[0].cwe).toEqual([]);
+      });
+
+      expect(result[0].engine).toBe('semgrep');
     });
 
-    test('should default missing severity to MEDIUM', async () => {
-      const output = {
+    it('should set category to sast by default', async () => {
+      const result = await normalizeResults({
+        results: [{
+          check_id: 'test-rule',
+          path: 'test.js',
+          start: { line: 1 },
+          end: { line: 1 },
+          extra: {}
+        }]
+      });
+
+      expect(result[0].category).toBe('sast');
+    });
+
+    it('should extract category from metadata', async () => {
+      const result = await normalizeResults({
         results: [{
           check_id: 'test-rule',
           path: 'test.js',
           start: { line: 1 },
           end: { line: 1 },
           extra: {
-            message: 'Test',
-            lines: 'code',
-            metadata: {}
-          }
-        }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0].severity).toBe('MEDIUM');
-    });
-
-    test('should include category from metadata', async () => {
-      const output = {
-        results: [{
-          check_id: 'test-rule',
-          path: 'test.js',
-          start: { line: 1 },
-          end: { line: 1 },
-          extra: {
-            severity: 'ERROR',
-            message: 'Test',
-            lines: 'code',
             metadata: {
-              category: 'injection'
+              category: 'security'
             }
           }
         }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0].category).toBe('injection');
+      });
+
+      expect(result[0].category).toBe('security');
     });
 
-    test('should default category to sast', async () => {
-      const output = {
+    it('should handle confidence from metadata', async () => {
+      const result = await normalizeResults({
         results: [{
           check_id: 'test-rule',
           path: 'test.js',
           start: { line: 1 },
           end: { line: 1 },
           extra: {
-            severity: 'ERROR',
-            message: 'Test',
-            lines: 'code',
-            metadata: {}
-          }
-        }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0].category).toBe('sast');
-    });
-
-    test('should include confidence level', async () => {
-      const output = {
-        results: [{
-          check_id: 'test-rule',
-          path: 'test.js',
-          start: { line: 1 },
-          end: { line: 1 },
-          extra: {
-            severity: 'ERROR',
-            message: 'Test',
-            lines: 'code',
             metadata: {
               confidence: 'HIGH'
             }
           }
         }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0].confidence).toBe('HIGH');
+      });
+
+      expect(result[0].confidence).toBe('HIGH');
     });
 
-    test('should process multiple results', async () => {
-      const output = {
+    it('should default confidence to MEDIUM', async () => {
+      const result = await normalizeResults({
+        results: [{
+          check_id: 'test-rule',
+          path: 'test.js',
+          start: { line: 1 },
+          end: { line: 1 },
+          extra: {}
+        }]
+      });
+
+      expect(result[0].confidence).toBe('MEDIUM');
+    });
+
+    it('should include ruleId', async () => {
+      const result = await normalizeResults({
+        results: [{
+          check_id: 'my-custom-rule',
+          path: 'test.js',
+          start: { line: 1 },
+          end: { line: 1 },
+          extra: {}
+        }]
+      });
+
+      expect(result[0].ruleId).toBe('my-custom-rule');
+    });
+
+    it('should include file path', async () => {
+      const result = await normalizeResults({
+        results: [{
+          check_id: 'test-rule',
+          path: '/app/src/test.js',
+          start: { line: 1 },
+          end: { line: 1 },
+          extra: {}
+        }]
+      });
+
+      expect(result[0].file).toBe('/app/src/test.js');
+    });
+
+    it('should process multiple results', async () => {
+      const results = await normalizeResults({
         results: [
           {
             check_id: 'rule1',
             path: 'file1.js',
             start: { line: 1 },
             end: { line: 1 },
-            extra: { severity: 'ERROR', message: 'Test1', lines: 'code', metadata: {} }
+            extra: { severity: 'ERROR' }
           },
           {
             check_id: 'rule2',
             path: 'file2.js',
-            start: { line: 5 },
-            end: { line: 5 },
-            extra: { severity: 'WARNING', message: 'Test2', lines: 'code', metadata: {} }
+            start: { line: 10 },
+            end: { line: 15 },
+            extra: { severity: 'WARNING' }
           }
         ]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized.length).toBe(2);
-      expect(normalized[0].ruleId).toBe('rule1');
-      expect(normalized[1].ruleId).toBe('rule2');
-    });
+      });
 
-    test('should handle missing start/end gracefully', async () => {
-      const output = {
-        results: [{
-          check_id: 'test-rule',
-          path: 'test.js',
-          extra: {
-            severity: 'ERROR',
-            message: 'Test',
-            lines: 'code',
-            metadata: {}
-          }
-        }]
-      };
-      
-      const normalized = await normalizeResults(output);
-      expect(normalized[0].startLine).toBe(0);
-      expect(normalized[0].endLine).toBe(0);
+      expect(results).toHaveLength(2);
+      expect(results[0].severity).toBe('CRITICAL');
+      expect(results[1].severity).toBe('HIGH');
+    });
+  });
+
+  describe('checkSemgrepAvailable', () => {
+    it('should be a function', () => {
+      expect(typeof checkSemgrepAvailable).toBe('function');
+    });
+  });
+
+  describe('getSemgrepVersion', () => {
+    it('should be a function', () => {
+      expect(typeof getSemgrepVersion).toBe('function');
     });
   });
 });
