@@ -503,18 +503,26 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
       }
     }
     
-    // Normalize findings
-    const normalized = normalizeFindings(allFindings);
-    const enriched = enrichFindings(normalized);
-    const deduplicated = deduplicateFindings(enriched);
-    
-    // CONTEXT INFERENCE INTEGRATION
-    const enrichedFindings = [];
-    
-    for (const finding of deduplicated) {
-      // Step 1: Infer context for this finding
-      let inferredContext = {};
-      let contextEvidence = {};
+        // Normalize findings
+      const normalized = normalizeFindings(allFindings);
+      const enriched = enrichFindings(normalized);
+      const deduplicated = deduplicateFindings(enriched);
+
+      // 🔧 FIX: Normalize CWE to strings BEFORE processing
+      const safeFindings = deduplicated.map(f => ({
+        ...f,
+        cwe: extractCweId(f.cwe),
+        cweId: extractCweId(f.cwe || f.cweId)
+      }));
+
+      // CONTEXT INFERENCE INTEGRATION
+      const enrichedFindings = [];
+
+      for (const finding of safeFindings) {  // ← Use safeFindings, not deduplicated
+        // Step 1: Infer context for this finding
+        let inferredContext = {};
+        let contextEvidence = {};
+
       
       if (code || targetPath) {
         const fileContent = code || await fs.readFile(

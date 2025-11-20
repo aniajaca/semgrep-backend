@@ -155,22 +155,60 @@ class DependencyScanner {
    * FIX: Accept options parameter and honor includeDevDependencies
    */
   async scanDependencies(packageJson, options = {}) {
-    const { includeDevDependencies = true } = options;
-    
-    const vulnerabilities = [];
-    const warnings = [];
-
-    // FIX: Conditionally include devDependencies based on options
-    const dependencies = {
-      ...packageJson.dependencies,
-      ...(includeDevDependencies ? packageJson.devDependencies : {})
+  // ✅ INPUT VALIDATION
+  if (!packageJson || typeof packageJson !== 'object') {
+    console.warn('Invalid package.json provided to scanDependencies');
+    return {
+      vulnerabilities: [],
+      summary: {
+        totalDependencies: 0,
+        totalVulnerabilities: 0,
+        severityDistribution: {
+          critical: 0,
+          high: 0,
+          medium: 0,
+          low: 0
+        }
+      },
+      scannedAt: new Date().toISOString()
     };
+  }
 
-    // Track scanning metrics
-    let packagesScanned = 0;
-    let undefinedVersions = 0;
+  // ✅ SAFE PROPERTY ACCESS
+  const includeDevDependencies = options.includeDevDependencies || false;
+  
+  const dependencies = {
+    ...(packageJson.dependencies || {}),
+    ...(includeDevDependencies ? (packageJson.devDependencies || {}) : {})
+  };
 
-    for (const [packageName, version] of Object.entries(dependencies)) {
+  // ✅ CHECK IF EMPTY
+  if (Object.keys(dependencies).length === 0) {
+    return {
+      vulnerabilities: [],
+      summary: {
+        totalDependencies: 0,
+        totalVulnerabilities: 0,
+        severityDistribution: {
+          critical: 0,
+          high: 0,
+          medium: 0,
+          low: 0
+        }
+      },
+      scannedAt: new Date().toISOString()
+    };
+  }
+
+  // Initialize arrays
+  const vulnerabilities = [];
+  const warnings = [];
+
+  // Track scanning metrics
+  let packagesScanned = 0;
+  let undefinedVersions = 0;
+
+  for (const [packageName, version] of Object.entries(dependencies)) {
       packagesScanned++;
       
       // Handle undefined, empty, or wildcard versions

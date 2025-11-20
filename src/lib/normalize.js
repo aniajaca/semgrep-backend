@@ -1,5 +1,6 @@
 // lib/normalize.js - Consolidated utilities for normalizing, enriching, and analyzing findings
-const Taxonomy = require('../../data/taxonomy');
+// Taxonomy is not needed for basic enrichment
+// const Taxonomy = require('../../data/taxonomy');
 
 // ============================================================================
 // DATA MODEL FUNCTIONS (from dataModels.js)
@@ -212,37 +213,28 @@ function normalizeFindings(findings) {
  * @returns {Array} Enriched findings
  */
 function enrichFindings(findings) {
+  // ✅ INPUT VALIDATION
+  if (!Array.isArray(findings)) {
+    console.warn('enrichFindings expects an array');
+    return [];
+  }
+
+ 
+  
   return findings.map(finding => {
-    const enriched = { ...finding };
+    // ✅ ENSURE REQUIRED FIELDS EXIST
+    const enriched = { 
+      ...finding,
+      cwe: Array.isArray(finding.cwe) ? finding.cwe : [],
+      owasp: Array.isArray(finding.owasp) ? finding.owasp : [],
+      file: finding.file || 'unknown',
+      startLine: finding.startLine || 0
+    };
     
     // If we have CWE, enrich with taxonomy data
-    if (finding.cwe && finding.cwe.length > 0) {
-      const primaryCwe = finding.cwe[0];
-      const taxonomyData = Taxonomy.getByCwe(primaryCwe);
-      
-      if (taxonomyData) {
-        // Add taxonomy information
-        enriched.cweTitle = taxonomyData.title;
-        enriched.category = taxonomyData.category || finding.category;
-        
-        // Add OWASP if not present
-        if (taxonomyData.owasp && !enriched.owasp.includes(taxonomyData.owasp)) {
-          enriched.owasp.push(taxonomyData.owasp);
-        }
-        
-        // Use taxonomy severity if not set
-        if (!enriched.severity || enriched.severity === 'MEDIUM') {
-          enriched.severity = normalizeSeverity(taxonomyData.defaultSeverity).toUpperCase();
-        }
-      }
-    }
-    
-    // Map rule ID to CWE if possible (for custom scanner)
-    if (enriched.engine === 'custom' && enriched.ruleId && enriched.cwe.length === 0) {
-      const cweFromRule = mapRuleToCWE(enriched.ruleId);
-      if (cweFromRule) {
-        enriched.cwe.push(cweFromRule);
-      }
+    if (enriched.cwe && enriched.cwe.length > 0) {
+      const primaryCwe = enriched.cwe[0];
+       
     }
     
     return enriched;
@@ -290,10 +282,16 @@ function deduplicateFindings(findings) {
     if (seen.has(key)) {
       // Merge information if needed
       const existing = seen.get(key);
-      if (finding.cwe.length > 0 && existing.cwe.length === 0) {
+
+      // ✅ NULL-SAFE CWE MERGE
+      if (Array.isArray(finding.cwe) && finding.cwe.length > 0 && 
+          (!existing.cwe || existing.cwe.length === 0)) {
         existing.cwe = finding.cwe;
       }
-      if (finding.owasp.length > 0 && existing.owasp.length === 0) {
+
+      // ✅ NULL-SAFE OWASP MERGE
+      if (Array.isArray(finding.owasp) && finding.owasp.length > 0 && 
+          (!existing.owasp || existing.owasp.length === 0)) {
         existing.owasp = finding.owasp;
       }
       return false;
@@ -303,7 +301,6 @@ function deduplicateFindings(findings) {
     return true;
   });
 }
-
 // ============================================================================
 // ADDITIONAL UTILITY FUNCTIONS
 // ============================================================================

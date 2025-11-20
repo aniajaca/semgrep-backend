@@ -353,21 +353,20 @@ function formatCWE(cwe) {
  */
 async function checkSemgrepAvailable() {
   try {
-    // Try python -m semgrep first (ignoring stderr deprecation warning)
-    const result1 = await execAsync('python -m semgrep --version');
-    // Even with stderr warning, it still works if we get stdout
-    global.SEMGREP_PATH = 'python -m semgrep';
+    // Try semgrep command first (v1.38.0+)
+    await execAsync('semgrep --version');
+    global.SEMGREP_PATH = 'semgrep';
     return true;
   } catch (e) {
-    // Check if the error contains version info (sometimes version goes to stderr)
-    if (e.stderr && e.stderr.includes('1.')) {
-      global.SEMGREP_PATH = 'python -m semgrep';
+    // Fallback to python3 -m semgrep
+    try {
+      await execAsync('python3 -m semgrep --version');
+      global.SEMGREP_PATH = 'python3 -m semgrep';
       return true;
+    } catch (e2) {
+      return false;
     }
   }
-
-  // Don't try regular semgrep since it's broken
-  return false;
 }
 
 /**
