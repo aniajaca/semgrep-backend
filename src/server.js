@@ -959,7 +959,7 @@ app.post('/scan', createRateLimiter(20, 60000), async (req, res) => {
             risk
           };
         } catch (error) {
-          return { status: 'error', error: error.message };
+          return { status: 'error', message: error.message };
         }
       })(),
       
@@ -1003,15 +1003,15 @@ app.post('/scan', createRateLimiter(20, 60000), async (req, res) => {
             ...scanResults
           };
         } catch (error) {
-          return { status: 'error', error: error.message };
+          return { status: 'error', message: error.message };
         }
       })()
     ]);
     
     // Process results
     const results = {
-      code: codeResult.status === 'fulfilled' ? codeResult.value : { status: 'error', findings: [], error: codeResult.reason?.message },
-      dependencies: depResult.status === 'fulfilled' ? depResult.value : { status: 'error', vulnerabilities: [], error: depResult.reason?.message }
+      code: codeResult.status === 'fulfilled' ? codeResult.value : { status: 'error', findings: [], message: codeResult.reason?.message },
+      dependencies: depResult.status === 'fulfilled' ? depResult.value : { status: 'error', vulnerabilities: [], message: depResult.reason?.message }
     };
     
     // Combine findings for overall risk calculation

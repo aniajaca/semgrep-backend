@@ -167,7 +167,7 @@ async function runSemgrep(targetPath, options = {}) {
  * @returns {Promise<Array>} Normalized findings
  */
 async function normalizeResults(semgrepOutput, targetPath = '.') {
-  if (!semgrepOutput.results || !Array.isArray(semgrepOutput.results)) {
+  if (!semgrepOutput || !semgrepOutput.results || !Array.isArray(semgrepOutput.results)) {
     return [];
   }
 

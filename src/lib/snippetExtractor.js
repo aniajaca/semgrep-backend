@@ -1,126 +1,134 @@
-// test/unit/snippetExtractor.test.js
-const SnippetExtractor = require('../../src/lib/snippetExtractor');
+// lib/snippetExtractor.js
 const fs = require('fs').promises;
 const path = require('path');
+const crypto = require('crypto');
 
-describe('SnippetExtractor', () => {
-  let extractor;
-  let testFilePath;
+class SnippetExtractor {
+  constructor() {
+    // Cache to avoid re-reading files
+    this.fileCache = new Map();
+    this.maxCacheSize = 100;
+    this.snippetCache = new Map();
+  }
 
-  beforeAll(async () => {
-    // Create a test file
-    testFilePath = path.join(__dirname, 'test-snippet.js');
-    const testContent = `line 1
-line 2
-line 3
-line 4
-line 5
-line 6
-line 7`;
-    await fs.writeFile(testFilePath, testContent, 'utf8');
-  });
+  /**
+   * Extract code snippet with context
+   */
+  async extractSnippet(filePath, startLine, endLine, options = {}) {
+    const {
+      contextLines = 3,
+      maxLength = 500,
+      highlightLines = true,
+      includeLineNumbers = true
+    } = options;
 
-  afterAll(async () => {
-    // Cleanup test file
-    try {
-      await fs.unlink(testFilePath);
-    } catch (err) {
-      // Ignore
+    // Create cache key
+    const cacheKey = `${filePath}:${startLine}:${endLine}:${contextLines}`;
+    
+    // Check snippet cache first
+    if (this.snippetCache.has(cacheKey)) {
+      return this.snippetCache.get(cacheKey);
     }
-  });
 
-  beforeEach(() => {
-    extractor = new SnippetExtractor();
-  });
+    try {
+      // Get file content (with caching)
+      const content = await this.getFileContent(filePath);
+      if (!content) return null;
 
-  describe('extractSnippet', () => {
-    test('should extract snippet with context', async () => {
-      const snippet = await extractor.extractSnippet(testFilePath, 4, 4, {
-        contextLines: 1
+      const lines = content.split('\n');
+      
+      // Calculate boundaries
+      const snippetStart = Math.max(0, startLine - contextLines - 1);
+      const snippetEnd = Math.min(lines.length, (endLine || startLine) + contextLines);
+      
+      // Extract lines
+      const snippetLines = lines.slice(snippetStart, snippetEnd);
+      
+      // Format snippet
+      let formattedSnippet;
+      if (includeLineNumbers) {
+        formattedSnippet = snippetLines.map((line, idx) => {
+          const lineNum = snippetStart + idx + 1;
+          const isTarget = lineNum >= startLine && lineNum <= (endLine || startLine);
+          
+          if (highlightLines && isTarget) {
+            // Highlight the vulnerable line(s)
+            return `→ ${lineNum.toString().padStart(4)}: ${line}`;
+          } else {
+            return `  ${lineNum.toString().padStart(4)}: ${line}`;
+          }
+        }).join('\n');
+      } else {
+        formattedSnippet = snippetLines.join('\n');
+      }
+      
+      // Truncate if too long
+      if (formattedSnippet.length > maxLength) {
+        formattedSnippet = formattedSnippet.substring(0, maxLength) + '\n  ... (truncated)';
+      }
+      
+      // Cache the result
+      this.cacheSnippet(cacheKey, formattedSnippet);
+      
+      return formattedSnippet;
+    } catch (error) {
+      console.error(`Failed to extract snippet from ${filePath}:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get file content with caching
+   */
+  async getFileContent(filePath) {
+    // Check cache
+    if (this.fileCache.has(filePath)) {
+      return this.fileCache.get(filePath).content;
+    }
+
+    try {
+      const content = await fs.readFile(filePath, 'utf8');
+      
+      // Cache management
+      if (this.fileCache.size >= this.maxCacheSize) {
+        // Remove oldest entry
+        const firstKey = this.fileCache.keys().next().value;
+        this.fileCache.delete(firstKey);
+      }
+      
+      this.fileCache.set(filePath, {
+        content,
+        timestamp: Date.now()
       });
+      
+      return content;
+    } catch (error) {
+      return null;
+    }
+  }
 
-      expect(typeof snippet).toBe('string');
-      expect(snippet.length).toBeGreaterThan(0);
-    });
+  /**
+   * Cache snippet with size management
+   */
+  cacheSnippet(key, snippet) {
+    if (this.snippetCache.size >= this.maxCacheSize * 2) {
+      // Clear half of cache when it gets too large
+      const entriesToDelete = Math.floor(this.snippetCache.size / 2);
+      const keys = Array.from(this.snippetCache.keys());
+      for (let i = 0; i < entriesToDelete; i++) {
+        this.snippetCache.delete(keys[i]);
+      }
+    }
+    this.snippetCache.set(key, snippet);
+  }
 
-    test('should handle start of file', async () => {
-      const snippet = await extractor.extractSnippet(testFilePath, 1, 1, {
-        contextLines: 2
-      });
+  /**
+   * Clear all caches
+   */
+  clearCache() {
+    this.fileCache.clear();
+    this.snippetCache.clear();
+  }
+}
 
-      expect(typeof snippet).toBe('string');
-      expect(snippet).toContain('line 1');
-    });
-
-    test('should handle end of file', async () => {
-      const snippet = await extractor.extractSnippet(testFilePath, 7, 7, {
-        contextLines: 2
-      });
-
-      expect(typeof snippet).toBe('string');
-      expect(snippet).toContain('line 7');
-    });
-
-    test('should handle invalid file', async () => {
-      const snippet = await extractor.extractSnippet('/nonexistent/file.js', 1, 1);
-
-      expect(snippet).toBeNull();
-    });
-
-    test('should include line numbers by default', async () => {
-      const snippet = await extractor.extractSnippet(testFilePath, 3, 3);
-
-      expect(snippet).toContain('3:');
-    });
-
-    test('should highlight target lines', async () => {
-      const snippet = await extractor.extractSnippet(testFilePath, 3, 3, {
-        highlightLines: true
-      });
-
-      expect(snippet).toContain('→');
-    });
-
-    test('should truncate long snippets', async () => {
-      const snippet = await extractor.extractSnippet(testFilePath, 1, 7, {
-        maxLength: 50
-      });
-
-      expect(snippet.length).toBeLessThanOrEqual(100);
-    });
-  });
-
-  describe('getFileContent', () => {
-    test('should read file content', async () => {
-      const content = await extractor.getFileContent(testFilePath);
-
-      expect(typeof content).toBe('string');
-      expect(content).toContain('line 1');
-    });
-
-    test('should cache file content', async () => {
-      await extractor.getFileContent(testFilePath);
-      const content = await extractor.getFileContent(testFilePath);
-
-      expect(typeof content).toBe('string');
-    });
-
-    test('should return null for invalid files', async () => {
-      const content = await extractor.getFileContent('/nonexistent.js');
-
-      expect(content).toBeNull();
-    });
-  });
-
-  describe('clearCache', () => {
-    test('should clear all caches', async () => {
-      await extractor.getFileContent(testFilePath);
-      await extractor.extractSnippet(testFilePath, 1, 1);
-
-      extractor.clearCache();
-
-      expect(extractor.fileCache.size).toBe(0);
-      expect(extractor.snippetCache.size).toBe(0);
-    });
-  });
-});
+module.exports = SnippetExtractor;
