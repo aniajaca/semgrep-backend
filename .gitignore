@@ -21,3 +21,11 @@ __pycache__/
 # OpenAI API keys
 .env 
 OPENAI_API_KEY=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.env
+
+# Coverage reports (HTML)
+coverage/
+.nyc_output/
+
+# Test reports
+test-results/
+*.lcov
