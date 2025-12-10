@@ -177,6 +177,27 @@ function normalizeFindings(findings) {
   }
   
   return findings.map(finding => {
+    if (!finding) {  // ← ADD THIS ENTIRE BLOCK
+        return {
+          engine: 'unknown',
+          ruleId: 'unknown',
+          category: 'sast',
+          severity: 'MEDIUM',
+          message: 'Security issue detected',
+          cwe: [],
+          owasp: [],
+          file: 'unknown',
+          startLine: 0,
+          endLine: 0,
+          startColumn: 0,
+          endColumn: 0,
+          snippet: '',
+          confidence: 'MEDIUM',
+          impact: 'MEDIUM',
+          likelihood: 'MEDIUM'
+        };
+      }
+    
     // Ensure consistent severity format
     const severity = normalizeSeverity(finding.severity);
     
@@ -228,7 +249,8 @@ function enrichFindings(findings) {
       cwe: Array.isArray(finding.cwe) ? finding.cwe : [],
       owasp: Array.isArray(finding.owasp) ? finding.owasp : [],
       file: finding.file || 'unknown',
-      startLine: finding.startLine || 0
+      startLine: finding.startLine || 0, 
+      enrichedAt: new Date().toISOString()
     };
     
     // If we have CWE, enrich with taxonomy data
@@ -273,11 +295,16 @@ function mapRuleToCWE(ruleId) {
  * @returns {Array} Deduplicated findings
  */
 function deduplicateFindings(findings) {
+if (!findings || !Array.isArray(findings)) { 
+    return [];                                   
+  }      
+
   const seen = new Map();
   
   return findings.filter(finding => {
     // Create a unique key for the finding
-    const key = `${finding.file}:${finding.startLine}:${finding.ruleId}:${finding.severity}`;
+    if (!finding) return false;
+     const key = `${finding.file || 'unknown'}:${finding.startLine || 0}:${finding.ruleId || 'unknown'}:${finding.severity || 'MEDIUM'}`;
     
     if (seen.has(key)) {
       // Merge information if needed

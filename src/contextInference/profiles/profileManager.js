@@ -61,11 +61,19 @@ class ProfileManager {
       validateProfile(profile) {
         const errors = [];
         const warnings = [];
+
+        // ✅ Check null/undefined FIRST
+        if (!profile) {
+          errors.push('Profile is required');
+          return { valid: false, errors, warnings };  // ← MUST RETURN HERE
+        }
         
-        // Check version
+        
+        // Check version (now safe - profile exists)
         if (!profile.version) {
           errors.push('Profile version is required');
         }
+
         
         // Validate weights (they should be 0-1 for additive factors)
         if (profile.contextFactors?.weights) {
@@ -108,28 +116,7 @@ class ProfileManager {
           if (diversity && diversity > 20) warnings.push('Diversity cap > 20 may overweight');
           if (exposure && exposure > 25) warnings.push('Exposure cap > 25 may overweight');
         }
-        
-        // Check for monotonicity
-        const contextWeights = profile.contextFactors?.weights || {};
-        if (contextWeights.kevListed && contextWeights.publicExploit && 
-            contextWeights.kevListed < contextWeights.publicExploit) {
-          warnings.push('KEV should have higher weight than publicExploit (precedence)');
-        }
-        
-        // Validate SLA thresholds are in descending order
-        if (profile.slaMapping) {
-          const thresholds = Object.values(profile.slaMapping)
-            .map(sla => sla.threshold)
-            .filter(t => t !== undefined);
-          
-          for (let i = 1; i < thresholds.length; i++) {
-            if (thresholds[i] > thresholds[i-1]) {
-              errors.push('SLA thresholds must be in descending order');
-              break;
-            }
-          }
-        }
-        
+
         // Add monotonicity validation
         const monotonicityCheck = this.validateMonotonicity(profile);
         errors.push(...monotonicityCheck.errors);

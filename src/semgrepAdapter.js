@@ -167,7 +167,8 @@ async function runSemgrep(targetPath, options = {}) {
  * @returns {Promise<Array>} Normalized findings
  */
 async function normalizeResults(semgrepOutput, targetPath = '.') {
-  if (!semgrepOutput.results || !Array.isArray(semgrepOutput.results)) {
+  // FIX: Check if semgrepOutput is null/undefined BEFORE accessing .results
+  if (!semgrepOutput || !semgrepOutput.results || !Array.isArray(semgrepOutput.results)) {
     return [];
   }
 
@@ -189,7 +190,8 @@ async function normalizeResults(semgrepOutput, targetPath = '.') {
 
       // Extract metadata
       const metadata = result.extra?.metadata || {};
-      const cweList = extractCWE(metadata, result.check_id);
+      const ruleId = result.check_id || 'unknown';
+      const cweList = extractCWE(metadata, ruleId);
       const owaspList = extractOWASP(metadata, result.check_id);
       
       // Get the snippet
@@ -203,9 +205,10 @@ async function normalizeResults(semgrepOutput, targetPath = '.') {
       
       if (needsEnhancement) {
         // Build full file path
-        const fullPath = path.isAbsolute(result.path) 
-          ? result.path 
-          : path.join(targetPath, result.path);
+        const resultPath = result.path || 'unknown';
+        const fullPath = path.isAbsolute(resultPath)
+          ? resultPath 
+          : path.join(targetPath, resultPath);
         
         // Extract proper snippet
         const extractedSnippet = await snippetExtractor.extractSnippet(
@@ -276,7 +279,15 @@ function extractCWE(metadata, ruleId) {
     }
   }
   
-  const cweMatch = ruleId.match(/cwe[- ]?(\d+)/i);
+  // Declare at function scope
+  let cweMatch = null;
+  
+  // Only call .match() if ruleId exists
+  if (ruleId) {
+    cweMatch = ruleId.match(/cwe[_-]?(\d+)/i);
+  }
+  
+  // Use the match result
   if (cweMatch) {
     cweList.push(`CWE-${cweMatch[1]}`);
   }
@@ -306,7 +317,7 @@ function extractOWASP(metadata, ruleId) {
     }
   });
   
-  if (owaspList.length === 0) {
+  if (owaspList.length === 0 && ruleId) {
     const owaspMapping = {
       'injection': 'A03:2021',
       'sql': 'A03:2021',
