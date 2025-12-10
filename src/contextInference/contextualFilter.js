@@ -100,7 +100,8 @@ class ContextualFilter {
       'xss', 'cross-site-scripting',
       'ldapi', 'ldap-injection',
       'nosqli', 'nosql-injection',
-      'code-injection', 'eval-injection'
+      'code-injection', 'eval-injection',
+      'path-traversal', 'directory-traversal'
     ];
     
     // CWE codes for injection vulnerabilities
@@ -130,7 +131,7 @@ class ContextualFilter {
    * Main filtering method
    * @param {Array} findings - Findings to filter
    * @param {string} projectPath - Project root path for context
-   * @param {Object} contextInference - Context inference system instance
+   * @param {Object} contextInference - Context inference system instance (OPTIONAL - not used)
    * @returns {Array} Filtered findings
    */
   async filterFindings(findings, projectPath, contextInference) {
@@ -356,6 +357,7 @@ class ContextualFilter {
   
   /**
    * Check injection vulnerability context
+   * NOTE: contextInference parameter is OPTIONAL and NOT USED - uses filepath detection only
    */
   async checkInjectionContext(finding, projectPath, contextInference) {
     const isInjection = this.isInjectionVulnerability(finding);
@@ -364,12 +366,8 @@ class ContextualFilter {
     }
     
     try {
-      const detector = contextInference.getDetector(finding.file);
-      if (!detector) {
-        return { shouldFilter: false };
-      }
-      
-      const hasUserInput = await this.detectUserInput(finding, detector, projectPath);
+      // Use simple filepath-based detection (no detector needed)
+      const hasUserInput = await this.detectUserInput(finding, projectPath);
       
       if (!hasUserInput) {
         return {
@@ -389,6 +387,7 @@ class ContextualFilter {
   
   /**
    * Check auth vulnerability context
+   * NOTE: contextInference parameter is OPTIONAL and NOT USED - uses filepath detection only
    */
   async checkAuthContext(finding, projectPath, contextInference) {
     const isAuth = this.isAuthVulnerability(finding);
@@ -397,12 +396,8 @@ class ContextualFilter {
     }
     
     try {
-      const detector = contextInference.getDetector(finding.file);
-      if (!detector) {
-        return { shouldFilter: false };
-      }
-      
-      const isInternetFacing = await this.detectInternetFacing(finding, detector, projectPath);
+      // Use simple filepath-based detection (no detector needed)
+      const isInternetFacing = await this.detectInternetFacing(finding, projectPath);
       
       if (!isInternetFacing) {
         return {
@@ -461,10 +456,12 @@ class ContextualFilter {
   
   /**
    * Detect if there's user input reaching this finding
+   * Uses simple filepath-based heuristics (no detector needed)
    */
-  async detectUserInput(finding, detector, projectPath) {
+  async detectUserInput(finding, projectPath) {
     const filepath = finding.file.toLowerCase();
     
+    // Files that typically handle user input
     if (filepath.includes('api') || 
         filepath.includes('controller') || 
         filepath.includes('route') ||
@@ -472,31 +469,37 @@ class ContextualFilter {
       return true;
     }
     
+    // Internal utility files (no user input)
     if (filepath.includes('util') || 
         filepath.includes('helper') || 
         filepath.includes('lib')) {
       return false;
     }
     
+    // Default: assume no user input for safety
     return false;
   }
   
   /**
    * Detect if endpoint is internet-facing
+   * Uses simple filepath-based heuristics (no detector needed)
    */
-  async detectInternetFacing(finding, detector, projectPath) {
+  async detectInternetFacing(finding, projectPath) {
     const filepath = finding.file.toLowerCase();
     
+    // Public API files
     if (filepath.includes('api') && !filepath.includes('internal')) {
       return true;
     }
     
+    // Internal/private files
     if (filepath.includes('internal') || 
         filepath.includes('admin') ||
         filepath.includes('private')) {
       return false;
     }
     
+    // Default: assume internet-facing for conservative filtering
     return true;
   }
   
