@@ -15,9 +15,10 @@ const { DependencyScanner } = require('./dependencyScanner');
 const { runSemgrep, checkSemgrepAvailable, getSemgrepVersion } = require('./semgrepAdapter');const { normalizeFindings, enrichFindings, deduplicateFindings } = require('./lib/normalize');
 const SnippetExtractor = require('./lib/snippetExtractor');
 
-// Context and Profile imports (CORRECT ORDER)
+// Context and Profile imports 
 const ContextInferenceSystem = require('./contextInference');
 const ProfileManager = require('./contextInference/profiles/profileManager');
+const ContextualFilter = require('./contextInference/contextualFilter');
 
 // Risk calculation
 const EnhancedRiskCalculator = require('./enhancedRiskCalculator');
@@ -26,7 +27,7 @@ const Taxonomy = require('../data/taxonomy');
 // Configuration
 const config = require('./config/scanner.config.json');
 
-// Initialize scanners (AFTER imports)
+// Initialize scanners
 const astScanner = new ASTVulnerabilityScanner();
 const depScanner = new DependencyScanner();
 const snippetExtractor = new SnippetExtractor();
@@ -515,10 +516,32 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
         cweId: extractCweId(f.cwe || f.cweId)
       }));
 
+      // CONTEXTUAL FILTERING
+      const contextualFilter = new ContextualFilter({
+        filterTestFiles: true,
+        filterExampleCode: true,
+        filterBuildArtifacts: true,
+        filterInjectionWithoutInput: true,
+        filterInternalAuth: true,
+        aggressiveMode: false,  // Set to true for FPR < 15%
+        verbose: true  // Shows filtering statistics in console
+      });
+
+      const filteredFindings = await contextualFilter.filterFindings(
+        safeFindings,
+        actualTargetPath || targetPath,
+        contextInference
+      );
+
+      console.log(`\nFiltering Results:`);
+      console.log(`  Before: ${safeFindings.length} findings`);
+      console.log(`  After:  ${filteredFindings.length} findings`);
+      console.log(`  Filtered: ${safeFindings.length - filteredFindings.length} findings (${((safeFindings.length - filteredFindings.length) / safeFindings.length * 100).toFixed(1)}%)`);
+    
       // CONTEXT INFERENCE INTEGRATION
       const enrichedFindings = [];
 
-      for (const finding of safeFindings) {  // ← Use safeFindings, not deduplicated
+      for (const finding of filteredFindings) { // ← Use safeFindings, not deduplicated
         // Step 1: Infer context for this finding
         let inferredContext = {};
         let contextEvidence = {};
