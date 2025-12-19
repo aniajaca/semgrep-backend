@@ -2,6 +2,9 @@
 
 // fix-imports.js - Fix all import paths after consolidation
 const fs = require('fs').promises;
+    for (const [oldPath, newPath] of replacements) {
+      // Handle require() statements
+      const requireRegex = new RegExp(`require\\(['"]${oldPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]\\)`, 'g');
       if (requireRegex.test(content)) {
         content = content.replace(requireRegex, `require('${newPath}')`);
         modified = true;

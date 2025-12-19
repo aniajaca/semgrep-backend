@@ -9,7 +9,9 @@
 
 const { spawn } = require('child_process');
 const fs = require('fs').promises;
-const path = require('path');
+const fullPath = path.isAbsolute(finding.file) 
+  ? finding.file 
+  : path.join(projectPath, finding.file);
 
 // Configuration
 const BENCHMARK_DIR = path.join(__dirname, '..', 'BenchmarkJava', 'src', 'main', 'java', 'org', 'owasp', 'benchmark', 'testcode');

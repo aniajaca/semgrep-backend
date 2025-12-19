@@ -1,7 +1,9 @@
 // test/unit/repoContextCollector.fixed.test.js
 const RepoContextCollector = require('../../src/contextInference/collectors/repoContextCollector');
 const fs = require('fs').promises;
-const path = require('path');
+const fullPath = path.isAbsolute(finding.file) 
+  ? finding.file 
+  : path.join(projectPath, finding.file);
 
 describe('RepoContextCollector - Production Tests', () => {
   let collector;

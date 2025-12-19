@@ -3,12 +3,7 @@
 // ==============================================================================
 
 const fs = require('fs').promises;
-const path = require('path');
-const crypto = require('crypto');
-const EnhancedRiskCalculator = require('../../enhancedRiskCalculator');
-
-// Define paths
-const PROFILES_DIR = path.join(__dirname, '../../../profiles');
+const PROFILES_DIR = path.join(__dirname, '../../config/profiles');
 const DEFAULT_PROFILE_PATH = path.join(PROFILES_DIR, 'default.json');
 
 class ProfileManager {

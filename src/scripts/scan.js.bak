@@ -6,6 +6,9 @@ const { ASTVulnerabilityScanner } = require('../astScanner');
 const { normalizeFindings, enrichFindings } = require('../data/lib/normalize');
 const EnhancedRiskCalculator = require('../enhancedRiskCalculator');
 const fs = require('fs').promises;
+
+// Parse command line arguments
+function parseArgs() {
   const args = process.argv.slice(2);
   const options = {
     path: '.',

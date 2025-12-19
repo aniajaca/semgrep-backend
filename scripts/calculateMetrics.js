@@ -8,7 +8,9 @@
  */
 
 const fs = require('fs').promises;
-const path = require('path');
+const fullPath = path.isAbsolute(finding.file) 
+  ? finding.file 
+  : path.join(projectPath, finding.file);
 
 // File paths
 const GROUND_TRUTH_FILE = path.join(__dirname, '..', 'BenchmarkJava', 'ground_truth_full.csv');

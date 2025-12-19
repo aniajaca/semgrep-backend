@@ -1,0 +1,103 @@
+{
+  "version": "1.1.0",
+  "name": "default-v1",
+  "description": "Default balanced security profile",
+  "profileHash": null,
+  "contextFactors": {
+    "enabled": {
+      "kevListed": true,
+      "publicExploit": true,
+      "epss": true,
+      "internetFacing": true,
+      "production": true,
+      "handlesPI": true,
+      "userBaseLarge": true,
+      "regulated": true,
+      "noAuth": true
+    },
+    "weights": {
+      "kevListed": 0.25,
+      "publicExploit": 0.15,
+      "epss": 0.25,
+      "internetFacing": 0.2,
+      "production": 0.15,
+      "handlesPI": 0.15,
+      "userBaseLarge": 0.1,
+      "regulated": 0.15,
+      "noAuth": 0.1
+    },
+    "exploitCaps": {
+      "kev": 0.25,
+      "publicExploit": 0.15,
+      "epss": 0.25
+    },
+    "totalLiftCap": 0.7
+  },
+  "fileRisk": {
+    "topK": 5,
+    "weights": {
+      "core": 0.6,
+      "density": 0.2,
+      "diversity": 0.1,
+      "exposure": 0.1
+    },
+    "caps": {
+      "density": 30,
+      "diversity": 20,
+      "exposure": 25
+    }
+  },
+  "slaMapping": {
+    "P0": {
+      "threshold": 80,
+      "days": 7
+    },
+    "P1": {
+      "threshold": 65,
+      "days": 14
+    },
+    "P2": {
+      "threshold": 50,
+      "days": 30
+    },
+    "P3": {
+      "threshold": 0,
+      "days": 90
+    }
+  },
+  "scoring": {
+    "severityPoints": {
+      "critical": 25,
+      "high": 15,
+      "medium": 8,
+      "low": 3,
+      "info": 1
+    },
+    "riskThresholds": {
+      "critical": 80,
+      "high": 60,
+      "medium": 40,
+      "low": 20,
+      "minimal": 0
+    }
+  },
+  "features": {
+    "contextInference": {
+      "js": {
+        "routes": true,
+        "auth": true,
+        "pii": true
+      },
+      "py": {
+        "routes": true,
+        "auth": true,
+        "pii": true
+      },
+      "java": {
+        "routes": true,
+        "auth": true,
+        "pii": true
+      }
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "summary": {
+    "total_fn": 155,
+    "fn_killed_by_filter": 19,
+    "fn_missed_by_scanner": 136
+  },
+  "testcases_killed_by_filter": [
+    "BenchmarkTest00326",
+    "BenchmarkTest00426",
+    "BenchmarkTest00588",
+    "BenchmarkTest00757",
+    "BenchmarkTest01081",
+    "BenchmarkTest01082",
+    "BenchmarkTest01374",
+    "BenchmarkTest01458",
+    "BenchmarkTest01615",
+    "BenchmarkTest01617",
+    "BenchmarkTest01708",
+    "BenchmarkTest01955",
+    "BenchmarkTest02015",
+    "BenchmarkTest02165",
+    "BenchmarkTest02261",
+    "BenchmarkTest02263",
+    "BenchmarkTest02352",
+    "BenchmarkTest02527",
+    "BenchmarkTest02622"
+  ]
+}

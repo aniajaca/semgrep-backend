@@ -7,7 +7,9 @@ const {
   getSemgrepVersion 
 } = require('../../src/semgrepAdapter');
 const fs = require('fs').promises;
-const path = require('path');
+const fullPath = path.isAbsolute(finding.file) 
+  ? finding.file 
+  : path.join(projectPath, finding.file);
 
 describe('semgrepAdapter - Comprehensive Foundational Tests', () => {
   

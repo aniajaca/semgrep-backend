@@ -10,6 +10,7 @@ class RepoContextCollector {
     this.cache = new Map();
   }
 
+
   /**
    * Collect repository-level context
    */
