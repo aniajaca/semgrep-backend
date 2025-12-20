@@ -9,14 +9,13 @@
 
 const { spawn } = require('child_process');
 const fs = require('fs').promises;
-const fullPath = path.isAbsolute(finding.file) 
-  ? finding.file 
-  : path.join(projectPath, finding.file);
+const path = require('path');
 
 // Configuration
 const BENCHMARK_DIR = path.join(__dirname, '..', 'BenchmarkJava', 'src', 'main', 'java', 'org', 'owasp', 'benchmark', 'testcode');
 const OUTPUT_FILE = path.join(__dirname, '..', 'BenchmarkJava', 'scanner_results_raw.json');
 const MAPPED_OUTPUT = path.join(__dirname, '..', 'BenchmarkJava', 'scanner_results_mapped.csv');
+const META_OUTPUT = path.join(__dirname, '..', 'BenchmarkJava', 'scanner_run_meta.json');
 
 // CWE to category mapping (from OWASP Benchmark)
 const CWE_TO_CATEGORY = {
