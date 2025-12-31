@@ -1,0 +1,120 @@
+{
+  "summary": {
+    "total_attributes": 20,
+    "correct": 19,
+    "accuracy": 95
+  },
+  "per_attribute": {
+    "internet_facing": "100.0",
+    "handles_pii": "80.0",
+    "prod_signals": "100.0",
+    "test_only": "100.0"
+  },
+  "details": [
+    {
+      "repo": "juice-shop",
+      "expected": {
+        "internet_facing": true,
+        "handles_pii": true,
+        "prod_signals": false,
+        "test_only": false
+      },
+      "inferred": {
+        "internet_facing": true,
+        "handles_pii": true,
+        "prod_signals": false,
+        "test_only": false
+      },
+      "matches": {
+        "internet_facing": true,
+        "handles_pii": true,
+        "prod_signals": true,
+        "test_only": true
+      }
+    },
+    {
+      "repo": "webgoat",
+      "expected": {
+        "internet_facing": true,
+        "handles_pii": true,
+        "prod_signals": false,
+        "test_only": false
+      },
+      "inferred": {
+        "internet_facing": true,
+        "handles_pii": true,
+        "prod_signals": false,
+        "test_only": false
+      },
+      "matches": {
+        "internet_facing": true,
+        "handles_pii": true,
+        "prod_signals": true,
+        "test_only": true
+      }
+    },
+    {
+      "repo": "spring-petclinic",
+      "expected": {
+        "internet_facing": true,
+        "handles_pii": true,
+        "prod_signals": true,
+        "test_only": false
+      },
+      "inferred": {
+        "internet_facing": true,
+        "handles_pii": true,
+        "prod_signals": true,
+        "test_only": false
+      },
+      "matches": {
+        "internet_facing": true,
+        "handles_pii": true,
+        "prod_signals": true,
+        "test_only": true
+      }
+    },
+    {
+      "repo": "semgrep-backend",
+      "expected": {
+        "internet_facing": true,
+        "handles_pii": false,
+        "prod_signals": false,
+        "test_only": false
+      },
+      "inferred": {
+        "internet_facing": true,
+        "handles_pii": true,
+        "prod_signals": false,
+        "test_only": false
+      },
+      "matches": {
+        "internet_facing": true,
+        "handles_pii": false,
+        "prod_signals": true,
+        "test_only": true
+      }
+    },
+    {
+      "repo": "next.js",
+      "expected": {
+        "internet_facing": false,
+        "handles_pii": false,
+        "prod_signals": true,
+        "test_only": false
+      },
+      "inferred": {
+        "internet_facing": false,
+        "handles_pii": false,
+        "prod_signals": true,
+        "test_only": false
+      },
+      "matches": {
+        "internet_facing": true,
+        "handles_pii": true,
+        "prod_signals": true,
+        "test_only": true
+      }
+    }
+  ]
+}

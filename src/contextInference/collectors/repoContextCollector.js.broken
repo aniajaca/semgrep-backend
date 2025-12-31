@@ -15,6 +15,10 @@ class RepoContextCollector {
    * Collect repository-level context
    */
   async collectRepoContext(repoPath) {
+    if (this.config.verbose) {
+      console.log(`[RepoCollector] Analyzing repository: ${repoPath}`);
+    }
+    
     // Check cache
     if (this.cache.has(repoPath)) {
       const cached = this.cache.get(repoPath);
@@ -25,22 +29,300 @@ class RepoContextCollector {
     
     const context = {};
     
-    // NEW: Aggregate code-level signals
-    const codeSignals = await this.inferInternetFacingAndPII(repoPath);
-    if (codeSignals.internetFacing.detected) {
+    // NEW: Detect internet-facing
+    const internetSignals = await this.detectInternetFacing(repoPath);
+    if (internetSignals.detected) {
       context.internetFacing = {
         value: true,
-        confidence: codeSignals.internetFacing.confidence,
-        evidence: codeSignals.internetFacing.evidence
+        confidence: internetSignals.confidence,
+        evidence: internetSignals.evidence
       };
+      if (this.config.verbose) {
+        console.log(`[RepoCollector] Internet-facing: YES (${internetSignals.evidence.join(', ')})`);
+      }
     }
-    if (codeSignals.pii.detected) {
+    
+    // NEW: Detect PII handling
+    const piiSignals = await this.detectPIIHandling(repoPath);
+    if (piiSignals.detected) {
       context.handlesPI = {
         value: true,
-        confidence: codeSignals.pii.confidence,
-        evidence: codeSignals.pii.evidence
+        confidence: piiSignals.confidence,
+        evidence: piiSignals.evidence
+      };
+      if (this.config.verbose) {
+        console.log(`[RepoCollector] Handles PII: YES (${piiSignals.evidence.join(', ')})`);
+      }
+    }
+    
+    // Check for production signals
+    const productionSignals = await this.detectProductionSignals(repoPath);
+    if (productionSignals.detected) {
+      context.production = {
+        value: true,
+        confidence: productionSignals.confidence,
+        evidence: productionSignals.evidence
+      };
+      if (this.config.verbose) {
+        console.log(`[RepoCollector] Production: YES (${productionSignals.evidence.join(', ')})`);
+      }
+    }
+    
+    // Check for Docker
+    const dockerSignals = await this.detectDockerSignals(repoPath);
+    if (dockerSignals.production) {
+      context.production = {
+        value: true,
+        confidence: Math.max(context.production?.confidence || 0, dockerSignals.confidence),
+        evidence: [...(context.production?.evidence || []), ...dockerSignals.evidence]
+      };
+      if (this.config.verbose) {
+        console.log(`[RepoCollector] Docker prod signals: ${dockerSignals.evidence.join(', ')}`);
+      }
+    }
+    
+    // Check for Kubernetes
+    const k8sSignals = await this.detectKubernetesSignals(repoPath);
+    if (k8sSignals.detected) {
+      context.production = {
+        value: true,
+        confidence: Math.max(context.production?.confidence || 0, 0.9),
+        evidence: [...(context.production?.evidence || []), ...k8sSignals.evidence]
+      };
+      if (this.config.verbose) {
+        console.log(`[RepoCollector] Kubernetes signals: ${k8sSignals.evidence.join(', ')}`);
+      }
+    }
+    
+    // Check for CI/CD
+    const cicdSignals = await this.detectCICDSignals(repoPath);
+    if (cicdSignals.production) {
+      context.production = {
+        value: true,
+        confidence: Math.max(context.production?.confidence || 0, cicdSignals.confidence),
+        evidence: [...(context.production?.evidence || []), ...cicdSignals.evidence]
+      };
+      if (this.config.verbose) {
+        console.log(`[RepoCollector] CI/CD signals: ${cicdSignals.evidence.join(', ')}`);
+      }
+    }
+    
+    // Check for compliance/regulation signals
+    const complianceSignals = await this.detectComplianceSignals(repoPath);
+    if (complianceSignals.detected) {
+      context.regulated = {
+        value: true,
+        confidence: complianceSignals.confidence,
+        evidence: complianceSignals.evidence
       };
     }
+    
+    // Cache result
+    this.cache.set(repoPath, {
+      context,
+      timestamp: Date.now()
+    });
+    
+    if (this.config.verbose) {
+      console.log(`[RepoCollector] Final context:`, JSON.stringify(context, null, 2));
+    }
+    
+    return context;
+  }
+
+  /**
+   * NEW: Detect internet-facing applications
+   */
+  async detectInternetFacing(repoPath) {
+    const evidence = [];
+    let confidence = 0;
+    
+    try {
+      const filesToCheck = await this.findSourceFiles(repoPath, ['.java', '.js', '.ts', '.py'], 50);
+      
+      const patterns = {
+        java: [
+          /@RestController/i,
+          /@Controller/i,
+          /@RequestMapping/i,
+          /SpringApplication\.run/i,
+          /@GetMapping/i,
+          /@PostMapping/i,
+          /@Path\s*\(/i  // JAX-RS
+        ],
+        javascript: [
+          /express\s*\(/i,
+          /app\.listen\s*\(/i,
+          /router\.(get|post|put|delete)/i,
+          /fastify\s*\(/i,
+          /@Controller\s*\(/i,  // NestJS
+          /@Get\s*\(/i,
+          /@Post\s*\(/i
+        ],
+        python: [
+          /@app\.route/i,
+          /@router\.(get|post|put|delete)/i,
+          /Flask\s*\(/i,
+          /FastAPI\s*\(/i,
+          /@api_view/i,
+          /urlpatterns\s*=/i
+        ]
+      };
+      
+      for (const file of filesToCheck) {
+        try {
+          const content = await fs.readFile(file, 'utf8');
+          const ext = path.extname(file);
+          let langPatterns = [];
+          
+          if (ext === '.java') langPatterns = patterns.java;
+          else if (['.js', '.ts'].includes(ext)) langPatterns = patterns.javascript;
+          else if (ext === '.py') langPatterns = patterns.python;
+          
+          for (const pattern of langPatterns) {
+            if (pattern.test(content)) {
+              evidence.push(`Web framework in ${path.basename(file)}`);
+              confidence = Math.max(confidence, 0.85);
+              break; // Found evidence in this file
+            }
+          }
+          
+          if (confidence > 0) break; // Found evidence, stop searching
+        } catch (err) {
+          // Skip unreadable files
+        }
+      }
+    } catch (err) {
+      if (this.config.verbose) {
+        console.log(`[RepoCollector] Error detecting internet-facing: ${err.message}`);
+      }
+    }
+    
+    return {
+      detected: confidence > 0,
+      confidence,
+      evidence
+    };
+  }
+
+  /**
+   * NEW: Detect PII handling
+   */
+  async detectPIIHandling(repoPath) {
+    const evidence = [];
+    let confidence = 0;
+    
+    try {
+      const filesToCheck = await this.findSourceFiles(repoPath, ['.java', '.js', '.ts', '.py'], 100);
+      
+      const piiTerms = [
+        'email', 'password', 'username', 'address', 'phone', 'ssn',
+        'creditcard', 'paymentinfo', 'personaldata', 'userprofile',
+        'firstname', 'lastname', 'dateofbirth', 'passport'
+      ];
+      
+      // Focus on model/entity/schema files
+      const relevantFiles = filesToCheck.filter(f => {
+        const lower = f.toLowerCase();
+        return lower.includes('model') || 
+               lower.includes('entity') || 
+               lower.includes('schema') ||
+               lower.includes('dto') ||
+               lower.includes('user') ||
+               lower.includes('customer') ||
+               lower.includes('account');
+      });
+      
+      let piiCount = 0;
+      
+      for (const file of relevantFiles.slice(0, 20)) {
+        try {
+          const content = await fs.readFile(file, 'utf8').then(c => c.toLowerCase());
+          
+          for (const term of piiTerms) {
+            // Look for field declarations or property names
+            const fieldPattern = new RegExp(`(private|public|protected|const|let|var)?\\s+\\w*\\s+${term}`, 'i');
+            const propertyPattern = new RegExp(`['"\`]${term}['"\`]\\s*:`, 'i');
+            
+            if (fieldPattern.test(content) || propertyPattern.test(content)) {
+              piiCount++;
+              evidence.push(`PII field '${term}' in ${path.basename(file)}`);
+              break; // Count this file once
+            }
+          }
+          
+          if (piiCount >= 3) break; // Found enough evidence
+        } catch (err) {
+          // Skip unreadable files
+        }
+      }
+      
+      if (piiCount >= 2) {
+        confidence = 0.80;
+      } else if (piiCount === 1) {
+        confidence = 0.60;
+      }
+    } catch (err) {
+      if (this.config.verbose) {
+        console.log(`[RepoCollector] Error detecting PII: ${err.message}`);
+      }
+    }
+    
+    return {
+      detected: confidence > 0,
+      confidence,
+      evidence: evidence.slice(0, 5) // Limit evidence list
+    };
+  }
+
+  /**
+   * Helper: Find source files in repository
+   */
+  async findSourceFiles(repoPath, extensions, maxFiles = 100) {
+    const files = [];
+    
+    const searchDirs = ['src', 'lib', 'app', 'routes', 'models', 'controllers', 'services'];
+    
+    for (const dir of searchDirs) {
+      const dirPath = path.join(repoPath, dir);
+      try {
+        await this.walkDir(dirPath, extensions, files, maxFiles);
+        if (files.length >= maxFiles) break;
+      } catch (err) {
+        // Directory doesn't exist, continue
+      }
+    }
+    
+    return files;
+  }
+
+  /**
+   * Helper: Recursively walk directory
+   */
+  async walkDir(dir, extensions, files, maxFiles) {
+    if (files.length >= maxFiles) return;
+    
+    try {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        if (files.length >= maxFiles) break;
+        
+        const fullPath = path.join(dir, entry.name);
+        
+        if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
+          await this.walkDir(fullPath, extensions, files, maxFiles);
+        } else if (entry.isFile() && extensions.some(ext => entry.name.endsWith(ext))) {
+          files.push(fullPath);
+        }
+      }
+    } catch (err) {
+      // Skip unreadable directories
+    }
+  }
+    }
+    
+    const context = {};
     
     // Check for production signals
     const productionSignals = await this.detectProductionSignals(repoPath);
@@ -382,148 +664,6 @@ class RepoContextCollector {
       evidence
     };
   }
-
-  /**
-   * NEW: Infer internet-facing and PII by aggregating file-level detections
-   */
-  async inferInternetFacingAndPII(repoPath) {
-    const JSContextDetector = require('../detectors/jsDetector');
-    const JavaContextDetector = require('../detectors/javaDetector');
-    const PythonContextDetector = require('../detectors/pythonDetector');
-    
-    const jsDetector = new JSContextDetector();
-    const javaDetector = new JavaContextDetector();
-    const pyDetector = new PythonContextDetector();
-    
-    const detectorMap = {
-      '.js': jsDetector,
-      '.jsx': jsDetector,
-      '.ts': jsDetector,
-      '.tsx': jsDetector,
-      '.java': javaDetector,
-      '.py': pyDetector
-    };
-    
-    let internetFacingEvidence = [];
-    let piiEvidence = [];
-    let totalRoutes = 0;
-    let totalPII = 0;
-    
-    try {
-      if (this.config.verbose) {
-        console.log(`[DEBUG] Scanning repo: ${repoPath}`);
-      }
-      const files = await this.listSourceFiles(repoPath, 200);
-      
-      if (this.config.verbose) {
-        console.log(`[DEBUG] Found ${files.length} files to scan`);
-        console.log(`[DEBUG] First 5 files:`, files.slice(0, 5).map(f => path.basename(f)));
-      }
-      
-      for (const file of files) {
-        try {
-          const content = await fs.readFile(file, 'utf8');
-          const ext = path.extname(file);
-          const detector = detectorMap[ext];
-          
-          if (!detector) continue;
-          
-          // Check for routes/API
-          const apiResult = await detector.detectPublicAPI(content);
-          if (apiResult.detected && apiResult.confidence >= 0.6) {
-            internetFacingEvidence.push(`Routes in ${path.basename(file)}`);
-            totalRoutes += apiResult.metadata?.routeCount || 1;
-          }
-          
-          // Check for PII
-          const piiResult = await detector.detectPII(content, { file });
-          if (piiResult.detected && piiResult.confidence >= 0.6) {
-            piiEvidence.push(`PII in ${path.basename(file)}`);
-            totalPII++;
-          }
-          
-          // Early exit if we have strong evidence
-          if (internetFacingEvidence.length >= 2 && piiEvidence.length >= 2) break;
-          
-        } catch (err) {
-          // Skip unreadable files
-        }
-      }
-    } catch (err) {
-      if (this.config.verbose) {
-        console.log(`[RepoCollector] Error in code aggregation: ${err.message}`);
-      }
-    }
-    
-    return {
-      internetFacing: {
-        detected: internetFacingEvidence.length >= 1 || totalRoutes >= 2,
-        confidence: internetFacingEvidence.length >= 2 ? 0.85 : (internetFacingEvidence.length === 1 ? 0.70 : 0),
-        evidence: internetFacingEvidence.slice(0, 5)
-      },
-      pii: {
-        detected: piiEvidence.length >= 1 || totalPII >= 2,
-        confidence: piiEvidence.length >= 2 ? 0.80 : (piiEvidence.length === 1 ? 0.65 : 0),
-        evidence: piiEvidence.slice(0, 5)
-      }
-    };
-  }
-
-  /**
-   * Helper: List source files in repository
-   */
-  async listSourceFiles(repoPath, limit = 200) {
-    const files = [];
-    const extensions = ['.js', '.jsx', '.ts', '.tsx', '.java', '.py'];
-    const searchDirs = ['routes', 'src', 'app', 'server', 'lib', 'controllers', 'models']; // Prioritize routes/
-    const skipDirs = ['node_modules', 'dist', 'build', '.git', 'target', 'out', 'vendor', 'coverage', 'test', 'tests'];
-    
-    for (const dir of searchDirs) {
-      const dirPath = path.join(repoPath, dir);
-      try {
-        await this.walkSourceDir(dirPath, extensions, skipDirs, files, limit);
-        if (files.length >= limit) break;
-      } catch (err) {
-        // Directory doesn't exist
-      }
-    }
-    
-    return files;
-  }
-
-  /**
-   * Helper: Recursively walk directory for source files
-   */
-  async walkSourceDir(dir, extensions, skipDirs, files, limit) {
-    if (files.length >= limit) return;
-    
-    try {
-      const entries = await fs.readdir(dir, { withFileTypes: true });
-      
-      for (const entry of entries) {
-        if (files.length >= limit) break;
-        
-        if (entry.isDirectory()) {
-          if (!skipDirs.includes(entry.name) && !entry.name.startsWith('.')) {
-            await this.walkSourceDir(
-              path.join(dir, entry.name),
-              extensions,
-              skipDirs,
-              files,
-              limit
-            );
-          }
-        } else if (entry.isFile()) {
-          if (extensions.some(ext => entry.name.endsWith(ext))) {
-            files.push(path.join(dir, entry.name));
-          }
-        }
-      }
-    } catch (err) {
-      // Skip unreadable directories
-    }
-  }
 }
-
 
 module.exports = RepoContextCollector;

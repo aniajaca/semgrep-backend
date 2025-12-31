@@ -1,0 +1,965 @@
+{
+  "results": [
+    {
+      "engine": "semgrep",
+      "ruleId": "java.spring.security.unrestricted-request-mapping.unrestricted-request-mapping",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected a method annotated with 'RequestMapping' that does not specify the HTTP method. CSRF protections are not enabled for GET, HEAD, TRACE, or OPTIONS, and by default all HTTP methods are allowed when the HTTP method is not explicitly specified. This means that a method that performs state changes could be vulnerable to CSRF attacks. To mitigate, add the 'method' field and specify the HTTP method (such as 'RequestMethod.POST').",
+      "cwe": [
+        "CWE-352: Cross-Site Request Forgery (CSRF)"
+      ],
+      "owasp": [
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/container/service/LabelDebugService.java",
+      "startLine": 35,
+      "endLine": 35,
+      "startColumn": 4,
+      "endColumn": 18,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.spring.security.unrestricted-request-mapping.unrestricted-request-mapping",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected a method annotated with 'RequestMapping' that does not specify the HTTP method. CSRF protections are not enabled for GET, HEAD, TRACE, or OPTIONS, and by default all HTTP methods are allowed when the HTTP method is not explicitly specified. This means that a method that performs state changes could be vulnerable to CSRF attacks. To mitigate, add the 'method' field and specify the HTTP method (such as 'RequestMethod.POST').",
+      "cwe": [
+        "CWE-352: Cross-Site Request Forgery (CSRF)"
+      ],
+      "owasp": [
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/container/service/LabelDebugService.java",
+      "startLine": 48,
+      "endLine": 48,
+      "startColumn": 4,
+      "endColumn": 18,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.spring.security.unrestricted-request-mapping.unrestricted-request-mapping",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected a method annotated with 'RequestMapping' that does not specify the HTTP method. CSRF protections are not enabled for GET, HEAD, TRACE, or OPTIONS, and by default all HTTP methods are allowed when the HTTP method is not explicitly specified. This means that a method that performs state changes could be vulnerable to CSRF attacks. To mitigate, add the 'method' field and specify the HTTP method (such as 'RequestMethod.POST').",
+      "cwe": [
+        "CWE-352: Cross-Site Request Forgery (CSRF)"
+      ],
+      "owasp": [
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/container/service/LessonMenuService.java",
+      "startLine": 45,
+      "endLine": 45,
+      "startColumn": 4,
+      "endColumn": 18,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.spring.security.unrestricted-request-mapping.unrestricted-request-mapping",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected a method annotated with 'RequestMapping' that does not specify the HTTP method. CSRF protections are not enabled for GET, HEAD, TRACE, or OPTIONS, and by default all HTTP methods are allowed when the HTTP method is not explicitly specified. This means that a method that performs state changes could be vulnerable to CSRF attacks. To mitigate, add the 'method' field and specify the HTTP method (such as 'RequestMethod.POST').",
+      "cwe": [
+        "CWE-352: Cross-Site Request Forgery (CSRF)"
+      ],
+      "owasp": [
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/container/service/SessionService.java",
+      "startLine": 22,
+      "endLine": 22,
+      "startColumn": 4,
+      "endColumn": 18,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.crypto.weak-random.weak-random",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected use of the functions `Math.random()` or `java.util.Random()`. These are both not cryptographically strong random number generators (RNGs). If you are using these RNGs to create passwords or secret tokens, use `java.security.SecureRandom` instead.",
+      "cwe": [
+        "CWE-330: Use of Insufficiently Random Values"
+      ],
+      "owasp": [
+        "A02:2021 - Cryptographic Failures"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/challenges/challenge1/ImageServlet.java",
+      "startLine": 21,
+      "endLine": 21,
+      "startColumn": 37,
+      "endColumn": 64,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.spring.security.injection.tainted-sql-string.tainted-sql-string",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "User data flows into this manually-constructed SQL string. User data can be safely inserted into SQL strings using prepared statements or an object-relational mapper (ORM). Manually-constructed SQL strings is a possible indicator of SQL injection, which could let an attacker steal or manipulate data from the database. Instead, use prepared statements (`connection.PreparedStatement`) or a safe library.",
+      "cwe": [
+        "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      ],
+      "owasp": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/challenges/challenge5/Assignment5.java",
+      "startLine": 45,
+      "endLine": 49,
+      "startColumn": 15,
+      "endColumn": 24,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.formatted-sql-string.formatted-sql-string",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "Detected a formatted string in a SQL statement. This could lead to SQL injection if variables in the SQL statement are not properly sanitized. Use a prepared statements (java.sql.PreparedStatement) instead. You can obtain a PreparedStatement using 'connection.prepareStatement'.",
+      "cwe": [
+        "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      ],
+      "owasp": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/challenges/challenge5/Assignment5.java",
+      "startLine": 50,
+      "endLine": 50,
+      "startColumn": 29,
+      "endColumn": 53,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.crypto.weak-random.weak-random",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected use of the functions `Math.random()` or `java.util.Random()`. These are both not cryptographically strong random number generators (RNGs). If you are using these RNGs to create passwords or secret tokens, use `java.security.SecureRandom` instead.",
+      "cwe": [
+        "CWE-330: Use of Insufficiently Random Values"
+      ],
+      "owasp": [
+        "A02:2021 - Cryptographic Failures"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/cryptography/EncodingAssignment.java",
+      "startLine": 37,
+      "endLine": 37,
+      "startColumn": 37,
+      "endColumn": 91,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.tainted-session-from-http-request.tainted-session-from-http-request",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected input from a HTTPServletRequest going into a session command, like `setAttribute`. User input into such a command could lead to an attacker inputting malicious code into your session parameters, blurring the line between what's trusted and untrusted, and therefore leading to a trust boundary violation. This could lead to programmers trusting unvalidated data. Instead, thoroughly sanitize user input before passing it into such function calls.",
+      "cwe": [
+        "CWE-501: Trust Boundary Violation"
+      ],
+      "owasp": [
+        "A04:2021 - Insecure Design"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/cryptography/EncodingAssignment.java",
+      "startLine": 39,
+      "endLine": 39,
+      "startColumn": 54,
+      "endColumn": 63,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.spring.security.unrestricted-request-mapping.unrestricted-request-mapping",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected a method annotated with 'RequestMapping' that does not specify the HTTP method. CSRF protections are not enabled for GET, HEAD, TRACE, or OPTIONS, and by default all HTTP methods are allowed when the HTTP method is not explicitly specified. This means that a method that performs state changes could be vulnerable to CSRF attacks. To mitigate, add the 'method' field and specify the HTTP method (such as 'RequestMethod.POST').",
+      "cwe": [
+        "CWE-352: Cross-Site Request Forgery (CSRF)"
+      ],
+      "owasp": [
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/cryptography/HashingAssignment.java",
+      "startLine": 30,
+      "endLine": 30,
+      "startColumn": 4,
+      "endColumn": 18,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.crypto.weak-random.weak-random",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected use of the functions `Math.random()` or `java.util.Random()`. These are both not cryptographically strong random number generators (RNGs). If you are using these RNGs to create passwords or secret tokens, use `java.security.SecureRandom` instead.",
+      "cwe": [
+        "CWE-330: Use of Insufficiently Random Values"
+      ],
+      "owasp": [
+        "A02:2021 - Cryptographic Failures"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/cryptography/HashingAssignment.java",
+      "startLine": 37,
+      "endLine": 37,
+      "startColumn": 31,
+      "endColumn": 67,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.crypto.use-of-md5.use-of-md5",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected MD5 hash algorithm which is considered insecure. MD5 is not collision resistant and is therefore not suitable as a cryptographic signature. Use HMAC instead.",
+      "cwe": [
+        "CWE-328: Use of Weak Hash"
+      ],
+      "owasp": [
+        "A03:2017 - Sensitive Data Exposure",
+        "A02:2021 - Cryptographic Failures"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/cryptography/HashingAssignment.java",
+      "startLine": 39,
+      "endLine": 39,
+      "startColumn": 52,
+      "endColumn": 57,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.spring.security.unrestricted-request-mapping.unrestricted-request-mapping",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected a method annotated with 'RequestMapping' that does not specify the HTTP method. CSRF protections are not enabled for GET, HEAD, TRACE, or OPTIONS, and by default all HTTP methods are allowed when the HTTP method is not explicitly specified. This means that a method that performs state changes could be vulnerable to CSRF attacks. To mitigate, add the 'method' field and specify the HTTP method (such as 'RequestMethod.POST').",
+      "cwe": [
+        "CWE-352: Cross-Site Request Forgery (CSRF)"
+      ],
+      "owasp": [
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/cryptography/HashingAssignment.java",
+      "startLine": 49,
+      "endLine": 49,
+      "startColumn": 4,
+      "endColumn": 18,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.crypto.weak-random.weak-random",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected use of the functions `Math.random()` or `java.util.Random()`. These are both not cryptographically strong random number generators (RNGs). If you are using these RNGs to create passwords or secret tokens, use `java.security.SecureRandom` instead.",
+      "cwe": [
+        "CWE-330: Use of Insufficiently Random Values"
+      ],
+      "owasp": [
+        "A02:2021 - Cryptographic Failures"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/cryptography/HashingAssignment.java",
+      "startLine": 55,
+      "endLine": 55,
+      "startColumn": 31,
+      "endColumn": 67,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.spring.security.unrestricted-request-mapping.unrestricted-request-mapping",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected a method annotated with 'RequestMapping' that does not specify the HTTP method. CSRF protections are not enabled for GET, HEAD, TRACE, or OPTIONS, and by default all HTTP methods are allowed when the HTTP method is not explicitly specified. This means that a method that performs state changes could be vulnerable to CSRF attacks. To mitigate, add the 'method' field and specify the HTTP method (such as 'RequestMethod.POST').",
+      "cwe": [
+        "CWE-352: Cross-Site Request Forgery (CSRF)"
+      ],
+      "owasp": [
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/cryptography/SigningAssignment.java",
+      "startLine": 37,
+      "endLine": 37,
+      "startColumn": 4,
+      "endColumn": 18,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.object-deserialization.object-deserialization",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Found object deserialization using ObjectInputStream. Deserializing entire Java objects is dangerous because malicious actors can create Java object streams with unintended consequences. Ensure that the objects being deserialized are not user-controlled. If this must be done, consider using HMACs to sign the data stream to make sure it is not tampered with, or consider only transmitting object fields and populating a new object.",
+      "cwe": [
+        "CWE-502: Deserialization of Untrusted Data"
+      ],
+      "owasp": [
+        "A08:2017 - Insecure Deserialization",
+        "A08:2021 - Software and Data Integrity Failures"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/deserialization/InsecureDeserializationTask.java",
+      "startLine": 42,
+      "endLine": 43,
+      "startColumn": 10,
+      "endColumn": 94,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.object-deserialization.object-deserialization",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Found object deserialization using ObjectInputStream. Deserializing entire Java objects is dangerous because malicious actors can create Java object streams with unintended consequences. Ensure that the objects being deserialized are not user-controlled. If this must be done, consider using HMACs to sign the data stream to make sure it is not tampered with, or consider only transmitting object fields and populating a new object.",
+      "cwe": [
+        "CWE-502: Deserialization of Untrusted Data"
+      ],
+      "owasp": [
+        "A08:2017 - Insecure Deserialization",
+        "A08:2021 - Software and Data Integrity Failures"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/deserialization/SerializationHelper.java",
+      "startLine": 22,
+      "endLine": 22,
+      "startColumn": 5,
+      "endColumn": 83,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.cookie-missing-httponly.cookie-missing-httponly",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "A cookie was detected without setting the 'HttpOnly' flag. The 'HttpOnly' flag for cookies instructs the browser to forbid client-side scripts from reading the cookie. Set the 'HttpOnly' flag by calling 'cookie.setHttpOnly(true);'",
+      "cwe": [
+        "CWE-1004: Sensitive Cookie Without 'HttpOnly' Flag"
+      ],
+      "owasp": [
+        "A05:2021 - Security Misconfiguration"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/hijacksession/HijackSessionAssignment.java",
+      "startLine": 70,
+      "endLine": 70,
+      "startColumn": 5,
+      "endColumn": 32,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.crypto.weak-random.weak-random",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected use of the functions `Math.random()` or `java.util.Random()`. These are both not cryptographically strong random number generators (RNGs). If you are using these RNGs to create passwords or secret tokens, use `java.security.SecureRandom` instead.",
+      "cwe": [
+        "CWE-330: Use of Insufficiently Random Values"
+      ],
+      "owasp": [
+        "A02:2021 - Cryptographic Failures"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/hijacksession/cas/HijackSessionAuthenticationProvider.java",
+      "startLine": 25,
+      "endLine": 25,
+      "startColumn": 28,
+      "endColumn": 51,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.crypto.weak-random.weak-random",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected use of the functions `Math.random()` or `java.util.Random()`. These are both not cryptographically strong random number generators (RNGs). If you are using these RNGs to create passwords or secret tokens, use `java.security.SecureRandom` instead.",
+      "cwe": [
+        "CWE-330: Use of Insufficiently Random Values"
+      ],
+      "owasp": [
+        "A02:2021 - Cryptographic Failures"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/jwt/JWTSecretKeyEndpoint.java",
+      "startLine": 38,
+      "endLine": 38,
+      "startColumn": 39,
+      "endColumn": 75,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.spring.security.unrestricted-request-mapping.unrestricted-request-mapping",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected a method annotated with 'RequestMapping' that does not specify the HTTP method. CSRF protections are not enabled for GET, HEAD, TRACE, or OPTIONS, and by default all HTTP methods are allowed when the HTTP method is not explicitly specified. This means that a method that performs state changes could be vulnerable to CSRF attacks. To mitigate, add the 'method' field and specify the HTTP method (such as 'RequestMethod.POST').",
+      "cwe": [
+        "CWE-352: Cross-Site Request Forgery (CSRF)"
+      ],
+      "owasp": [
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/jwt/JWTSecretKeyEndpoint.java",
+      "startLine": 43,
+      "endLine": 43,
+      "startColumn": 4,
+      "endColumn": 18,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.cookie-missing-httponly.cookie-missing-httponly",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "A cookie was detected without setting the 'HttpOnly' flag. The 'HttpOnly' flag for cookies instructs the browser to forbid client-side scripts from reading the cookie. Set the 'HttpOnly' flag by calling 'cookie.setHttpOnly(true);'",
+      "cwe": [
+        "CWE-1004: Sensitive Cookie Without 'HttpOnly' Flag"
+      ],
+      "owasp": [
+        "A05:2021 - Security Misconfiguration"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/jwt/JWTVotesEndpoint.java",
+      "startLine": 115,
+      "endLine": 115,
+      "startColumn": 7,
+      "endColumn": 34,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.cookie-missing-secure-flag.cookie-missing-secure-flag",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "A cookie was detected without setting the 'secure' flag. The 'secure' flag for cookies prevents the client from transmitting the cookie over insecure channels such as HTTP. Set the 'secure' flag by calling 'cookie.setSecure(true);'",
+      "cwe": [
+        "CWE-614: Sensitive Cookie in HTTPS Session Without 'Secure' Attribute"
+      ],
+      "owasp": [
+        "A05:2021 - Security Misconfiguration"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/jwt/JWTVotesEndpoint.java",
+      "startLine": 115,
+      "endLine": 115,
+      "startColumn": 7,
+      "endColumn": 34,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.cookie-missing-httponly.cookie-missing-httponly",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "A cookie was detected without setting the 'HttpOnly' flag. The 'HttpOnly' flag for cookies instructs the browser to forbid client-side scripts from reading the cookie. Set the 'HttpOnly' flag by calling 'cookie.setHttpOnly(true);'",
+      "cwe": [
+        "CWE-1004: Sensitive Cookie Without 'HttpOnly' Flag"
+      ],
+      "owasp": [
+        "A05:2021 - Security Misconfiguration"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/jwt/JWTVotesEndpoint.java",
+      "startLine": 120,
+      "endLine": 120,
+      "startColumn": 7,
+      "endColumn": 34,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.cookie-missing-secure-flag.cookie-missing-secure-flag",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "A cookie was detected without setting the 'secure' flag. The 'secure' flag for cookies prevents the client from transmitting the cookie over insecure channels such as HTTP. Set the 'secure' flag by calling 'cookie.setSecure(true);'",
+      "cwe": [
+        "CWE-614: Sensitive Cookie in HTTPS Session Without 'Secure' Attribute"
+      ],
+      "owasp": [
+        "A05:2021 - Security Misconfiguration"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/jwt/JWTVotesEndpoint.java",
+      "startLine": 120,
+      "endLine": 120,
+      "startColumn": 7,
+      "endColumn": 34,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.spring.security.injection.tainted-url-host.tainted-url-host",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "User data flows into the host portion of this manually-constructed URL. This could allow an attacker to send data to their own server, potentially exposing sensitive data such as cookies or authorization information sent with this request. They could also probe internal servers or other resources that the server running this code can access. (This is called server-side request forgery, or SSRF.) Do not allow arbitrary hosts. Instead, create an allowlist for approved hosts, hardcode the correct host, or ensure that the user data can only affect the path or parameters.",
+      "cwe": [
+        "CWE-918: Server-Side Request Forgery (SSRF)"
+      ],
+      "owasp": [
+        "A10:2021 - Server-Side Request Forgery (SSRF)"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/jwt/claimmisuse/JWTHeaderJKUEndpoint.java",
+      "startLine": 57,
+      "endLine": 57,
+      "startColumn": 50,
+      "endColumn": 73,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.spring.security.audit.spring-unvalidated-redirect.spring-unvalidated-redirect",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Application redirects a user to a destination URL specified by a user supplied parameter that is not validated.",
+      "cwe": [
+        "CWE-601: URL Redirection to Untrusted Site ('Open Redirect')"
+      ],
+      "owasp": [
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/openredirect/OpenRedirectRealRedirect.java",
+      "startLine": 18,
+      "endLine": 22,
+      "startColumn": 3,
+      "endColumn": 4,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.httpservlet-path-traversal.httpservlet-path-traversal",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "Detected a potential path traversal. A malicious actor could control the location of this file, to include going backwards in the directory with '../'. To address this, ensure that user-controlled variables in file paths are sanitized. You may also consider using a utility method such as org.apache.commons.io.FilenameUtils.getName(...) to only retrieve the file name from the path.",
+      "cwe": [
+        "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/pathtraversal/ProfileUploadRetrieval.java",
+      "startLine": 100,
+      "endLine": 101,
+      "startColumn": 11,
+      "endColumn": 98,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.cookie-missing-httponly.cookie-missing-httponly",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "A cookie was detected without setting the 'HttpOnly' flag. The 'HttpOnly' flag for cookies instructs the browser to forbid client-side scripts from reading the cookie. Set the 'HttpOnly' flag by calling 'cookie.setHttpOnly(true);'",
+      "cwe": [
+        "CWE-1004: Sensitive Cookie Without 'HttpOnly' Flag"
+      ],
+      "owasp": [
+        "A05:2021 - Security Misconfiguration"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/spoofcookie/SpoofCookieAssignment.java",
+      "startLine": 60,
+      "endLine": 60,
+      "startColumn": 5,
+      "endColumn": 32,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.cookie-missing-secure-flag.cookie-missing-secure-flag",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "A cookie was detected without setting the 'secure' flag. The 'secure' flag for cookies prevents the client from transmitting the cookie over insecure channels such as HTTP. Set the 'secure' flag by calling 'cookie.setSecure(true);'",
+      "cwe": [
+        "CWE-614: Sensitive Cookie in HTTPS Session Without 'Secure' Attribute"
+      ],
+      "owasp": [
+        "A05:2021 - Security Misconfiguration"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/spoofcookie/SpoofCookieAssignment.java",
+      "startLine": 60,
+      "endLine": 60,
+      "startColumn": 5,
+      "endColumn": 32,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.cookie-missing-httponly.cookie-missing-httponly",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "A cookie was detected without setting the 'HttpOnly' flag. The 'HttpOnly' flag for cookies instructs the browser to forbid client-side scripts from reading the cookie. Set the 'HttpOnly' flag by calling 'cookie.setHttpOnly(true);'",
+      "cwe": [
+        "CWE-1004: Sensitive Cookie Without 'HttpOnly' Flag"
+      ],
+      "owasp": [
+        "A05:2021 - Security Misconfiguration"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/spoofcookie/SpoofCookieAssignment.java",
+      "startLine": 77,
+      "endLine": 77,
+      "startColumn": 7,
+      "endColumn": 37,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.spring.security.injection.tainted-sql-string.tainted-sql-string",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "User data flows into this manually-constructed SQL string. User data can be safely inserted into SQL strings using prepared statements or an object-relational mapper (ORM). Manually-constructed SQL strings is a possible indicator of SQL injection, which could let an attacker steal or manipulate data from the database. Instead, use prepared statements (`connection.PreparedStatement`) or a safe library.",
+      "cwe": [
+        "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      ],
+      "owasp": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/sqlinjection/advanced/SqlInjectionChallenge.java",
+      "startLine": 55,
+      "endLine": 55,
+      "startColumn": 13,
+      "endColumn": 87,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.formatted-sql-string.formatted-sql-string",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "Detected a formatted string in a SQL statement. This could lead to SQL injection if variables in the SQL statement are not properly sanitized. Use a prepared statements (java.sql.PreparedStatement) instead. You can obtain a PreparedStatement using 'connection.prepareStatement'.",
+      "cwe": [
+        "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      ],
+      "owasp": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/sqlinjection/advanced/SqlInjectionChallenge.java",
+      "startLine": 57,
+      "endLine": 57,
+      "startColumn": 31,
+      "endColumn": 69,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.formatted-sql-string.formatted-sql-string",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "Detected a formatted string in a SQL statement. This could lead to SQL injection if variables in the SQL statement are not properly sanitized. Use a prepared statements (java.sql.PreparedStatement) instead. You can obtain a PreparedStatement using 'connection.prepareStatement'.",
+      "cwe": [
+        "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      ],
+      "owasp": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson10.java",
+      "startLine": 56,
+      "endLine": 56,
+      "startColumn": 29,
+      "endColumn": 58,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.formatted-sql-string.formatted-sql-string",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "Detected a formatted string in a SQL statement. This could lead to SQL injection if variables in the SQL statement are not properly sanitized. Use a prepared statements (java.sql.PreparedStatement) instead. You can obtain a PreparedStatement using 'connection.prepareStatement'.",
+      "cwe": [
+        "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      ],
+      "owasp": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson5a.java",
+      "startLine": 52,
+      "endLine": 52,
+      "startColumn": 29,
+      "endColumn": 58,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.formatted-sql-string.formatted-sql-string",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "Detected a formatted string in a SQL statement. This could lead to SQL injection if variables in the SQL statement are not properly sanitized. Use a prepared statements (java.sql.PreparedStatement) instead. You can obtain a PreparedStatement using 'connection.prepareStatement'.",
+      "cwe": [
+        "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      ],
+      "owasp": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson5b.java",
+      "startLine": 69,
+      "endLine": 69,
+      "startColumn": 29,
+      "endColumn": 49,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.formatted-sql-string.formatted-sql-string",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "Detected a formatted string in a SQL statement. This could lead to SQL injection if variables in the SQL statement are not properly sanitized. Use a prepared statements (java.sql.PreparedStatement) instead. You can obtain a PreparedStatement using 'connection.prepareStatement'.",
+      "cwe": [
+        "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      ],
+      "owasp": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson8.java",
+      "startLine": 62,
+      "endLine": 62,
+      "startColumn": 29,
+      "endColumn": 58,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.formatted-sql-string.formatted-sql-string",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "Detected a formatted string in a SQL statement. This could lead to SQL injection if variables in the SQL statement are not properly sanitized. Use a prepared statements (java.sql.PreparedStatement) instead. You can obtain a PreparedStatement using 'connection.prepareStatement'.",
+      "cwe": [
+        "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      ],
+      "owasp": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson8.java",
+      "startLine": 142,
+      "endLine": 142,
+      "startColumn": 7,
+      "endColumn": 40,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.lang.security.audit.formatted-sql-string.formatted-sql-string",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "Detected a formatted string in a SQL statement. This could lead to SQL injection if variables in the SQL statement are not properly sanitized. Use a prepared statements (java.sql.PreparedStatement) instead. You can obtain a PreparedStatement using 'connection.prepareStatement'.",
+      "cwe": [
+        "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      ],
+      "owasp": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson9.java",
+      "startLine": 65,
+      "endLine": 65,
+      "startColumn": 7,
+      "endColumn": 40,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.spring.security.injection.tainted-sql-string.tainted-sql-string",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "User data flows into this manually-constructed SQL string. User data can be safely inserted into SQL strings using prepared statements or an object-relational mapper (ORM). Manually-constructed SQL strings is a possible indicator of SQL injection, which could let an attacker steal or manipulate data from the database. Instead, use prepared statements (`connection.PreparedStatement`) or a safe library.",
+      "cwe": [
+        "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      ],
+      "owasp": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/sqlinjection/mitigation/Servers.java",
+      "startLine": 51,
+      "endLine": 53,
+      "startColumn": 15,
+      "endColumn": 27,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.spring.security.unrestricted-request-mapping.unrestricted-request-mapping",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected a method annotated with 'RequestMapping' that does not specify the HTTP method. CSRF protections are not enabled for GET, HEAD, TRACE, or OPTIONS, and by default all HTTP methods are allowed when the HTTP method is not explicitly specified. This means that a method that performs state changes could be vulnerable to CSRF attacks. To mitigate, add the 'method' field and specify the HTTP method (such as 'RequestMethod.POST').",
+      "cwe": [
+        "CWE-352: Cross-Site Request Forgery (CSRF)"
+      ],
+      "owasp": [
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/lessons/xxe/SimpleXXE.java",
+      "startLine": 77,
+      "endLine": 77,
+      "startColumn": 4,
+      "endColumn": 18,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.spring.security.unrestricted-request-mapping.unrestricted-request-mapping",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected a method annotated with 'RequestMapping' that does not specify the HTTP method. CSRF protections are not enabled for GET, HEAD, TRACE, or OPTIONS, and by default all HTTP methods are allowed when the HTTP method is not explicitly specified. This means that a method that performs state changes could be vulnerable to CSRF attacks. To mitigate, add the 'method' field and specify the HTTP method (such as 'RequestMethod.POST').",
+      "cwe": [
+        "CWE-352: Cross-Site Request Forgery (CSRF)"
+      ],
+      "owasp": [
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/webwolf/FileServer.java",
+      "startLine": 56,
+      "endLine": 56,
+      "startColumn": 4,
+      "endColumn": 18,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "java.spring.security.injection.tainted-file-path.tainted-file-path",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "Detected user input controlling a file path. An attacker could control the location of this file, to include going backwards in the directory with '../'. To address this, ensure that user-controlled variables in file paths are sanitized. You may also consider using a utility method such as org.apache.commons.io.FilenameUtils.getName(...) to only retrieve the file name from the path.",
+      "cwe": [
+        "CWE-23: Relative Path Traversal"
+      ],
+      "owasp": [
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "src/main/java/org/owasp/webgoat/webwolf/FileServer.java",
+      "startLine": 79,
+      "endLine": 79,
+      "startColumn": 35,
+      "endColumn": 96,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    }
+  ]
+}

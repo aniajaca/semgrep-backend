@@ -1,0 +1,26 @@
+Total Semgrep findings: 2661
+Findings with CWE: 2661
+Test cases with findings: 1887
+
+============================================================
+OWASP BENCHMARK - CWE-ALIGNED SCORING
+============================================================
+SCORING METHOD:
+  Detection counted ONLY if finding CWE matches ground truth CWE
+  Mismatched-category findings discarded
+
+FINDINGS ANALYSIS:
+  Category-matched findings: 1670
+  Category-mismatched (discarded): 217
+
+CONFUSION MATRIX:
+  TP: 1118   FP:  552
+  FN:  297   TN:  773
+
+METRICS:
+  TPR (Recall):     79.01% ❌ (target ≥85%)
+  FNR:              20.99% ❌ (target ≤15%)
+  FPR:              41.66% ❌ (target ≤15%)
+  Precision:        66.95%
+  F1 Score:         72.48% ✅ (target ≥70%)
+============================================================

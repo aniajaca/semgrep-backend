@@ -1,0 +1,18 @@
+{
+  "repository": "next.js",
+  "raw_count": 767,
+  "filtered_count": 690,
+  "removed_count": 77,
+  "downgraded_count": 101,
+  "passed_count": 589,
+  "reduction_rate": "10.0%",
+  "filter_reasons": {
+    "downgrade: moderate-confidence-protection-detected": 23,
+    "downgrade: two-context-signals": 78,
+    "example code": 62,
+    "test file": 9,
+    "high-confidence-protection-detected": 5,
+    "3-context-signals-detected": 1
+  },
+  "timestamp": "2025-12-20T16:43:20.438Z"
+}

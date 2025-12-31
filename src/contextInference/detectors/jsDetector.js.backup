@@ -228,8 +228,7 @@ class JSContextDetector {
     const routePatterns = [
       /app\.(get|post|put|delete|patch)\s*\(/gi,
       /router\.(get|post|put|delete|patch)\s*\(/gi,
-      /@(Get|Post|Put|Delete)\s*\(/gi,
-      /export\s+(async\s+)?function/gi  // Juice Shop ES6 pattern
+      /@(Get|Post|Put|Delete)\s*\(/gi
     ];
     
     for (const pattern of routePatterns) {
