@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 
 // scripts/scan.js - CLI scanner for code analysis
-const { runSemgrep,  } = require('../semgrepAdapter');
+const { runSemgrep } = require('../semgrepAdapter');
 const { ASTVulnerabilityScanner } = require('../astScanner');
 const { normalizeFindings, enrichFindings } = require('../data/lib/normalize');
 const EnhancedRiskCalculator = require('../enhancedRiskCalculator');
 const fs = require('fs').promises;
+const path = require('path');
+function parseArgs() {
   const args = process.argv.slice(2);
   const options = {
     path: '.',
@@ -56,7 +58,6 @@ const fs = require('fs').promises;
         break;
     }
   }
-  
   return options;
 }
 
@@ -290,11 +291,14 @@ async function scan(options) {
     options.languages = await detectLanguages(options.path);
     if (options.verbose) console.log(`Found: ${options.languages.join(', ')}`);
   }
-  
   const allFindings = [];
-  
   // Check if Semgrep is available
-  const semgrepAvailable = await ();
+    const semgrepAvailable = await (async () => {
+      const { exec } = require('child_process');
+      return new Promise(resolve => {
+        exec('semgrep --version', (err) => resolve(!err));
+      });
+    })();
   
   if (semgrepAvailable) {
     if (options.verbose) console.log('✅ Semgrep is available');

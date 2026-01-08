@@ -11,7 +11,6 @@ const rateLimit = require('express-rate-limit');
 
 // Scanner imports
 const { ASTVulnerabilityScanner } = require('./astScanner');
-const { validateProfileId, validateProjectPath, validateFilename, sanitizeFilePath } = require('./lib/inputValidation');
 const { DependencyScanner } = require('./dependencyScanner');
 const { runSemgrep, checkSemgrepAvailable, getSemgrepVersion } = require('./semgrepAdapter');const { normalizeFindings, enrichFindings, deduplicateFindings } = require('./lib/normalize');
 const SnippetExtractor = require('./lib/snippetExtractor');
@@ -239,23 +238,10 @@ async function processFindingsWithContext(findings, profile, manualContext = {},
     }
     
     // Merge with manual context
-    let finalContext = {
+    const finalContext = {
       ...inferredContext,
       ...manualContext
     };
-
-    // Apply profile's enabled filters (business policy overrides technical detection)
-    if (profile.contextFactors?.enabled) {
-      Object.entries(profile.contextFactors.enabled).forEach(([factor, enabled]) => {
-        if (enabled === false) {
-          // Profile explicitly disables this factor - remove from context
-          // This allows business policy to override technical detection
-          // Example: scanner is technically internet-facing but business 
-          // profile treats it as internal-only for risk calculation
-          delete finalContext[factor];
-        }
-      });
-    }
     
     // Apply profile's enabled factors
     if (profile.contextFactors?.enabled) {
@@ -398,7 +384,7 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
   try {
     const { 
       code,
-      path: rawTargetPath,
+      path: targetPath,
       language = 'javascript',
       languages,
       filename = 'code.js',
@@ -408,40 +394,12 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
       skipFilter = false 
     } = req.body;
     
-    // ✅ SECURITY FIX: Validate profileId to prevent path traversal
-    let safeProfileId;
-    try {
-      safeProfileId = validateProfileId(profileId);
-    } catch (error) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Invalid profile ID',
-        error: error.message
-      });
-    }
-    
-    // Initialize targetPath from raw input
-    let targetPath = rawTargetPath;
-    
     // Validate input
     if (!code && !targetPath) {
       return res.status(400).json({ 
         status: 'error', 
         message: 'No code or path provided' 
       });
-    }
-    
-    // ✅ SECURITY FIX: Validate project path to prevent traversal
-    if (targetPath) {
-      try {
-        targetPath = validateProjectPath(targetPath);
-      } catch (error) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Invalid project path',
-          error: error.message
-        });
-      }
     }
     
     console.log('Scan type:', code ? 'code string' : 'file path');
@@ -451,7 +409,7 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
     // Load the profile
     let profile;
     try {
-      profile = await profileManager.loadProfile(safeProfileId);
+      profile = await profileManager.loadProfile(profileId);
       console.log(`Loaded profile: ${profile.name}`);
     } catch (error) {
       console.log(`Profile ${profileId} not found, using default`);
@@ -474,20 +432,8 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
     
     // CREATE TEMP FILE FOR SEMGREP WHEN CODE STRING PROVIDED
     if (code && !targetPath && semgrepAvailable) {
-      // ✅ SECURITY FIX: Validate filename to prevent path traversal
-      let safeFilename;
-      try {
-        safeFilename = validateFilename(filename);
-      } catch (error) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Invalid filename',
-          error: error.message
-        });
-      }
-      
       tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'neperia-'));
-      const tempFile = path.join(tempDir, safeFilename);
+      const tempFile = path.join(tempDir, filename);
       await fs.writeFile(tempFile, code);
       actualTargetPath = tempDir;
       console.log('Created temp file for Semgrep:', tempFile);
@@ -613,16 +559,9 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
         // Read file content
         let fileContent = code;
         if (!fileContent && actualTargetPath) {
-          // ✅ SECURITY FIX: Sanitize file path to prevent traversal
-          let filePath;
-          try {
-            filePath = path.isAbsolute(finding.file)
-              ? finding.file
-              : sanitizeFilePath(finding.file, actualTargetPath);
-          } catch (error) {
-            console.warn(`Invalid file path in finding: ${finding.file}`);
-            filePath = path.join(actualTargetPath, path.basename(finding.file));
-          }
+          const filePath = path.isAbsolute(finding.file) 
+            ? finding.file 
+            : path.join(actualTargetPath, finding.file);
           fileContent = await fs.readFile(filePath, 'utf8').catch(() => '');
         }
         
@@ -652,20 +591,10 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
       }
       
       // Merge with manual context
-      let finalContext = {
+      const finalContext = {
         ...inferredContext,
         ...manualContext
       };
-
-      // ✅ Apply profile's enabled filters (business policy overrides technical detection)
-      if (profile.contextFactors?.enabled) {
-        Object.entries(profile.contextFactors.enabled).forEach(([factor, enabled]) => {
-          if (enabled === false) {
-            // Profile explicitly disables this factor - remove from context
-            delete finalContext[factor];
-          }
-        });
-      }
         
         // Calculate risk with minimal context
         const vulnData = {

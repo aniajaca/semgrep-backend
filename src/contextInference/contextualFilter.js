@@ -10,6 +10,7 @@
 const path = require('path');
 const fs = require('fs').promises;
 const ConstantBranchDetector = require('./constantBranchDetector');
+const ReachabilityAnalyzer = require('./reachabilityAnalyzer');
 
 /**
  * EnhancedContextualFilter - Four-Category Signal Architecture
@@ -63,6 +64,7 @@ class EnhancedContextualFilter {
     
 // Initialize constant branch detector
       this.constantBranchDetector = new ConstantBranchDetector();
+      this.reachabilityAnalyzer = new ReachabilityAnalyzer();
 
     // Statistics
     this.stats = {
@@ -385,6 +387,19 @@ class EnhancedContextualFilter {
     const filtered = [];
     const startTime = Date.now();
     
+    // Compute reachability ONCE per scan (cached for all findings)
+    let reachability = null;
+    try {
+      reachability = await this.reachabilityAnalyzer.analyzeProject(projectPath);
+      if (this.config.verbose) {
+        console.log(`[REACHABILITY] Total: ${reachability.totalFiles}, Reachable: ${reachability.reachableCount}, Entrypoints: ${reachability.entrypointCount}`);
+      }
+    } catch (err) {
+      if (this.config.verbose) {
+        console.log(`[REACHABILITY WARN] ${err.message}`);
+      }
+    }
+    
     if (this.config.verbose) {
       console.log(`\n=== ENHANCED CONTEXTUAL FILTERING STARTED ===`);
       console.log(`Input findings: ${findings.length}`);
@@ -398,7 +413,7 @@ class EnhancedContextualFilter {
     }
     
     for (const finding of findings) {
-      const decision = await this.shouldFilter(finding, projectPath, contextInference);
+      const decision = await this.shouldFilter(finding, projectPath, contextInference, reachability);
       
       if (decision.action === 'FILTER') {
         this.stats.filtered++;
@@ -501,7 +516,10 @@ class EnhancedContextualFilter {
   /**
    * Determine if a finding should be filtered
    */
-  async shouldFilter(finding, projectPath, contextInference) {
+  async shouldFilter(finding, projectPath, contextInference, reachability = null) {
+    // ========================================
+    // Rule 0: REMOVED - Using reachability-based approach instead
+    
     // Rule 1: Test files (EXCLUDE OWASP Benchmark)
     if (this.config.filterTestFiles) {
       const testFileCheck = this.isTestFile(finding.file);
@@ -546,7 +564,8 @@ class EnhancedContextualFilter {
       const injectionCheck = await this.checkInjectionContextEnhanced(
         finding,
         projectPath,
-        contextInference
+        contextInference,
+        reachability
       );
       
       // FIXED: Handle both FILTER and DOWNGRADE actions properly
@@ -601,7 +620,7 @@ class EnhancedContextualFilter {
   /**
    * ENHANCED: Check injection vulnerability context with protection detection
    */
-  async checkInjectionContextEnhanced(finding, projectPath, contextInference) {
+  async checkInjectionContextEnhanced(finding, projectPath, contextInference, reachability = null) {
     const isInjection = this.isInjectionVulnerability(finding);
     if (!isInjection) {
       return { shouldFilter: false };
@@ -711,6 +730,21 @@ class EnhancedContextualFilter {
         signals.details.push('Located in configuration');
       }
       
+      // Signal 3d: Trusted internal modules (NEW!)
+      // These are utility modules that receive pre-validated inputs from trusted callers
+      if ((filepath.includes('manager.js') || 
+           filepath.includes('collector.js') || 
+           filepath.includes('detector.js') ||
+           filepath.includes('/lib/') ||
+           filepath.endsWith('utils.js')) &&
+          !filepath.includes('server.js') &&
+          !filepath.includes('controller') &&
+          !filepath.includes('handler')) {
+        contextSignalDetected = true;
+        contextConfidence = Math.max(contextConfidence, 0.75);  // High confidence for internal utilities
+        signals.details.push('Located in trusted internal module');
+      }
+      
       if (contextSignalDetected) {
         signals.categories.push('safe-context');
         signals.scores['safe-context'] = contextConfidence;
@@ -744,18 +778,46 @@ class EnhancedContextualFilter {
       }
       
       // ========================================
-      // DECISION LOGIC: Protection-First Approach
+      // DECISION LOGIC: Reachability-First Approach
       // ========================================
       const activeCategoryCount = signals.categories.length;
       const hasProtection = signals.categories.includes('has-protection');
       const protectionConfidence = signals.scores['has-protection'] || 0;
+      const notReachable = signals.categories.includes('not-reachable');
+      const hasNoUserInput = signals.categories.includes('no-user-input');
       
       // Calculate average confidence
       const avgConfidence = Object.keys(signals.scores).length > 0
         ? Object.values(signals.scores).reduce((a, b) => a + b, 0) / Object.keys(signals.scores).length
         : 0;
       
-      // PRIORITY 1: Protection detected (most important signal)
+      // PRIORITY 0: Reachability + No Input (STRONGEST signal for FP)
+      // If code is not reachable from entrypoints AND has no user input, it's very likely noise
+      if (notReachable && hasNoUserInput) {
+        return {
+          action: 'FILTER',
+          reason: 'not-reachable-and-no-user-input',
+          categories: signals.categories,
+          details: signals.details.join('; '),
+          confidence: 0.90,
+          message: 'HIGH CONFIDENCE FP: Code unreachable from entrypoints with no user input'
+        };
+      }
+      
+      // Reachable but has user input → DOWNGRADE (lower priority)
+      if (notReachable && !hasNoUserInput) {
+        return {
+          action: 'DOWNGRADE',
+          reason: 'not-reachable-but-input-present',
+          categories: signals.categories,
+          details: signals.details.join('; '),
+          confidence: 0.70,
+          severityAdjustment: -1,
+          message: 'MODERATE FP: Code unreachable but contains input patterns'
+        };
+      }
+      
+      // PRIORITY 1: Protection detected (second most important signal)
       if (hasProtection) {
         // CRITICAL FIX: Check if ONLY weak security library evidence (no real protection)
         const protectionTypes = (signals.details.join(' ') || '').toLowerCase();
@@ -1154,6 +1216,48 @@ class EnhancedContextualFilter {
     }
     
     return { shouldFilter: false };
+  }
+  
+
+  /**
+   * Check if file is a trusted internal module
+   * These modules operate on pre-validated data from application boundaries
+   */
+  isTrustedInternalModule(filepath) {
+    const lower = filepath.toLowerCase();
+    const basename = path.basename(lower);
+    
+    // Exclude public-facing code (these ARE vulnerable if not validated)
+    if (basename === 'server.js' || 
+        lower.includes('controller') || 
+        lower.includes('handler') ||
+        lower.includes('servlet') ||
+        lower.includes('endpoint')) {
+      return { isTrusted: false };
+    }
+    
+    // Trusted internal utility patterns - check BASENAME
+    if (basename.includes('manager.js') ||
+        basename.includes('collector.js') ||
+        basename.includes('detector.js') ||
+        lower.includes('/lib/inputvalidation') ||
+        lower.includes('/lib/normalize')) {
+      
+      let reason = '';
+      if (basename.includes('manager.js')) reason = 'Profile/resource manager - operates on validated IDs';
+      else if (basename.includes('collector.js')) reason = 'Data collector - operates on validated paths';
+      else if (basename.includes('detector.js')) reason = 'Pattern detector - internal analysis only';
+      else if (lower.includes('/lib/inputvalidation')) reason = 'Validation library itself';
+      else if (lower.includes('/lib/normalize')) reason = 'Normalization utilities';
+      
+      return {
+        isTrusted: true,
+        pattern: basename,
+        details: reason
+      };
+    }
+    
+    return { isTrusted: false };
   }
   
   /**

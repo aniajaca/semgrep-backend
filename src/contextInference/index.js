@@ -77,16 +77,30 @@ class ContextInferenceSystem {
         }
       }
 
-      // Apply repo-level context
-      if (repoPath) {
-        const repoContext = await this.repoCollector.collectRepoContext(repoPath);
-        if (repoContext.production) {
-          result.production = repoContext.production;
-        }
-        if (repoContext.regulated) {
-          result.regulated = repoContext.regulated;
-        }
-      }
+    // Apply repo-level context
+if (repoPath) {
+  const repoContext = await this.repoCollector.collectRepoContext(repoPath);
+  
+  // Merge ALL repo-level context factors
+  if (repoContext.production) {
+    result.production = repoContext.production;
+  }
+  if (repoContext.internetFacing) {
+    // Don't overwrite file-level detection if already found
+    if (!result.internetFacing) {
+      result.internetFacing = repoContext.internetFacing;
+    }
+  }
+  if (repoContext.handlesPII) {
+    // Don't overwrite file-level detection if already found
+    if (!result.handlesPI) {
+      result.handlesPI = repoContext.handlesPII;
+    }
+  }
+  if (repoContext.regulated) {
+    result.regulated = repoContext.regulated;
+  }
+}
 
     } catch (error) {
       console.error(`Context inference error for ${finding.file}:`, error.message);
