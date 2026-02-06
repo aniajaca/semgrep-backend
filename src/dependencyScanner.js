@@ -152,11 +152,96 @@ function normSev(s) {
 // ═══════════════════════════════════════════════════════════════
 
 /**
+ * Fetch full vulnerability details from OSV for a single vuln ID.
+ * The batch API only returns minimal info; this gets summary/details.
+ */
+async function fetchOSVVulnDetails(vulnId) {
+  try {
+    const controller = new AbortControllerImpl();
+    const timeout = setTimeout(() => controller.abort(), 5000); // 5s per vuln
+
+    const response = await fetchFn(`${OSV_API_BASE}/vulns/${vulnId}`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      signal: controller.signal
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return await response.json();
+  } catch (err) {
+    // Fail silently — we'll use the minimal data we have
+    return null;
+  }
+}
+
+/**
+ * Hydrate minimal OSV vulns with full details (summary, details, references).
+ * Fetches in parallel with concurrency limit to avoid overwhelming OSV API.
+ */
+async function hydrateVulnDetails(minimalVulns, concurrencyLimit = 10) {
+  if (!minimalVulns || minimalVulns.length === 0) return [];
+
+  const debugOSV = process.env.DEBUG_OSV === '1';
+  let debuggedFirst = false;
+
+  const hydrated = [];
+
+  // Process in chunks to limit concurrency
+  for (let i = 0; i < minimalVulns.length; i += concurrencyLimit) {
+    const chunk = minimalVulns.slice(i, i + concurrencyLimit);
+
+    const promises = chunk.map(async (vuln) => {
+      const vulnId = vuln.id;
+      if (!vulnId) return vuln;
+
+      const fullDetails = await fetchOSVVulnDetails(vulnId);
+
+      if (fullDetails) {
+        // Debug logging for first vuln only
+        if (debugOSV && !debuggedFirst) {
+          debuggedFirst = true;
+          console.log('\n[DEBUG_OSV] First vulnerability details:');
+          console.log('  vuln.id:', vulnId);
+          console.log('  keys in fullDetails:', Object.keys(fullDetails));
+          console.log('  summary length:', (fullDetails.summary || '').length);
+          console.log('  details length:', (fullDetails.details || '').length);
+          console.log('  summary preview:', (fullDetails.summary || '').substring(0, 100));
+        }
+
+        // Merge full details into the minimal vuln object
+        return {
+          ...vuln,
+          summary: fullDetails.summary || vuln.summary,
+          details: fullDetails.details || vuln.details,
+          references: fullDetails.references || vuln.references,
+          severity: fullDetails.severity || vuln.severity,
+          database_specific: fullDetails.database_specific || vuln.database_specific,
+          affected: fullDetails.affected || vuln.affected
+        };
+      }
+
+      return vuln;
+    });
+
+    const results = await Promise.all(promises);
+    hydrated.push(...results);
+  }
+
+  return hydrated;
+}
+
+/**
  * Query the OSV batch endpoint.
  * @param {Array<{name:string, ecosystem:string, version?:string}>} packages
+ * @param {boolean} hydrateDetails - Whether to fetch full details for each vuln
  * @returns {Array<{package:object, vulns:Array}>}  Parallel array with OSV results.
  */
-async function queryOSVBatch(packages) {
+async function queryOSVBatch(packages, hydrateDetails = true) {
   if (!packages || packages.length === 0) return [];
 
   const allResults = [];
@@ -199,6 +284,15 @@ async function queryOSVBatch(packages) {
       // Pad if OSV returned fewer results than sent queries
       while (results.length < batch.length) {
         results.push({ vulns: [] });
+      }
+
+      // Hydrate each result's vulns with full details
+      if (hydrateDetails) {
+        for (const result of results) {
+          if (result.vulns && result.vulns.length > 0) {
+            result.vulns = await hydrateVulnDetails(result.vulns);
+          }
+        }
       }
 
       allResults.push(...results);
@@ -319,6 +413,20 @@ function normalizeOSVVuln(osvVuln, packageName, installedVersion, ecosystem) {
       : `See: ${osvVuln.references[0].url}`;
   }
 
+  // Build description with smart fallback
+  let description = 'No description available';
+  if (osvVuln.summary && osvVuln.summary.trim()) {
+    description = osvVuln.summary.trim();
+  } else if (osvVuln.details && osvVuln.details.trim()) {
+    // Truncate long details to ~300 chars for UI friendliness
+    const details = osvVuln.details.trim();
+    if (details.length > 300) {
+      description = details.substring(0, 297) + '...';
+    } else {
+      description = details;
+    }
+  }
+
   return {
     package: packageName,
     installedVersion: installedVersion || 'unknown',
@@ -327,7 +435,7 @@ function normalizeOSVVuln(osvVuln, packageName, installedVersion, ecosystem) {
       id: vulnId,
       osvId: osvVuln.id,
       severity,
-      description: osvVuln.summary || osvVuln.details || 'No description available',
+      description,
       cvss: cvss || undefined,
       remediation: remediation || 'Check package repository for updates',
       aliases: osvVuln.aliases || [],
@@ -1129,12 +1237,25 @@ class DependencyScanner {
       if (dist.hasOwnProperty(sev)) dist[sev]++;
     }
 
+    // Calculate risk to ensure consistency
+    const riskCalc = calculateDependencyRiskScore(vulnerabilities);
+    
+    // needsImmediateAction should be true if:
+    // - risk level is critical or high, OR
+    // - there are any critical findings, OR
+    // - there are more than 2 high findings
+    const needsImmediateAction = 
+      riskCalc.level === 'critical' || 
+      riskCalc.level === 'high' ||
+      dist.critical > 0 || 
+      dist.high > 2;
+
     return {
       ecosystem,
       totalDependencies: totalDeps,
       totalVulnerabilities: vulnerabilities.length,
       severityDistribution: dist,
-      needsImmediateAction: dist.critical > 0 || dist.high > 2
+      needsImmediateAction
     };
   }
 
@@ -1147,6 +1268,14 @@ class DependencyScanner {
     }
 
     const riskCalc = calculateDependencyRiskScore(vulnerabilities);
+    
+    // needsImmediateAction should be consistent with risk level
+    // True if: risk is critical/high, OR any critical findings, OR many high findings
+    const needsImmediateAction = 
+      riskCalc.level === 'critical' || 
+      riskCalc.level === 'high' ||
+      dist.critical > 0 || 
+      dist.high > 2;
 
     return {
       totalDependencies: totalDeps,
@@ -1154,7 +1283,7 @@ class DependencyScanner {
       severityDistribution: dist,
       riskScore: riskCalc.score,
       riskLevel: riskCalc.level.toUpperCase(),
-      needsImmediateAction: dist.critical > 0 || dist.high > 2,
+      needsImmediateAction,
       recommendation: riskCalc.recommendation
     };
   }
@@ -1258,10 +1387,12 @@ function calculateDependencyRiskScore(vulnerabilities) {
   const severityPoints = { critical: 40, high: 20, medium: 10, low: 5, info: 1 };
   let score = 0;
   const details = { critical: [], high: [], medium: [], low: [] };
+  const counts = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
 
   for (const vuln of vulnerabilities) {
     const sev = normSev(vuln.vulnerability?.severity);
     score += severityPoints[sev] || 5;
+    if (counts.hasOwnProperty(sev)) counts[sev]++;
     if (sev !== 'info' && details[sev]) {
       details[sev].push(vuln.package);
     }
@@ -1274,10 +1405,22 @@ function calculateDependencyRiskScore(vulnerabilities) {
   else if (score > 0) level = 'low';
   else level = 'none';
 
+  // needsImmediateAction is true if:
+  // - calculated risk level is critical or high, OR
+  // - there are any critical-severity findings, OR
+  // - there are more than 2 high-severity findings
+  const needsImmediateAction = 
+    level === 'critical' || 
+    level === 'high' ||
+    counts.critical > 0 || 
+    counts.high > 2;
+
   return {
     score,
     level,
     details,
+    counts,
+    needsImmediateAction,
     recommendation: score > 50
       ? 'Immediate action required to update vulnerable dependencies'
       : score > 20
