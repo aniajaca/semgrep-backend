@@ -28,4 +28,4 @@ coverage/
 
 # Test reports
 test-results/
-*.lcov
+*.lcovvalidation/repos/
