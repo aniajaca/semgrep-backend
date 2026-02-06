@@ -784,14 +784,19 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
   }
 });
 
+
 /**
- * Enhanced dependency scanning endpoint
+ * Multi-language dependency scanning endpoint
+ * Supports: npm (JavaScript), PyPI (Python), Maven (Java)
+ * Uses OSV (https://osv.dev) for real vulnerability data.
+ * Backward compatible: existing callers sending only packageJson still work.
  */
 app.post('/scan-dependencies', createRateLimiter(50, 60000), async (req, res) => {
   console.log('=== DEPENDENCY SCAN REQUEST RECEIVED ===');
-  
+
   try {
     const {
+      // ── Existing parameters (backward compat) ──
       packageJson,
       packageLock,
       lockFile,
@@ -799,126 +804,150 @@ app.post('/scan-dependencies', createRateLimiter(50, 60000), async (req, res) =>
       path: projectPath,
       includeDevDependencies = false,
       riskConfig = {},
-      context = {}
+      context = {},
+      // ── New parameters for multi-language SCA ──
+      requirementsTxt,
+      pomXml
     } = req.body;
-    
-    // Handle file-based scanning
+
+    // ── Auto-detect manifest files from project path ──
     let pkgJson = packageJson;
     let lockData = packageLock || lockFile;
-    
-    if (projectPath && !packageJson) {
-      try {
-        const pkgPath = path.join(projectPath, 'package.json');
-        const pkgContent = await fs.readFile(pkgPath, 'utf8');
-        pkgJson = JSON.parse(pkgContent);
-        
-        // Try to find lock file
-        const lockPaths = [
-          path.join(projectPath, 'package-lock.json'),
-          path.join(projectPath, 'yarn.lock'),
-          path.join(projectPath, 'pnpm-lock.yaml')
+    let detectedLockType = lockFileType;
+    let reqTxt = requirementsTxt;
+    let pomData = pomXml;
+
+    if (projectPath) {
+      // npm: package.json
+      if (!pkgJson) {
+        try {
+          const pkgPath = path.join(projectPath, 'package.json');
+          const pkgContent = await fs.readFile(pkgPath, 'utf8');
+          pkgJson = JSON.parse(pkgContent);
+          console.log('Auto-detected package.json');
+        } catch (_) { /* not an npm project, that's fine */ }
+      }
+
+      // npm: lock files
+      if (pkgJson && !lockData) {
+        const lockCandidates = [
+          { file: 'package-lock.json', type: 'npm' },
+          { file: 'yarn.lock',         type: 'yarn' },
+          { file: 'pnpm-lock.yaml',    type: 'pnpm' }
         ];
-        
-        for (const lockPath of lockPaths) {
+        for (const candidate of lockCandidates) {
           try {
-            lockData = await fs.readFile(lockPath, 'utf8');
-            if (lockPath.includes('yarn')) lockFileType = 'yarn';
-            if (lockPath.includes('pnpm')) lockFileType = 'pnpm';
+            lockData = await fs.readFile(path.join(projectPath, candidate.file), 'utf8');
+            detectedLockType = candidate.type;
+            console.log(`Auto-detected lock file: ${candidate.file}`);
             break;
-          } catch (e) {
-            // Continue to next lock file
-          }
+          } catch (_) { /* try next */ }
         }
-      } catch (error) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Could not read package.json from path',
-          error: error.message
-        });
+      }
+
+      // Python: requirements.txt
+      if (!reqTxt) {
+        try {
+          reqTxt = await fs.readFile(path.join(projectPath, 'requirements.txt'), 'utf8');
+          console.log('Auto-detected requirements.txt');
+        } catch (_) { /* not a Python project */ }
+      }
+
+      // Java: pom.xml
+      if (!pomData) {
+        try {
+          pomData = await fs.readFile(path.join(projectPath, 'pom.xml'), 'utf8');
+          console.log('Auto-detected pom.xml');
+        } catch (_) { /* not a Maven project */ }
       }
     }
-    
-    if (!pkgJson) {
+
+    // Parse packageJson if provided as a string
+    if (typeof pkgJson === 'string') {
+      try { pkgJson = JSON.parse(pkgJson); } catch (e) {
+        return res.status(400).json({ status: 'error', message: 'Invalid package.json JSON', error: e.message });
+      }
+    }
+
+    // At least one manifest must be present
+    if (!pkgJson && !reqTxt && !pomData) {
       return res.status(400).json({
         status: 'error',
-        message: 'No package.json provided or found'
+        message: 'No dependency manifest provided or found. Supply packageJson, requirementsTxt, pomXml, or a project path containing them.'
       });
     }
-    
-    // Parse packageJson if string
-    if (typeof pkgJson === 'string') {
-      pkgJson = JSON.parse(pkgJson);
-    }
-    
-    // Scan dependencies
-    const scanResults = await depScanner.scanDependencies(pkgJson, {
-      includeDevDependencies
+
+    console.log('Ecosystems detected:',
+      [pkgJson && 'npm', reqTxt && 'pypi', pomData && 'maven'].filter(Boolean).join(', '));
+
+    // ── Run multi-language scan ──
+    const scanResults = await depScanner.scanMultiLanguage({
+      packageJson: pkgJson,
+      requirementsTxt: reqTxt,
+      pomXml: pomData,
+      includeDevDependencies,
+      lockFile: lockData,
+      lockFileType: detectedLockType
     });
-    
-    // Process lock file if provided
-    if (lockData) {
-      try {
-        const lockVulns = await depScanner.scanLockFile(lockData, lockFileType);
-        if (lockVulns && lockVulns.length > 0) {
-          scanResults.vulnerabilities.push(...lockVulns);
-          scanResults.vulnerabilities = depScanner.deduplicateVulnerabilities(scanResults.vulnerabilities);
-          scanResults.summary.totalVulnerabilities = scanResults.vulnerabilities.length;
-        }
-      } catch (lockError) {
-        console.warn('Lock file scan failed:', lockError.message);
-      }
-    }
-    
-    // Sanitize configurations
+
+    // ── Risk scoring (applies to ALL ecosystems uniformly) ──
     const sanitizedConfig = sanitizeRiskConfig(riskConfig);
     const sanitizedContext = sanitizeContextFactors(context);
-    
-    // Calculate risk scores
     const calc = new EnhancedRiskCalculator(sanitizedConfig);
-    
-    // Score each vulnerability
+
     const scoredVulnerabilities = scanResults.vulnerabilities.map(vuln => {
-      const cweId = extractCweId(vuln.cwe || vuln.cweId);
-      
+      // Extract fields from the unified format
+      const vulnDetail = vuln.vulnerability || {};
+      const severity = normalizeSeverity(vulnDetail.severity);
+      const cvss = vulnDetail.cvss || null;
+
+      // CWE: OSV doesn't always provide CWE, so use a generic fallback
+      const cweId = extractCweId(vuln.cwe || vuln.cweId || 'CWE-1035'); // CWE-1035 = Using Software with Known Vulnerabilities
+
       const v = {
-        severity: normalizeSeverity(vuln.severity),
+        severity,
         cwe: cweId,
         cweId: cweId,
-        cvss: vuln.cvss
+        cvss: cvss
       };
-      
+
       const riskResult = calc.calculateVulnerabilityRisk(v, sanitizedContext);
-      
+
       return {
         ...vuln,
-        cwe: cweId,  // Ensure CWE is a string
-        cvssBase: vuln.cvss?.baseScore || riskResult.original.cvss,
+        cwe: cweId,
+        severity: severity,   // Promote to top level for backward compat
+        cvssBase: cvss?.baseScore || riskResult.original.cvss,
         adjustedScore: riskResult.adjusted.score,
         adjustedSeverity: riskResult.adjusted.severity,
         priority: riskResult.adjusted.priority.priority,
-        remediation: riskResult.remediation
+        remediation: vulnDetail.remediation || riskResult.remediation
       };
     });
-    
-    // Sort by adjusted score
+
     scoredVulnerabilities.sort((a, b) => b.adjustedScore - a.adjustedScore);
-    
-    // Get severity distribution
-    const dist = scanResults.summary?.severityDistribution || {
-      critical: 0,
-      high: 0,
-      medium: 0,
-      low: 0,
-      info: 0
-    };
-    
-    // Calculate overall risk
+
+    // ── Severity distribution from scored results ──
+    const dist = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+    scoredVulnerabilities.forEach(v => {
+      const sev = normalizeSeverity(v.adjustedSeverity);
+      if (dist.hasOwnProperty(sev)) dist[sev]++;
+    });
+
+    // ── Overall risk ──
     const { score, risk } = calc.calculateFromSeverityDistribution(dist, sanitizedContext);
-    
-    // Build enhanced results
-    const enhancedResults = {
-      ...scanResults,
+
+    // ── Build response ──
+    const ecosystemsScanned = [
+      pkgJson && 'npm',
+      reqTxt && 'pypi',
+      pomData && 'maven'
+    ].filter(Boolean);
+
+    res.json({
+      status: 'success',
       vulnerabilities: scoredVulnerabilities,
+      ecosystemResults: scanResults.ecosystemResults,
       score,
       risk,
       summary: {
@@ -930,27 +959,26 @@ app.post('/scan-dependencies', createRateLimiter(50, 60000), async (req, res) =>
         adjustedRiskIndex: calculateRiskIndex(scoredVulnerabilities),
         top5: scoredVulnerabilities.slice(0, 5).map(v => ({
           package: v.package,
-          vulnerability: v.vulnerability,
+          ecosystem: v.ecosystem,
+          vulnerability: v.vulnerability?.id || v.vulnerability,
           severity: v.adjustedSeverity,
           score: v.adjustedScore
         }))
-      }
-    };
-    
-    res.json({
-      status: 'success',
-      ...enhancedResults,
+      },
+      warnings: scanResults.warnings || [],
       metadata: {
         scanned_at: new Date().toISOString(),
+        ecosystems: ecosystemsScanned,
         configuration: {
           customConfig: Object.keys(riskConfig).length > 0,
           contextProvided: Object.keys(context).length > 0,
           includeDevDependencies,
-          lockFileScanned: !!lockData
+          lockFileScanned: !!lockData,
+          osvApiUsed: true
         }
       }
     });
-    
+
   } catch (error) {
     console.error('Dependency scan error:', error);
     res.status(500).json({
@@ -1574,7 +1602,7 @@ app.get('/', (req, res) => {
     status: 'operational',
     endpoints: {
       'POST /scan-code': 'Scan code with AST or Semgrep with context inference',
-      'POST /scan-dependencies': 'Scan dependencies for vulnerabilities',
+      'POST /scan-dependencies': 'Multi-language dependency scan (npm/PyPI/Maven) via OSV',
       'POST /scan': 'Combined code and dependency scanning',
       'POST /scan-file': 'Scan uploaded file content',
       'POST /scan-batch': 'Batch scan multiple files',
@@ -1591,7 +1619,7 @@ app.get('/', (req, res) => {
     features: [
       'Production Semgrep integration (2000+ rules)',
       'AST-based vulnerability detection',
-      'Dependency vulnerability scanning',
+      'Multi-language dependency scanning (npm, PyPI, Maven) via OSV',
       'Context-aware risk scoring with automatic inference',
       'Risk profile management and simulation',
       'User-configurable risk scoring',

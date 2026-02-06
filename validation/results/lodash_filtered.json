@@ -1,0 +1,1016 @@
+{
+  "target": "validation/repos/lodash",
+  "timestamp": "2026-01-08T13:26:41.186Z",
+  "scanDuration": "27.5s",
+  "filterEnabled": true,
+  "findings": [
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.prototype-pollution.prototype-pollution-loop.prototype-pollution-loop",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Possibility of prototype polluting function detected. By adding or modifying attributes of an object prototype, it is possible to create attributes that exist on every object, or replace critical attributes with malicious ones. This can be problematic if the software depends on existence or non-existence of certain attributes, or uses pre-defined attributes of object prototype (such as hasOwnProperty, toString or valueOf). Possible mitigations might be: freezing the object prototype, using an object without prototypes (via Object.create(null) ), blocking modifications of attributes that resolve to object prototype, using Map instead of object.",
+      "cwe": [
+        "CWE-915"
+      ],
+      "owasp": [
+        "A08:2021 - Software and Data Integrity Failures"
+      ],
+      "file": "validation/repos/lodash/fp/_baseConvert.js",
+      "startLine": 365,
+      "endLine": 365,
+      "startColumn": 7,
+      "endColumn": 27,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "LOW",
+      "likelihood": "LOW",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-doc.js",
+      "startLine": 74,
+      "endLine": 74,
+      "startColumn": 25,
+      "endColumn": 31,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 114,
+      "endLine": 114,
+      "startColumn": 25,
+      "endColumn": 31,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 116,
+      "endLine": 116,
+      "startColumn": 28,
+      "endColumn": 34,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 119,
+      "endLine": 119,
+      "startColumn": 43,
+      "endColumn": 49,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 122,
+      "endLine": 122,
+      "startColumn": 24,
+      "endColumn": 30,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 129,
+      "endLine": 129,
+      "startColumn": 36,
+      "endColumn": 42,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 138,
+      "endLine": 138,
+      "startColumn": 33,
+      "endColumn": 39,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 142,
+      "endLine": 142,
+      "startColumn": 37,
+      "endColumn": 43,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 143,
+      "endLine": 143,
+      "startColumn": 37,
+      "endColumn": 43,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 144,
+      "endLine": 144,
+      "startColumn": 37,
+      "endColumn": 43,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 145,
+      "endLine": 145,
+      "startColumn": 37,
+      "endColumn": 43,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/main/build-modules.js",
+      "startLine": 29,
+      "endLine": 29,
+      "startColumn": 34,
+      "endColumn": 40,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "RegExp() called with a `context` function argument, this might allow an attacker to cause a Regular Expression Denial-of-Service (ReDoS) within your application as RegExP blocks the main thread. For this reason, it is recommended to use hardcoded regexes instead. If your regex is run on user-controlled input, consider performing input validation or use a regex checking/sanitization library such as https://www.npmjs.com/package/recheck to verify that the regex does not appear vulnerable to ReDoS.",
+      "cwe": [
+        "CWE-1333"
+      ],
+      "owasp": [
+        "A05:2021 - Security Misconfiguration",
+        "A06:2017 - Security Misconfiguration"
+      ],
+      "file": "validation/repos/lodash/lodash.js",
+      "startLine": 1499,
+      "endLine": 1502,
+      "startColumn": 22,
+      "endColumn": 6,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.prototype-pollution.prototype-pollution-loop.prototype-pollution-loop",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Possibility of prototype polluting function detected. By adding or modifying attributes of an object prototype, it is possible to create attributes that exist on every object, or replace critical attributes with malicious ones. This can be problematic if the software depends on existence or non-existence of certain attributes, or uses pre-defined attributes of object prototype (such as hasOwnProperty, toString or valueOf). Possible mitigations might be: freezing the object prototype, using an object without prototypes (via Object.create(null) ), blocking modifications of attributes that resolve to object prototype, using Map instead of object.",
+      "cwe": [
+        "CWE-915"
+      ],
+      "owasp": [
+        "A08:2021 - Software and Data Integrity Failures"
+      ],
+      "file": "validation/repos/lodash/lodash.js",
+      "startLine": 3077,
+      "endLine": 3077,
+      "startColumn": 9,
+      "endColumn": 46,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "LOW",
+      "likelihood": "LOW",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.prototype-pollution.prototype-pollution-loop.prototype-pollution-loop",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Possibility of prototype polluting function detected. By adding or modifying attributes of an object prototype, it is possible to create attributes that exist on every object, or replace critical attributes with malicious ones. This can be problematic if the software depends on existence or non-existence of certain attributes, or uses pre-defined attributes of object prototype (such as hasOwnProperty, toString or valueOf). Possible mitigations might be: freezing the object prototype, using an object without prototypes (via Object.create(null) ), blocking modifications of attributes that resolve to object prototype, using Map instead of object.",
+      "cwe": [
+        "CWE-915"
+      ],
+      "owasp": [
+        "A08:2021 - Software and Data Integrity Failures"
+      ],
+      "file": "validation/repos/lodash/lodash.js",
+      "startLine": 4049,
+      "endLine": 4049,
+      "startColumn": 9,
+      "endColumn": 29,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "LOW",
+      "likelihood": "LOW",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.prototype-pollution.prototype-pollution-loop.prototype-pollution-loop",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Possibility of prototype polluting function detected. By adding or modifying attributes of an object prototype, it is possible to create attributes that exist on every object, or replace critical attributes with malicious ones. This can be problematic if the software depends on existence or non-existence of certain attributes, or uses pre-defined attributes of object prototype (such as hasOwnProperty, toString or valueOf). Possible mitigations might be: freezing the object prototype, using an object without prototypes (via Object.create(null) ), blocking modifications of attributes that resolve to object prototype, using Map instead of object.",
+      "cwe": [
+        "CWE-915"
+      ],
+      "owasp": [
+        "A08:2021 - Software and Data Integrity Failures"
+      ],
+      "file": "validation/repos/lodash/lodash.js",
+      "startLine": 6234,
+      "endLine": 6234,
+      "startColumn": 9,
+      "endColumn": 29,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "LOW",
+      "likelihood": "LOW",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "RegExp() called with a `options` function argument, this might allow an attacker to cause a Regular Expression Denial-of-Service (ReDoS) within your application as RegExP blocks the main thread. For this reason, it is recommended to use hardcoded regexes instead. If your regex is run on user-controlled input, consider performing input validation or use a regex checking/sanitization library such as https://www.npmjs.com/package/recheck to verify that the regex does not appear vulnerable to ReDoS.",
+      "cwe": [
+        "CWE-1333"
+      ],
+      "owasp": [
+        "A05:2021 - Security Misconfiguration",
+        "A06:2017 - Security Misconfiguration"
+      ],
+      "file": "validation/repos/lodash/lodash.js",
+      "startLine": 14900,
+      "endLine": 14905,
+      "startColumn": 26,
+      "endColumn": 13,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "RegExp() called with a `options` function argument, this might allow an attacker to cause a Regular Expression Denial-of-Service (ReDoS) within your application as RegExP blocks the main thread. For this reason, it is recommended to use hardcoded regexes instead. If your regex is run on user-controlled input, consider performing input validation or use a regex checking/sanitization library such as https://www.npmjs.com/package/recheck to verify that the regex does not appear vulnerable to ReDoS.",
+      "cwe": [
+        "CWE-1333"
+      ],
+      "owasp": [
+        "A05:2021 - Security Misconfiguration",
+        "A06:2017 - Security Misconfiguration"
+      ],
+      "file": "validation/repos/lodash/lodash.js",
+      "startLine": 15224,
+      "endLine": 15224,
+      "startColumn": 25,
+      "endColumn": 90,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.browser.security.raw-html-concat.raw-html-concat",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "User controlled data in a HTML string may result in XSS",
+      "cwe": [
+        "CWE-79"
+      ],
+      "owasp": [
+        "A07:2017 - Cross-Site Scripting (XSS)",
+        "A03:2021 - Injection"
+      ],
+      "file": "validation/repos/lodash/perf/asset/perf-ui.js",
+      "startLine": 31,
+      "endLine": 34,
+      "startColumn": 9,
+      "endColumn": 74,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "RegExp() called with a `extension` function argument, this might allow an attacker to cause a Regular Expression Denial-of-Service (ReDoS) within your application as RegExP blocks the main thread. For this reason, it is recommended to use hardcoded regexes instead. If your regex is run on user-controlled input, consider performing input validation or use a regex checking/sanitization library such as https://www.npmjs.com/package/recheck to verify that the regex does not appear vulnerable to ReDoS.",
+      "cwe": [
+        "CWE-1333"
+      ],
+      "owasp": [
+        "A05:2021 - Security Misconfiguration",
+        "A06:2017 - Security Misconfiguration"
+      ],
+      "file": "validation/repos/lodash/perf/perf.js",
+      "startLine": 127,
+      "endLine": 127,
+      "startColumn": 24,
+      "endColumn": 79,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    }
+  ],
+  "results": [
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.prototype-pollution.prototype-pollution-loop.prototype-pollution-loop",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Possibility of prototype polluting function detected. By adding or modifying attributes of an object prototype, it is possible to create attributes that exist on every object, or replace critical attributes with malicious ones. This can be problematic if the software depends on existence or non-existence of certain attributes, or uses pre-defined attributes of object prototype (such as hasOwnProperty, toString or valueOf). Possible mitigations might be: freezing the object prototype, using an object without prototypes (via Object.create(null) ), blocking modifications of attributes that resolve to object prototype, using Map instead of object.",
+      "cwe": [
+        "CWE-915"
+      ],
+      "owasp": [
+        "A08:2021 - Software and Data Integrity Failures"
+      ],
+      "file": "validation/repos/lodash/fp/_baseConvert.js",
+      "startLine": 365,
+      "endLine": 365,
+      "startColumn": 7,
+      "endColumn": 27,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "LOW",
+      "likelihood": "LOW",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-doc.js",
+      "startLine": 74,
+      "endLine": 74,
+      "startColumn": 25,
+      "endColumn": 31,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 114,
+      "endLine": 114,
+      "startColumn": 25,
+      "endColumn": 31,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 116,
+      "endLine": 116,
+      "startColumn": 28,
+      "endColumn": 34,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 119,
+      "endLine": 119,
+      "startColumn": 43,
+      "endColumn": 49,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 122,
+      "endLine": 122,
+      "startColumn": 24,
+      "endColumn": 30,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 129,
+      "endLine": 129,
+      "startColumn": 36,
+      "endColumn": 42,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 138,
+      "endLine": 138,
+      "startColumn": 33,
+      "endColumn": 39,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 142,
+      "endLine": 142,
+      "startColumn": 37,
+      "endColumn": 43,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 143,
+      "endLine": 143,
+      "startColumn": 37,
+      "endColumn": 43,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 144,
+      "endLine": 144,
+      "startColumn": 37,
+      "endColumn": 43,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/fp/build-modules.js",
+      "startLine": 145,
+      "endLine": 145,
+      "startColumn": 37,
+      "endColumn": 43,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+      "cwe": [
+        "CWE-22"
+      ],
+      "owasp": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "validation/repos/lodash/lib/main/build-modules.js",
+      "startLine": 29,
+      "endLine": 29,
+      "startColumn": 34,
+      "endColumn": 40,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "HIGH",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "RegExp() called with a `context` function argument, this might allow an attacker to cause a Regular Expression Denial-of-Service (ReDoS) within your application as RegExP blocks the main thread. For this reason, it is recommended to use hardcoded regexes instead. If your regex is run on user-controlled input, consider performing input validation or use a regex checking/sanitization library such as https://www.npmjs.com/package/recheck to verify that the regex does not appear vulnerable to ReDoS.",
+      "cwe": [
+        "CWE-1333"
+      ],
+      "owasp": [
+        "A05:2021 - Security Misconfiguration",
+        "A06:2017 - Security Misconfiguration"
+      ],
+      "file": "validation/repos/lodash/lodash.js",
+      "startLine": 1499,
+      "endLine": 1502,
+      "startColumn": 22,
+      "endColumn": 6,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.prototype-pollution.prototype-pollution-loop.prototype-pollution-loop",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Possibility of prototype polluting function detected. By adding or modifying attributes of an object prototype, it is possible to create attributes that exist on every object, or replace critical attributes with malicious ones. This can be problematic if the software depends on existence or non-existence of certain attributes, or uses pre-defined attributes of object prototype (such as hasOwnProperty, toString or valueOf). Possible mitigations might be: freezing the object prototype, using an object without prototypes (via Object.create(null) ), blocking modifications of attributes that resolve to object prototype, using Map instead of object.",
+      "cwe": [
+        "CWE-915"
+      ],
+      "owasp": [
+        "A08:2021 - Software and Data Integrity Failures"
+      ],
+      "file": "validation/repos/lodash/lodash.js",
+      "startLine": 3077,
+      "endLine": 3077,
+      "startColumn": 9,
+      "endColumn": 46,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "LOW",
+      "likelihood": "LOW",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.prototype-pollution.prototype-pollution-loop.prototype-pollution-loop",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Possibility of prototype polluting function detected. By adding or modifying attributes of an object prototype, it is possible to create attributes that exist on every object, or replace critical attributes with malicious ones. This can be problematic if the software depends on existence or non-existence of certain attributes, or uses pre-defined attributes of object prototype (such as hasOwnProperty, toString or valueOf). Possible mitigations might be: freezing the object prototype, using an object without prototypes (via Object.create(null) ), blocking modifications of attributes that resolve to object prototype, using Map instead of object.",
+      "cwe": [
+        "CWE-915"
+      ],
+      "owasp": [
+        "A08:2021 - Software and Data Integrity Failures"
+      ],
+      "file": "validation/repos/lodash/lodash.js",
+      "startLine": 4049,
+      "endLine": 4049,
+      "startColumn": 9,
+      "endColumn": 29,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "LOW",
+      "likelihood": "LOW",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.prototype-pollution.prototype-pollution-loop.prototype-pollution-loop",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "Possibility of prototype polluting function detected. By adding or modifying attributes of an object prototype, it is possible to create attributes that exist on every object, or replace critical attributes with malicious ones. This can be problematic if the software depends on existence or non-existence of certain attributes, or uses pre-defined attributes of object prototype (such as hasOwnProperty, toString or valueOf). Possible mitigations might be: freezing the object prototype, using an object without prototypes (via Object.create(null) ), blocking modifications of attributes that resolve to object prototype, using Map instead of object.",
+      "cwe": [
+        "CWE-915"
+      ],
+      "owasp": [
+        "A08:2021 - Software and Data Integrity Failures"
+      ],
+      "file": "validation/repos/lodash/lodash.js",
+      "startLine": 6234,
+      "endLine": 6234,
+      "startColumn": 9,
+      "endColumn": 29,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "LOW",
+      "likelihood": "LOW",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "RegExp() called with a `options` function argument, this might allow an attacker to cause a Regular Expression Denial-of-Service (ReDoS) within your application as RegExP blocks the main thread. For this reason, it is recommended to use hardcoded regexes instead. If your regex is run on user-controlled input, consider performing input validation or use a regex checking/sanitization library such as https://www.npmjs.com/package/recheck to verify that the regex does not appear vulnerable to ReDoS.",
+      "cwe": [
+        "CWE-1333"
+      ],
+      "owasp": [
+        "A05:2021 - Security Misconfiguration",
+        "A06:2017 - Security Misconfiguration"
+      ],
+      "file": "validation/repos/lodash/lodash.js",
+      "startLine": 14900,
+      "endLine": 14905,
+      "startColumn": 26,
+      "endColumn": 13,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "RegExp() called with a `options` function argument, this might allow an attacker to cause a Regular Expression Denial-of-Service (ReDoS) within your application as RegExP blocks the main thread. For this reason, it is recommended to use hardcoded regexes instead. If your regex is run on user-controlled input, consider performing input validation or use a regex checking/sanitization library such as https://www.npmjs.com/package/recheck to verify that the regex does not appear vulnerable to ReDoS.",
+      "cwe": [
+        "CWE-1333"
+      ],
+      "owasp": [
+        "A05:2021 - Security Misconfiguration",
+        "A06:2017 - Security Misconfiguration"
+      ],
+      "file": "validation/repos/lodash/lodash.js",
+      "startLine": 15224,
+      "endLine": 15224,
+      "startColumn": 25,
+      "endColumn": 90,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.browser.security.raw-html-concat.raw-html-concat",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "User controlled data in a HTML string may result in XSS",
+      "cwe": [
+        "CWE-79"
+      ],
+      "owasp": [
+        "A07:2017 - Cross-Site Scripting (XSS)",
+        "A03:2021 - Injection"
+      ],
+      "file": "validation/repos/lodash/perf/asset/perf-ui.js",
+      "startLine": 31,
+      "endLine": 34,
+      "startColumn": 9,
+      "endColumn": 74,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp",
+      "category": "security",
+      "severity": "HIGH",
+      "message": "RegExp() called with a `extension` function argument, this might allow an attacker to cause a Regular Expression Denial-of-Service (ReDoS) within your application as RegExP blocks the main thread. For this reason, it is recommended to use hardcoded regexes instead. If your regex is run on user-controlled input, consider performing input validation or use a regex checking/sanitization library such as https://www.npmjs.com/package/recheck to verify that the regex does not appear vulnerable to ReDoS.",
+      "cwe": [
+        "CWE-1333"
+      ],
+      "owasp": [
+        "A05:2021 - Security Misconfiguration",
+        "A06:2017 - Security Misconfiguration"
+      ],
+      "file": "validation/repos/lodash/perf/perf.js",
+      "startLine": 127,
+      "endLine": 127,
+      "startColumn": 24,
+      "endColumn": 79,
+      "snippet": "requires login",
+      "confidence": "LOW",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM",
+      "enrichedAt": "2026-01-08T13:26:41.137Z"
+    }
+  ],
+  "summary": {
+    "total": 21,
+    "beforeFilter": 21,
+    "filtered": 0,
+    "filterRate": "0.0%"
+  }
+}
