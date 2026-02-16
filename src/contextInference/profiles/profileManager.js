@@ -177,6 +177,12 @@ class ProfileManager {
           config.fileLevel.riskThresholds = profile.scoring.riskThresholds;
         }
         
+        // If profile has context multipliers, pass them to the factor system
+        // These override the default file-level multipliers in customEnvironmentalFactors.js
+        if (profile.contextMultipliers) {
+          config.contextMultipliers = profile.contextMultipliers;
+        }
+        
         return config;
       }
     
@@ -510,6 +516,7 @@ validateMonotonicity(profile, testFindings = null) {
       calculateProfileHash(profile) {
         const relevantData = {
           version: profile.version,
+          contextMultipliers: profile.contextMultipliers,
           contextFactors: profile.contextFactors,
           fileRisk: profile.fileRisk,
           slaMapping: profile.slaMapping,
@@ -567,10 +574,19 @@ validateMonotonicity(profile, testFindings = null) {
       getDefaultProfile() {
         return {
           version: "1.1.0",
-          name: "default-v1",
+          name: "default",
           description: "Default balanced security profile",
-          profileHash: null, // Will be calculated when needed
-          
+          profileHash: null,
+          contextMultipliers: {
+            internetFacing: 1.5,
+            handlesPI: 1.4,
+            production: 1.3,
+            legacyCode: 1.2,
+            businessCritical: 1.6,
+            compliance: 1.3,
+            thirdPartyIntegration: 1.2,
+            complexAuth: 1.1
+          },
           contextFactors: {
             enabled: {
               kevListed: true,

@@ -1,10 +1,19 @@
 
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "compliance",
   "description": "Maximum scrutiny profile for regulated environments subject to PCI-DSS, HIPAA, GDPR, or SOX audit requirements",
-  "profileHash": null,
-
+  "profileHash": "9b20043d9c0f",
+  "contextMultipliers": {
+    "internetFacing": 1.6,
+    "handlesPI": 1.5,
+    "production": 1.3,
+    "legacyCode": 1.3,
+    "businessCritical": 1.6,
+    "compliance": 1.5,
+    "thirdPartyIntegration": 1.3,
+    "complexAuth": 1.2
+  },
   "contextFactors": {
     "enabled": {
       "kevListed": true,
@@ -22,33 +31,31 @@
       "publicExploit": 0.25,
       "epss": 0.25,
       "internetFacing": 0.25,
-      "production": 0.20,
+      "production": 0.2,
       "handlesPI": 0.25,
       "userBaseLarge": 0.15,
       "regulated": 0.25,
-      "noAuth": 0.20
+      "noAuth": 0.2
     },
     "exploitCaps": {
       "kev": 0.25,
       "publicExploit": 0.25,
       "epss": 0.25
     },
-    "totalLiftCap": 0.70
+    "totalLiftCap": 0.7
   },
-
   "bpsWeights": {
-    "criticality": 0.40,
+    "criticality": 0.4,
     "effort": 0.25,
     "controls": 0.35
   },
-
   "fileRisk": {
     "topK": 10,
     "weights": {
-      "core": 0.50,
+      "core": 0.5,
       "density": 0.25,
       "diversity": 0.15,
-      "exposure": 0.10
+      "exposure": 0.1
     },
     "caps": {
       "density": 30,
@@ -56,7 +63,6 @@
       "exposure": 25
     }
   },
-
   "slaMapping": {
     "P0": {
       "threshold": 80,
@@ -87,7 +93,6 @@
       "notificationChannels": []
     }
   },
-
   "scoring": {
     "severityPoints": {
       "critical": 25,
@@ -104,7 +109,6 @@
       "minimal": 0
     }
   },
-
   "features": {
     "contextInference": {
       "js": { "routes": true, "auth": true, "pii": true },
@@ -112,17 +116,13 @@
       "java": { "routes": true, "auth": true, "pii": true }
     }
   },
-
   "metadata": {
     "purpose": "Profile for regulated environments requiring maximum security scrutiny and audit-ready evidence",
     "notes": [
-      "All factors enabled at maximum weights - regulatory non-compliance carries severe penalties",
-      "Lower riskThresholds mean findings escalate to higher severity bands more aggressively",
+      "Higher contextMultipliers: internetFacing 1.6 (vs 1.5 default), handlesPI 1.5 (vs 1.4), compliance 1.5 (vs 1.3)",
+      "Combined core multiplier: 1.6 x 1.5 x 1.3 = 3.12x (vs default 2.73x)",
       "P0 SLA of 3 days aligns with CISA KEV remediation guidance",
-      "P3 SLA shortened to 60 days (vs 90 default) - auditors expect no findings older than one quarter",
-      "regulated factor weight at 0.25 (maximum) - compliance scope is the primary driver",
-      "bpsWeights emphasise controls (0.35) - compensating controls carry more weight in audit contexts",
-      "handlesPI weight at 0.25 - PII/PHI handling is a primary audit concern under GDPR/HIPAA"
+      "P3 SLA shortened to 60 days - auditors expect no findings older than one quarter"
     ]
   }
 }

@@ -1,9 +1,19 @@
+
 {
   "version": "1.0.0",
   "name": "enterprise",
   "description": "Conservative profile with strict remediation SLAs for large organisations with established security programmes",
   "profileHash": null,
-
+  "contextMultipliers": {
+    "internetFacing": 1.5,
+    "handlesPI": 1.4,
+    "production": 1.3,
+    "legacyCode": 1.3,
+    "businessCritical": 1.6,
+    "compliance": 1.4,
+    "thirdPartyIntegration": 1.3,
+    "complexAuth": 1.2
+  },
   "contextFactors": {
     "enabled": {
       "kevListed": true,
@@ -34,13 +44,11 @@
     },
     "totalLiftCap": 0.70
   },
-
   "bpsWeights": {
     "criticality": 0.50,
     "effort": 0.30,
     "controls": 0.20
   },
-
   "fileRisk": {
     "topK": 10,
     "weights": {
@@ -55,7 +63,6 @@
       "exposure": 25
     }
   },
-
   "slaMapping": {
     "P0": {
       "threshold": 85,
@@ -86,7 +93,6 @@
       "notificationChannels": []
     }
   },
-
   "scoring": {
     "severityPoints": {
       "critical": 25,
@@ -103,7 +109,6 @@
       "minimal": 0
     }
   },
-
   "features": {
     "contextInference": {
       "js": { "routes": true, "auth": true, "pii": true },
@@ -111,16 +116,13 @@
       "java": { "routes": true, "auth": true, "pii": true }
     }
   },
-
   "metadata": {
     "purpose": "Profile for enterprise environments with established security teams and strict compliance requirements",
     "notes": [
-      "All context factors enabled - enterprise environments require comprehensive risk assessment",
-      "Higher weights across all factors reflect lower risk tolerance",
-      "bpsWeights included as placeholder for Phase 2 BPS calculation",
-      "Strict SLAs aligned with enterprise incident response expectations",
+      "Higher contextMultipliers for legacyCode (1.3), compliance (1.4), thirdPartyIntegration (1.3), complexAuth (1.2)",
       "P0 requires CISO approval and triggers PagerDuty notification",
-      "topK increased to 10 for broader file-level risk visibility"
+      "bpsWeights included as placeholder for Phase 2 BPS calculation"
     ]
   }
 }
+

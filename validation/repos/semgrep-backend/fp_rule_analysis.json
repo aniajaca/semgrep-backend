@@ -1,0 +1,914 @@
+{
+  "java.lang.security.audit.sqli.tainted-sql-from-http-request.tainted-sql-from-http-request": {
+    "fp_count": 150,
+    "tp_count": 238,
+    "examples": [
+      {
+        "engine": "semgrep",
+        "ruleId": "java.lang.security.audit.sqli.tainted-sql-from-http-request.tainted-sql-from-http-request",
+        "category": "security",
+        "severity": "HIGH",
+        "message": "Detected input from a HTTPServletRequest going into a SQL sink or statement. This could lead to SQL injection if variables in the SQL statement are not properly sanitized. Use parameterized SQL queries or properly sanitize user input instead.",
+        "cwe": "CWE-89",
+        "owasp": [
+          "A01:2017 - Injection",
+          "A03:2021 - Injection"
+        ],
+        "file": "/Users/aniajaca/Library/Mobile Documents/com~apple~CloudDocs/Neperia/semgrep-backend/BenchmarkJava/src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00104.java",
+        "startLine": 75,
+        "endLine": 75,
+        "startColumn": 13,
+        "endColumn": 86,
+        "snippet": "  72:           try {\n  73:               String sql = \"SELECT * from USERS where USERNAME='foo' and PASSWORD='\" + bar + \"'\";\n  74:   \n  75: \u2192             org.owasp.benchmark.helpers.DatabaseHelper.JDBCtemplate.batchUpdate(sql);\n  76:               response.getWriter()\n  77:                       .println(\n  78:                               \"No results can be displayed for query: \"",
+        "confidence": "HIGH",
+        "impact": "MEDIUM",
+        "likelihood": "HIGH",
+        "enrichedAt": "2025-12-19T18:22:52.066Z",
+        "cweId": "CWE-89",
+        "bts": 7.5,
+        "crs": 75,
+        "adjustedSeverity": "high",
+        "priority": {
+          "priority": "P0",
+          "action": "Fix immediately",
+          "sla": "4 hours"
+        },
+        "context": {},
+        "contextEvidence": {},
+        "inferredFactors": [],
+        "appliedFactors": [],
+        "remediation": {
+          "priority": {
+            "priority": "P0",
+            "action": "Fix immediately",
+            "sla": "4 hours"
+          },
+          "timeline": "48 hours - High priority fix",
+          "approach": "Use parameterized queries, avoid dynamic command construction, validate all inputs",
+          "validation": "Test with injection payloads, use automated scanning tools, code review",
+          "risk": "Can lead to complete system compromise, data breach, or service disruption",
+          "resources": {
+            "documentation": "https://cwe.mitre.org/data/definitions/89.html",
+            "owaspGuide": "https://owasp.org/www-project-top-ten/",
+            "category": "Security Category: injection"
+          },
+          "preventionMeasures": [
+            "Implement secure coding standards",
+            "Add security linting rules",
+            "Include security testing in CI/CD",
+            "Conduct regular security training",
+            "Perform periodic security audits"
+          ]
+        },
+        "sla": 7
+      },
+      {
+        "engine": "semgrep",
+        "ruleId": "java.lang.security.audit.sqli.tainted-sql-from-http-request.tainted-sql-from-http-request",
+        "category": "security",
+        "severity": "HIGH",
+        "message": "Detected input from a HTTPServletRequest going into a SQL sink or statement. This could lead to SQL injection if variables in the SQL statement are not properly sanitized. Use parameterized SQL queries or properly sanitize user input instead.",
+        "cwe": "CWE-89",
+        "owasp": [
+          "A01:2017 - Injection",
+          "A03:2021 - Injection"
+        ],
+        "file": "/Users/aniajaca/Library/Mobile Documents/com~apple~CloudDocs/Neperia/semgrep-backend/BenchmarkJava/src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00105.java",
+        "startLine": 75,
+        "endLine": 78,
+        "startColumn": 13,
+        "endColumn": 53,
+        "snippet": "  72:           String sql = \"SELECT * from USERS where USERNAME='foo' and PASSWORD='\" + bar + \"'\";\n  73:   \n  74:           try {\n  75: \u2192             java.sql.Statement statement =\n  76: \u2192                     org.owasp.benchmark.helpers.DatabaseHelper.getSqlStatement();\n  77: \u2192             statement.addBatch(sql);\n  78: \u2192             int[] counts = statement.executeBatch();\n  79:               org.owasp.benchmark.helpers.DatabaseHelper.printResults(sql, counts, response);\n  80:           } catch (java.sql.SQLException e) {\n  81:               if (org.owasp.benchmark.helpers.DatabaseHelper.hid\n... (truncated)",
+        "confidence": "HIGH",
+        "impact": "MEDIUM",
+        "likelihood": "HIGH",
+        "enrichedAt": "2025-12-19T18:22:52.066Z",
+        "cweId": "CWE-89",
+        "bts": 7.5,
+        "crs": 75,
+        "adjustedSeverity": "high",
+        "priority": {
+          "priority": "P0",
+          "action": "Fix immediately",
+          "sla": "4 hours"
+        },
+        "context": {},
+        "contextEvidence": {},
+        "inferredFactors": [],
+        "appliedFactors": [],
+        "remediation": {
+          "priority": {
+            "priority": "P0",
+            "action": "Fix immediately",
+            "sla": "4 hours"
+          },
+          "timeline": "48 hours - High priority fix",
+          "approach": "Use parameterized queries, avoid dynamic command construction, validate all inputs",
+          "validation": "Test with injection payloads, use automated scanning tools, code review",
+          "risk": "Can lead to complete system compromise, data breach, or service disruption",
+          "resources": {
+            "documentation": "https://cwe.mitre.org/data/definitions/89.html",
+            "owaspGuide": "https://owasp.org/www-project-top-ten/",
+            "category": "Security Category: injection"
+          },
+          "preventionMeasures": [
+            "Implement secure coding standards",
+            "Add security linting rules",
+            "Include security testing in CI/CD",
+            "Conduct regular security training",
+            "Perform periodic security audits"
+          ]
+        },
+        "sla": 7
+      },
+      {
+        "engine": "semgrep",
+        "ruleId": "java.lang.security.audit.sqli.tainted-sql-from-http-request.tainted-sql-from-http-request",
+        "category": "security",
+        "severity": "HIGH",
+        "message": "Detected input from a HTTPServletRequest going into a SQL sink or statement. This could lead to SQL injection if variables in the SQL statement are not properly sanitized. Use parameterized SQL queries or properly sanitize user input instead.",
+        "cwe": "CWE-89",
+        "owasp": [
+          "A01:2017 - Injection",
+          "A03:2021 - Injection"
+        ],
+        "file": "/Users/aniajaca/Library/Mobile Documents/com~apple~CloudDocs/Neperia/semgrep-backend/BenchmarkJava/src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00114.java",
+        "startLine": 75,
+        "endLine": 77,
+        "startColumn": 13,
+        "endColumn": 72,
+        "snippet": "  72:           String sql = \"INSERT INTO users (username, password) VALUES ('foo','\" + bar + \"')\";\n  73:   \n  74:           try {\n  75: \u2192             java.sql.Statement statement =\n  76: \u2192                     org.owasp.benchmark.helpers.DatabaseHelper.getSqlStatement();\n  77: \u2192             int count = statement.executeUpdate(sql, new int[] {1, 2});\n  78:               org.owasp.benchmark.helpers.DatabaseHelper.outputUpdateComplete(sql, response);\n  79:           } catch (java.sql.SQLException e) {\n  80:               if (org.owasp.benchmark.helpers.DatabaseHelper.hideSQLErrors) {",
+        "confidence": "HIGH",
+        "impact": "MEDIUM",
+        "likelihood": "HIGH",
+        "enrichedAt": "2025-12-19T18:22:52.066Z",
+        "cweId": "CWE-89",
+        "bts": 7.5,
+        "crs": 75,
+        "adjustedSeverity": "high",
+        "priority": {
+          "priority": "P0",
+          "action": "Fix immediately",
+          "sla": "4 hours"
+        },
+        "context": {},
+        "contextEvidence": {},
+        "inferredFactors": [],
+        "appliedFactors": [],
+        "remediation": {
+          "priority": {
+            "priority": "P0",
+            "action": "Fix immediately",
+            "sla": "4 hours"
+          },
+          "timeline": "48 hours - High priority fix",
+          "approach": "Use parameterized queries, avoid dynamic command construction, validate all inputs",
+          "validation": "Test with injection payloads, use automated scanning tools, code review",
+          "risk": "Can lead to complete system compromise, data breach, or service disruption",
+          "resources": {
+            "documentation": "https://cwe.mitre.org/data/definitions/89.html",
+            "owaspGuide": "https://owasp.org/www-project-top-ten/",
+            "category": "Security Category: injection"
+          },
+          "preventionMeasures": [
+            "Implement secure coding standards",
+            "Add security linting rules",
+            "Include security testing in CI/CD",
+            "Conduct regular security training",
+            "Perform periodic security audits"
+          ]
+        },
+        "sla": 7
+      }
+    ]
+  },
+  "java.lang.security.httpservlet-path-traversal.httpservlet-path-traversal": {
+    "fp_count": 136,
+    "tp_count": 152,
+    "examples": [
+      {
+        "engine": "semgrep",
+        "ruleId": "java.lang.security.httpservlet-path-traversal.httpservlet-path-traversal",
+        "category": "security",
+        "severity": "CRITICAL",
+        "message": "Detected a potential path traversal. A malicious actor could control the location of this file, to include going backwards in the directory with '../'. To address this, ensure that user-controlled variables in file paths are sanitized. You may also consider using a utility method such as org.apache.commons.io.FilenameUtils.getName(...) to only retrieve the file name from the path.",
+        "cwe": "CWE-22",
+        "owasp": [
+          "A05:2017 - Broken Access Control",
+          "A01:2021 - Broken Access Control"
+        ],
+        "file": "/Users/aniajaca/Library/Mobile Documents/com~apple~CloudDocs/Neperia/semgrep-backend/BenchmarkJava/src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00063.java",
+        "startLine": 77,
+        "endLine": 77,
+        "startColumn": 19,
+        "endColumn": 74,
+        "snippet": "  74:   \n  75:           try {\n  76:               fileName = org.owasp.benchmark.helpers.Utils.TESTFILES_DIR + bar;\n  77: \u2192             fis = new java.io.FileInputStream(new java.io.File(fileName));\n  78:               byte[] b = new byte[1000];\n  79:               int size = fis.read(b);\n  80:               response.getWriter()",
+        "confidence": "MEDIUM",
+        "impact": "MEDIUM",
+        "likelihood": "HIGH",
+        "enrichedAt": "2025-12-19T18:22:52.066Z",
+        "cweId": "CWE-22",
+        "bts": 9,
+        "crs": 90,
+        "adjustedSeverity": "critical",
+        "priority": {
+          "priority": "P0",
+          "action": "Fix immediately",
+          "sla": "4 hours"
+        },
+        "context": {},
+        "contextEvidence": {},
+        "inferredFactors": [],
+        "appliedFactors": [],
+        "remediation": {
+          "priority": {
+            "priority": "P0",
+            "action": "Fix immediately",
+            "sla": "4 hours"
+          },
+          "timeline": "48 hours - High priority fix",
+          "approach": "Validate file paths, use safe APIs, implement access controls",
+          "validation": "Test with traversal sequences, verify file access boundaries",
+          "risk": "Unauthorized file access, information disclosure, system compromise",
+          "resources": {
+            "documentation": "https://cwe.mitre.org/data/definitions/22.html",
+            "owaspGuide": "https://owasp.org/www-project-top-ten/",
+            "category": "Security Category: pathTraversal"
+          },
+          "preventionMeasures": [
+            "Implement secure coding standards",
+            "Add security linting rules",
+            "Include security testing in CI/CD",
+            "Conduct regular security training",
+            "Perform periodic security audits"
+          ]
+        },
+        "sla": 7
+      },
+      {
+        "engine": "semgrep",
+        "ruleId": "java.lang.security.httpservlet-path-traversal.httpservlet-path-traversal",
+        "category": "security",
+        "severity": "CRITICAL",
+        "message": "Detected a potential path traversal. A malicious actor could control the location of this file, to include going backwards in the directory with '../'. To address this, ensure that user-controlled variables in file paths are sanitized. You may also consider using a utility method such as org.apache.commons.io.FilenameUtils.getName(...) to only retrieve the file name from the path.",
+        "cwe": "CWE-22",
+        "owasp": [
+          "A05:2017 - Broken Access Control",
+          "A01:2021 - Broken Access Control"
+        ],
+        "file": "/Users/aniajaca/Library/Mobile Documents/com~apple~CloudDocs/Neperia/semgrep-backend/BenchmarkJava/src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00064.java",
+        "startLine": 78,
+        "endLine": 78,
+        "startColumn": 13,
+        "endColumn": 57,
+        "snippet": "  75:           try {\n  76:               fileName = org.owasp.benchmark.helpers.Utils.TESTFILES_DIR + bar;\n  77:   \n  78: \u2192             fos = new java.io.FileOutputStream(fileName);\n  79:               response.getWriter()\n  80:                       .println(\n  81:                               \"Now ready to write to file: \"",
+        "confidence": "MEDIUM",
+        "impact": "MEDIUM",
+        "likelihood": "HIGH",
+        "enrichedAt": "2025-12-19T18:22:52.066Z",
+        "cweId": "CWE-22",
+        "bts": 9,
+        "crs": 90,
+        "adjustedSeverity": "critical",
+        "priority": {
+          "priority": "P0",
+          "action": "Fix immediately",
+          "sla": "4 hours"
+        },
+        "context": {},
+        "contextEvidence": {},
+        "inferredFactors": [],
+        "appliedFactors": [],
+        "remediation": {
+          "priority": {
+            "priority": "P0",
+            "action": "Fix immediately",
+            "sla": "4 hours"
+          },
+          "timeline": "48 hours - High priority fix",
+          "approach": "Validate file paths, use safe APIs, implement access controls",
+          "validation": "Test with traversal sequences, verify file access boundaries",
+          "risk": "Unauthorized file access, information disclosure, system compromise",
+          "resources": {
+            "documentation": "https://cwe.mitre.org/data/definitions/22.html",
+            "owaspGuide": "https://owasp.org/www-project-top-ten/",
+            "category": "Security Category: pathTraversal"
+          },
+          "preventionMeasures": [
+            "Implement secure coding standards",
+            "Add security linting rules",
+            "Include security testing in CI/CD",
+            "Conduct regular security training",
+            "Perform periodic security audits"
+          ]
+        },
+        "sla": 7
+      },
+      {
+        "engine": "semgrep",
+        "ruleId": "java.lang.security.httpservlet-path-traversal.httpservlet-path-traversal",
+        "category": "security",
+        "severity": "CRITICAL",
+        "message": "Detected a potential path traversal. A malicious actor could control the location of this file, to include going backwards in the directory with '../'. To address this, ensure that user-controlled variables in file paths are sanitized. You may also consider using a utility method such as org.apache.commons.io.FilenameUtils.getName(...) to only retrieve the file name from the path.",
+        "cwe": "CWE-22",
+        "owasp": [
+          "A05:2017 - Broken Access Control",
+          "A01:2021 - Broken Access Control"
+        ],
+        "file": "/Users/aniajaca/Library/Mobile Documents/com~apple~CloudDocs/Neperia/semgrep-backend/BenchmarkJava/src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00064.java",
+        "startLine": 91,
+        "endLine": 91,
+        "startColumn": 21,
+        "endColumn": 31,
+        "snippet": "  88:               if (fos != null) {\n  89:                   try {\n  90:                       fos.close();\n  91: \u2192                     fos = null;\n  92:                   } catch (Exception e) {\n  93:                       // we tried...\n  94:                   }",
+        "confidence": "MEDIUM",
+        "impact": "MEDIUM",
+        "likelihood": "HIGH",
+        "enrichedAt": "2025-12-19T18:22:52.066Z",
+        "cweId": "CWE-22",
+        "bts": 9,
+        "crs": 90,
+        "adjustedSeverity": "critical",
+        "priority": {
+          "priority": "P0",
+          "action": "Fix immediately",
+          "sla": "4 hours"
+        },
+        "context": {},
+        "contextEvidence": {},
+        "inferredFactors": [],
+        "appliedFactors": [],
+        "remediation": {
+          "priority": {
+            "priority": "P0",
+            "action": "Fix immediately",
+            "sla": "4 hours"
+          },
+          "timeline": "48 hours - High priority fix",
+          "approach": "Validate file paths, use safe APIs, implement access controls",
+          "validation": "Test with traversal sequences, verify file access boundaries",
+          "risk": "Unauthorized file access, information disclosure, system compromise",
+          "resources": {
+            "documentation": "https://cwe.mitre.org/data/definitions/22.html",
+            "owaspGuide": "https://owasp.org/www-project-top-ten/",
+            "category": "Security Category: pathTraversal"
+          },
+          "preventionMeasures": [
+            "Implement secure coding standards",
+            "Add security linting rules",
+            "Include security testing in CI/CD",
+            "Conduct regular security training",
+            "Perform periodic security audits"
+          ]
+        },
+        "sla": 7
+      }
+    ]
+  },
+  "java.lang.security.audit.tainted-cmd-from-http-request.tainted-cmd-from-http-request": {
+    "fp_count": 100,
+    "tp_count": 121,
+    "examples": [
+      {
+        "engine": "semgrep",
+        "ruleId": "java.lang.security.audit.tainted-cmd-from-http-request.tainted-cmd-from-http-request",
+        "category": "security",
+        "severity": "CRITICAL",
+        "message": "Detected input from a HTTPServletRequest going into a 'ProcessBuilder' or 'exec' command. This could lead to command injection if variables passed into the exec commands are not properly sanitized. Instead, avoid using these OS commands with user-supplied input, or, if you must use these commands, use a whitelist of specific values.",
+        "cwe": "CWE-78",
+        "owasp": [
+          "A01:2017 - Injection",
+          "A03:2021 - Injection"
+        ],
+        "file": "/Users/aniajaca/Library/Mobile Documents/com~apple~CloudDocs/Neperia/semgrep-backend/BenchmarkJava/src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00051.java",
+        "startLine": 60,
+        "endLine": 60,
+        "startColumn": 9,
+        "endColumn": 54,
+        "snippet": "  57:           }\n  58:           String[] args = {a1, a2, \"echo \" + param};\n  59:   \n  60: \u2192         ProcessBuilder pb = new ProcessBuilder(args);\n  61:   \n  62:           try {\n  63:               Process p = pb.start();",
+        "confidence": "MEDIUM",
+        "impact": "MEDIUM",
+        "likelihood": "MEDIUM",
+        "enrichedAt": "2025-12-19T18:22:52.066Z",
+        "cweId": "CWE-78",
+        "bts": 9,
+        "crs": 90,
+        "adjustedSeverity": "critical",
+        "priority": {
+          "priority": "P0",
+          "action": "Fix immediately",
+          "sla": "4 hours"
+        },
+        "context": {},
+        "contextEvidence": {},
+        "inferredFactors": [],
+        "appliedFactors": [],
+        "remediation": {
+          "priority": {
+            "priority": "P0",
+            "action": "Fix immediately",
+            "sla": "4 hours"
+          },
+          "timeline": "48 hours - High priority fix",
+          "approach": "Use parameterized queries, avoid dynamic command construction, validate all inputs",
+          "validation": "Test with injection payloads, use automated scanning tools, code review",
+          "risk": "Can lead to complete system compromise, data breach, or service disruption",
+          "resources": {
+            "documentation": "https://cwe.mitre.org/data/definitions/78.html",
+            "owaspGuide": "https://owasp.org/www-project-top-ten/",
+            "category": "Security Category: injection"
+          },
+          "preventionMeasures": [
+            "Implement secure coding standards",
+            "Add security linting rules",
+            "Include security testing in CI/CD",
+            "Conduct regular security training",
+            "Perform periodic security audits"
+          ]
+        },
+        "sla": 7
+      },
+      {
+        "engine": "semgrep",
+        "ruleId": "java.lang.security.audit.tainted-cmd-from-http-request.tainted-cmd-from-http-request",
+        "category": "security",
+        "severity": "CRITICAL",
+        "message": "Detected input from a HTTPServletRequest going into a 'ProcessBuilder' or 'exec' command. This could lead to command injection if variables passed into the exec commands are not properly sanitized. Instead, avoid using these OS commands with user-supplied input, or, if you must use these commands, use a whitelist of specific values.",
+        "cwe": "CWE-78",
+        "owasp": [
+          "A01:2017 - Injection",
+          "A03:2021 - Injection"
+        ],
+        "file": "/Users/aniajaca/Library/Mobile Documents/com~apple~CloudDocs/Neperia/semgrep-backend/BenchmarkJava/src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00051.java",
+        "startLine": 63,
+        "endLine": 63,
+        "startColumn": 13,
+        "endColumn": 36,
+        "snippet": "  60:           ProcessBuilder pb = new ProcessBuilder(args);\n  61:   \n  62:           try {\n  63: \u2192             Process p = pb.start();\n  64:               org.owasp.benchmark.helpers.Utils.printOSCommandResults(p, response);\n  65:           } catch (IOException e) {\n  66:               System.out.println(",
+        "confidence": "MEDIUM",
+        "impact": "MEDIUM",
+        "likelihood": "MEDIUM",
+        "enrichedAt": "2025-12-19T18:22:52.066Z",
+        "cweId": "CWE-78",
+        "bts": 9,
+        "crs": 90,
+        "adjustedSeverity": "critical",
+        "priority": {
+          "priority": "P0",
+          "action": "Fix immediately",
+          "sla": "4 hours"
+        },
+        "context": {},
+        "contextEvidence": {},
+        "inferredFactors": [],
+        "appliedFactors": [],
+        "remediation": {
+          "priority": {
+            "priority": "P0",
+            "action": "Fix immediately",
+            "sla": "4 hours"
+          },
+          "timeline": "48 hours - High priority fix",
+          "approach": "Use parameterized queries, avoid dynamic command construction, validate all inputs",
+          "validation": "Test with injection payloads, use automated scanning tools, code review",
+          "risk": "Can lead to complete system compromise, data breach, or service disruption",
+          "resources": {
+            "documentation": "https://cwe.mitre.org/data/definitions/78.html",
+            "owaspGuide": "https://owasp.org/www-project-top-ten/",
+            "category": "Security Category: injection"
+          },
+          "preventionMeasures": [
+            "Implement secure coding standards",
+            "Add security linting rules",
+            "Include security testing in CI/CD",
+            "Conduct regular security training",
+            "Perform periodic security audits"
+          ]
+        },
+        "sla": 7
+      },
+      {
+        "engine": "semgrep",
+        "ruleId": "java.lang.security.audit.tainted-cmd-from-http-request.tainted-cmd-from-http-request",
+        "category": "security",
+        "severity": "CRITICAL",
+        "message": "Detected input from a HTTPServletRequest going into a 'ProcessBuilder' or 'exec' command. This could lead to command injection if variables passed into the exec commands are not properly sanitized. Instead, avoid using these OS commands with user-supplied input, or, if you must use these commands, use a whitelist of specific values.",
+        "cwe": "CWE-78",
+        "owasp": [
+          "A01:2017 - Injection",
+          "A03:2021 - Injection"
+        ],
+        "file": "/Users/aniajaca/Library/Mobile Documents/com~apple~CloudDocs/Neperia/semgrep-backend/BenchmarkJava/src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00090.java",
+        "startLine": 81,
+        "endLine": 81,
+        "startColumn": 13,
+        "endColumn": 43,
+        "snippet": "  78:           Runtime r = Runtime.getRuntime();\n  79:   \n  80:           try {\n  81: \u2192             Process p = r.exec(cmd + bar);\n  82:               org.owasp.benchmark.helpers.Utils.printOSCommandResults(p, response);\n  83:           } catch (IOException e) {\n  84:               System.out.println(\"Problem executing cmdi - TestCase\");",
+        "confidence": "MEDIUM",
+        "impact": "MEDIUM",
+        "likelihood": "MEDIUM",
+        "enrichedAt": "2025-12-19T18:22:52.066Z",
+        "cweId": "CWE-78",
+        "bts": 9,
+        "crs": 90,
+        "adjustedSeverity": "critical",
+        "priority": {
+          "priority": "P0",
+          "action": "Fix immediately",
+          "sla": "4 hours"
+        },
+        "context": {},
+        "contextEvidence": {},
+        "inferredFactors": [],
+        "appliedFactors": [],
+        "remediation": {
+          "priority": {
+            "priority": "P0",
+            "action": "Fix immediately",
+            "sla": "4 hours"
+          },
+          "timeline": "48 hours - High priority fix",
+          "approach": "Use parameterized queries, avoid dynamic command construction, validate all inputs",
+          "validation": "Test with injection payloads, use automated scanning tools, code review",
+          "risk": "Can lead to complete system compromise, data breach, or service disruption",
+          "resources": {
+            "documentation": "https://cwe.mitre.org/data/definitions/78.html",
+            "owaspGuide": "https://owasp.org/www-project-top-ten/",
+            "category": "Security Category: injection"
+          },
+          "preventionMeasures": [
+            "Implement secure coding standards",
+            "Add security linting rules",
+            "Include security testing in CI/CD",
+            "Conduct regular security training",
+            "Perform periodic security audits"
+          ]
+        },
+        "sla": 7
+      }
+    ]
+  },
+  "java.lang.security.audit.cookie-missing-httponly.cookie-missing-httponly": {
+    "fp_count": 91,
+    "tp_count": 125,
+    "examples": [
+      {
+        "engine": "semgrep",
+        "ruleId": "java.lang.security.audit.cookie-missing-httponly.cookie-missing-httponly",
+        "category": "security",
+        "severity": "HIGH",
+        "message": "A cookie was detected without setting the 'HttpOnly' flag. The 'HttpOnly' flag for cookies instructs the browser to forbid client-side scripts from reading the cookie. Set the 'HttpOnly' flag by calling 'cookie.setHttpOnly(true);'",
+        "cwe": "CWE-1004",
+        "owasp": [
+          "A05:2021 - Security Misconfiguration"
+        ],
+        "file": "/Users/aniajaca/Library/Mobile Documents/com~apple~CloudDocs/Neperia/semgrep-backend/BenchmarkJava/src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00054.java",
+        "startLine": 42,
+        "endLine": 42,
+        "startColumn": 9,
+        "endColumn": 40,
+        "snippet": "  39:           userCookie.setSecure(true);\n  40:           userCookie.setPath(request.getRequestURI());\n  41:           userCookie.setDomain(new java.net.URL(request.getRequestURL().toString()).getHost());\n  42: \u2192         response.addCookie(userCookie);\n  43:           javax.servlet.RequestDispatcher rd =\n  44:                   request.getRequestDispatcher(\"/crypto-00/BenchmarkTest00054.html\");\n  45:           rd.include(request, response);",
+        "confidence": "LOW",
+        "impact": "LOW",
+        "likelihood": "LOW",
+        "enrichedAt": "2025-12-19T18:22:52.066Z",
+        "cweId": "CWE-1004",
+        "bts": 7.5,
+        "crs": 75,
+        "adjustedSeverity": "high",
+        "priority": {
+          "priority": "P1",
+          "action": "Fix within 48 hours",
+          "sla": "48 hours"
+        },
+        "context": {},
+        "contextEvidence": {},
+        "inferredFactors": [],
+        "appliedFactors": [],
+        "remediation": {
+          "priority": {
+            "priority": "P1",
+            "action": "Fix within 48 hours",
+            "sla": "48 hours"
+          },
+          "timeline": "48 hours - High priority fix",
+          "approach": "Review code and apply security best practices",
+          "validation": "Perform security testing",
+          "risk": "Potential security vulnerability",
+          "resources": {
+            "documentation": "https://cwe.mitre.org/data/definitions/1004.html",
+            "owaspGuide": "https://owasp.org/www-project-top-ten/",
+            "category": "Security Category: unknown"
+          },
+          "preventionMeasures": [
+            "Implement secure coding standards",
+            "Add security linting rules",
+            "Include security testing in CI/CD",
+            "Conduct regular security training",
+            "Perform periodic security audits"
+          ]
+        },
+        "sla": 14
+      },
+      {
+        "engine": "semgrep",
+        "ruleId": "java.lang.security.audit.cookie-missing-httponly.cookie-missing-httponly",
+        "category": "security",
+        "severity": "HIGH",
+        "message": "A cookie was detected without setting the 'HttpOnly' flag. The 'HttpOnly' flag for cookies instructs the browser to forbid client-side scripts from reading the cookie. Set the 'HttpOnly' flag by calling 'cookie.setHttpOnly(true);'",
+        "cwe": "CWE-1004",
+        "owasp": [
+          "A05:2021 - Security Misconfiguration"
+        ],
+        "file": "/Users/aniajaca/Library/Mobile Documents/com~apple~CloudDocs/Neperia/semgrep-backend/BenchmarkJava/src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00058.java",
+        "startLine": 42,
+        "endLine": 42,
+        "startColumn": 9,
+        "endColumn": 40,
+        "snippet": "  39:           userCookie.setSecure(true);\n  40:           userCookie.setPath(request.getRequestURI());\n  41:           userCookie.setDomain(new java.net.URL(request.getRequestURL().toString()).getHost());\n  42: \u2192         response.addCookie(userCookie);\n  43:           javax.servlet.RequestDispatcher rd =\n  44:                   request.getRequestDispatcher(\"/crypto-00/BenchmarkTest00058.html\");\n  45:           rd.include(request, response);",
+        "confidence": "LOW",
+        "impact": "LOW",
+        "likelihood": "LOW",
+        "enrichedAt": "2025-12-19T18:22:52.066Z",
+        "cweId": "CWE-1004",
+        "bts": 7.5,
+        "crs": 75,
+        "adjustedSeverity": "high",
+        "priority": {
+          "priority": "P1",
+          "action": "Fix within 48 hours",
+          "sla": "48 hours"
+        },
+        "context": {},
+        "contextEvidence": {},
+        "inferredFactors": [],
+        "appliedFactors": [],
+        "remediation": {
+          "priority": {
+            "priority": "P1",
+            "action": "Fix within 48 hours",
+            "sla": "48 hours"
+          },
+          "timeline": "48 hours - High priority fix",
+          "approach": "Review code and apply security best practices",
+          "validation": "Perform security testing",
+          "risk": "Potential security vulnerability",
+          "resources": {
+            "documentation": "https://cwe.mitre.org/data/definitions/1004.html",
+            "owaspGuide": "https://owasp.org/www-project-top-ten/",
+            "category": "Security Category: unknown"
+          },
+          "preventionMeasures": [
+            "Implement secure coding standards",
+            "Add security linting rules",
+            "Include security testing in CI/CD",
+            "Conduct regular security training",
+            "Perform periodic security audits"
+          ]
+        },
+        "sla": 14
+      },
+      {
+        "engine": "semgrep",
+        "ruleId": "java.lang.security.audit.cookie-missing-httponly.cookie-missing-httponly",
+        "category": "security",
+        "severity": "HIGH",
+        "message": "A cookie was detected without setting the 'HttpOnly' flag. The 'HttpOnly' flag for cookies instructs the browser to forbid client-side scripts from reading the cookie. Set the 'HttpOnly' flag by calling 'cookie.setHttpOnly(true);'",
+        "cwe": "CWE-1004",
+        "owasp": [
+          "A05:2021 - Security Misconfiguration"
+        ],
+        "file": "/Users/aniajaca/Library/Mobile Documents/com~apple~CloudDocs/Neperia/semgrep-backend/BenchmarkJava/src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00059.java",
+        "startLine": 42,
+        "endLine": 42,
+        "startColumn": 9,
+        "endColumn": 40,
+        "snippet": "  39:           userCookie.setSecure(true);\n  40:           userCookie.setPath(request.getRequestURI());\n  41:           userCookie.setDomain(new java.net.URL(request.getRequestURL().toString()).getHost());\n  42: \u2192         response.addCookie(userCookie);\n  43:           javax.servlet.RequestDispatcher rd =\n  44:                   request.getRequestDispatcher(\"/crypto-00/BenchmarkTest00059.html\");\n  45:           rd.include(request, response);",
+        "confidence": "LOW",
+        "impact": "LOW",
+        "likelihood": "LOW",
+        "enrichedAt": "2025-12-19T18:22:52.066Z",
+        "cweId": "CWE-1004",
+        "bts": 7.5,
+        "crs": 75,
+        "adjustedSeverity": "high",
+        "priority": {
+          "priority": "P1",
+          "action": "Fix within 48 hours",
+          "sla": "48 hours"
+        },
+        "context": {},
+        "contextEvidence": {},
+        "inferredFactors": [],
+        "appliedFactors": [],
+        "remediation": {
+          "priority": {
+            "priority": "P1",
+            "action": "Fix within 48 hours",
+            "sla": "48 hours"
+          },
+          "timeline": "48 hours - High priority fix",
+          "approach": "Review code and apply security best practices",
+          "validation": "Perform security testing",
+          "risk": "Potential security vulnerability",
+          "resources": {
+            "documentation": "https://cwe.mitre.org/data/definitions/1004.html",
+            "owaspGuide": "https://owasp.org/www-project-top-ten/",
+            "category": "Security Category: unknown"
+          },
+          "preventionMeasures": [
+            "Implement secure coding standards",
+            "Add security linting rules",
+            "Include security testing in CI/CD",
+            "Conduct regular security training",
+            "Perform periodic security audits"
+          ]
+        },
+        "sla": 14
+      }
+    ]
+  },
+  "java.lang.security.audit.sqli.jdbc-sqli.jdbc-sqli": {
+    "fp_count": 81,
+    "tp_count": 97,
+    "examples": [
+      {
+        "engine": "semgrep",
+        "ruleId": "java.lang.security.audit.sqli.jdbc-sqli.jdbc-sqli",
+        "category": "security",
+        "severity": "HIGH",
+        "message": "Detected a formatted string in a SQL statement. This could lead to SQL injection if variables in the SQL statement are not properly sanitized. Use a prepared statements (java.sql.PreparedStatement) instead. You can obtain a PreparedStatement using 'connection.prepareStatement'.",
+        "cwe": "CWE-89",
+        "owasp": [
+          "A01:2017 - Injection",
+          "A03:2021 - Injection"
+        ],
+        "file": "/Users/aniajaca/Library/Mobile Documents/com~apple~CloudDocs/Neperia/semgrep-backend/BenchmarkJava/src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00105.java",
+        "startLine": 77,
+        "endLine": 77,
+        "startColumn": 13,
+        "endColumn": 36,
+        "snippet": "  74:           try {\n  75:               java.sql.Statement statement =\n  76:                       org.owasp.benchmark.helpers.DatabaseHelper.getSqlStatement();\n  77: \u2192             statement.addBatch(sql);\n  78:               int[] counts = statement.executeBatch();\n  79:               org.owasp.benchmark.helpers.DatabaseHelper.printResults(sql, counts, response);\n  80:           } catch (java.sql.SQLException e) {",
+        "confidence": "LOW",
+        "impact": "HIGH",
+        "likelihood": "LOW",
+        "enrichedAt": "2025-12-19T18:22:52.066Z",
+        "cweId": "CWE-89",
+        "bts": 7.5,
+        "crs": 75,
+        "adjustedSeverity": "high",
+        "priority": {
+          "priority": "P0",
+          "action": "Fix immediately",
+          "sla": "4 hours"
+        },
+        "context": {},
+        "contextEvidence": {},
+        "inferredFactors": [],
+        "appliedFactors": [],
+        "remediation": {
+          "priority": {
+            "priority": "P0",
+            "action": "Fix immediately",
+            "sla": "4 hours"
+          },
+          "timeline": "48 hours - High priority fix",
+          "approach": "Use parameterized queries, avoid dynamic command construction, validate all inputs",
+          "validation": "Test with injection payloads, use automated scanning tools, code review",
+          "risk": "Can lead to complete system compromise, data breach, or service disruption",
+          "resources": {
+            "documentation": "https://cwe.mitre.org/data/definitions/89.html",
+            "owaspGuide": "https://owasp.org/www-project-top-ten/",
+            "category": "Security Category: injection"
+          },
+          "preventionMeasures": [
+            "Implement secure coding standards",
+            "Add security linting rules",
+            "Include security testing in CI/CD",
+            "Conduct regular security training",
+            "Perform periodic security audits"
+          ]
+        },
+        "sla": 7
+      },
+      {
+        "engine": "semgrep",
+        "ruleId": "java.lang.security.audit.sqli.jdbc-sqli.jdbc-sqli",
+        "category": "security",
+        "severity": "HIGH",
+        "message": "Detected a formatted string in a SQL statement. This could lead to SQL injection if variables in the SQL statement are not properly sanitized. Use a prepared statements (java.sql.PreparedStatement) instead. You can obtain a PreparedStatement using 'connection.prepareStatement'.",
+        "cwe": "CWE-89",
+        "owasp": [
+          "A01:2017 - Injection",
+          "A03:2021 - Injection"
+        ],
+        "file": "/Users/aniajaca/Library/Mobile Documents/com~apple~CloudDocs/Neperia/semgrep-backend/BenchmarkJava/src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00107.java",
+        "startLine": 93,
+        "endLine": 93,
+        "startColumn": 13,
+        "endColumn": 77,
+        "snippet": "  90:           try {\n  91:               java.sql.Statement statement =\n  92:                       org.owasp.benchmark.helpers.DatabaseHelper.getSqlStatement();\n  93: \u2192             statement.execute(sql, java.sql.Statement.RETURN_GENERATED_KEYS);\n  94:               org.owasp.benchmark.helpers.DatabaseHelper.printResults(statement, sql, response);\n  95:           } catch (java.sql.SQLException e) {\n  96:               if (org.owasp.benchmark.helpers.DatabaseHelper.hideSQLErrors) {",
+        "confidence": "LOW",
+        "impact": "HIGH",
+        "likelihood": "LOW",
+        "enrichedAt": "2025-12-19T18:22:52.066Z",
+        "cweId": "CWE-89",
+        "bts": 7.5,
+        "crs": 75,
+        "adjustedSeverity": "high",
+        "priority": {
+          "priority": "P0",
+          "action": "Fix immediately",
+          "sla": "4 hours"
+        },
+        "context": {},
+        "contextEvidence": {},
+        "inferredFactors": [],
+        "appliedFactors": [],
+        "remediation": {
+          "priority": {
+            "priority": "P0",
+            "action": "Fix immediately",
+            "sla": "4 hours"
+          },
+          "timeline": "48 hours - High priority fix",
+          "approach": "Use parameterized queries, avoid dynamic command construction, validate all inputs",
+          "validation": "Test with injection payloads, use automated scanning tools, code review",
+          "risk": "Can lead to complete system compromise, data breach, or service disruption",
+          "resources": {
+            "documentation": "https://cwe.mitre.org/data/definitions/89.html",
+            "owaspGuide": "https://owasp.org/www-project-top-ten/",
+            "category": "Security Category: injection"
+          },
+          "preventionMeasures": [
+            "Implement secure coding standards",
+            "Add security linting rules",
+            "Include security testing in CI/CD",
+            "Conduct regular security training",
+            "Perform periodic security audits"
+          ]
+        },
+        "sla": 7
+      },
+      {
+        "engine": "semgrep",
+        "ruleId": "java.lang.security.audit.sqli.jdbc-sqli.jdbc-sqli",
+        "category": "security",
+        "severity": "HIGH",
+        "message": "Detected a formatted string in a SQL statement. This could lead to SQL injection if variables in the SQL statement are not properly sanitized. Use a prepared statements (java.sql.PreparedStatement) instead. You can obtain a PreparedStatement using 'connection.prepareStatement'.",
+        "cwe": "CWE-89",
+        "owasp": [
+          "A01:2017 - Injection",
+          "A03:2021 - Injection"
+        ],
+        "file": "/Users/aniajaca/Library/Mobile Documents/com~apple~CloudDocs/Neperia/semgrep-backend/BenchmarkJava/src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00110.java",
+        "startLine": 93,
+        "endLine": 93,
+        "startColumn": 13,
+        "endColumn": 74,
+        "snippet": "  90:           try {\n  91:               java.sql.Statement statement =\n  92:                       org.owasp.benchmark.helpers.DatabaseHelper.getSqlStatement();\n  93: \u2192             statement.execute(sql, new String[] {\"username\", \"password\"});\n  94:               org.owasp.benchmark.helpers.DatabaseHelper.printResults(statement, sql, response);\n  95:           } catch (java.sql.SQLException e) {\n  96:               if (org.owasp.benchmark.helpers.DatabaseHelper.hideSQLErrors) {",
+        "confidence": "LOW",
+        "impact": "HIGH",
+        "likelihood": "LOW",
+        "enrichedAt": "2025-12-19T18:22:52.066Z",
+        "cweId": "CWE-89",
+        "bts": 7.5,
+        "crs": 75,
+        "adjustedSeverity": "high",
+        "priority": {
+          "priority": "P0",
+          "action": "Fix immediately",
+          "sla": "4 hours"
+        },
+        "context": {},
+        "contextEvidence": {},
+        "inferredFactors": [],
+        "appliedFactors": [],
+        "remediation": {
+          "priority": {
+            "priority": "P0",
+            "action": "Fix immediately",
+            "sla": "4 hours"
+          },
+          "timeline": "48 hours - High priority fix",
+          "approach": "Use parameterized queries, avoid dynamic command construction, validate all inputs",
+          "validation": "Test with injection payloads, use automated scanning tools, code review",
+          "risk": "Can lead to complete system compromise, data breach, or service disruption",
+          "resources": {
+            "documentation": "https://cwe.mitre.org/data/definitions/89.html",
+            "owaspGuide": "https://owasp.org/www-project-top-ten/",
+            "category": "Security Category: injection"
+          },
+          "preventionMeasures": [
+            "Implement secure coding standards",
+            "Add security linting rules",
+            "Include security testing in CI/CD",
+            "Conduct regular security training",
+            "Perform periodic security audits"
+          ]
+        },
+        "sla": 7
+      }
+    ]
+  }
+}

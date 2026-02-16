@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-01-08T14:30:00Z",
+  "perRepository": {
+    "semgrep-backend": {
+      "repo": "semgrep-backend",
+      "totalFindings": 50,
+      "removed": 0,
+      "retained": 50,
+      "removedByLabel": {
+        "NON_ACTIONABLE": 0,
+        "ACTIONABLE": 0,
+        "UNCERTAIN": 0
+      },
+      "rp": 0,
+      "alr": 0,
+      "criticalLoss": 0,
+      "criticalLossDetails": [],
+      "passed": true
+    },
+    "express": {
+      "repo": "express",
+      "totalFindings": 41,
+      "removed": 41,
+      "retained": 0,
+      "removedByLabel": {
+        "NON_ACTIONABLE": 41,
+        "ACTIONABLE": 0,
+        "UNCERTAIN": 0
+      },
+      "rp": 100.0,
+      "alr": 0.0,
+      "criticalLoss": 0,
+      "criticalLossDetails": [],
+      "passed": true
+    },
+    "lodash": {
+      "repo": "lodash",
+      "totalFindings": 21,
+      "removed": 0,
+      "retained": 21,
+      "removedByLabel": {
+        "NON_ACTIONABLE": 0,
+        "ACTIONABLE": 0,
+        "UNCERTAIN": 0
+      },
+      "rp": 0,
+      "alr": 0,
+      "criticalLoss": 0,
+      "criticalLossDetails": [],
+      "passed": true
+    }
+  },
+  "aggregate": {
+    "totalRemoved": 41,
+    "totalNonActionableRemoved": 41,
+    "totalActionableRemoved": 0,
+    "totalCriticalLoss": 0,
+    "removalPrecision": 100.0,
+    "actionableLossRate": 0.0,
+    "passed": true
+  },
+  "thresholds": {
+    "removalPrecision": 90,
+    "actionableLossRate": 5,
+    "criticalLoss": 0
+  }
+}

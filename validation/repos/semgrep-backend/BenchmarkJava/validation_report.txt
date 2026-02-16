@@ -1,0 +1,111 @@
+================================
+OWASP BENCHMARK VALIDATION REPORT
+Neperia Security Scanner
+================================
+
+Generated: 12/10/2025, 11:16:38 AM
+Total Test Cases: 2740
+Scanner Results: 2740
+
+AGGREGATE PERFORMANCE
+================================
+Accuracy:        72.85%
+F1-Score:        77.47%
+Precision:       67.78%
+Recall (TPR):    90.39%
+False Pos Rate:  45.89%
+Youden Index:    44.50%
+
+Confusion Matrix:
+  True Positives:  1279
+  False Positives: 608
+  True Negatives:  717
+  False Negatives: 136
+
+PER-CATEGORY PERFORMANCE
+================================
+Category        | Tests |  F1   | TPR  | FPR  | Prec | Youden
+----------------|-------|-------|------|------|------|-------
+cmdi            |   251 |  66.3% | 92.9% | 88.0% | 51.5% |   4.9%
+crypto          |   246 |  95.9% | 100.0% |  9.5% | 92.2% |  90.5%
+hash            |   236 |  78.4% | 70.5% | 11.2% | 88.3% |  59.3%
+ldapi           |    59 |  64.2% | 96.3% | 87.5% | 48.1% |   8.8%
+pathtraver      |   268 |  67.2% | 91.7% | 80.0% | 53.0% |  11.7%
+securecookie    |    67 |  94.7% | 100.0% | 12.9% | 90.0% |  87.1%
+sqli            |   504 |  73.2% | 93.8% | 73.3% | 60.0% |  20.5%
+trustbound      |   126 |  76.4% | 81.9% | 62.8% | 71.6% |  19.1%
+weakrand        |   493 |  96.5% | 100.0% |  5.8% | 93.2% |  94.2%
+xpathi          |    35 |  65.1% | 93.3% | 70.0% | 50.0% |  23.3%
+xss             |   455 |  72.7% | 82.1% | 51.7% | 65.2% |  30.4%
+
+
+CATEGORY DETAILS
+================================
+
+CMDI
+  Test Cases: 251 (126 vulnerable, 125 safe)
+  TP: 117, FP: 110, TN: 15, FN: 9
+  F1-Score: 66.29%, Accuracy: 52.59%
+
+CRYPTO
+  Test Cases: 246 (130 vulnerable, 116 safe)
+  TP: 130, FP: 11, TN: 105, FN: 0
+  F1-Score: 95.94%, Accuracy: 95.53%
+
+HASH
+  Test Cases: 236 (129 vulnerable, 107 safe)
+  TP: 91, FP: 12, TN: 95, FN: 38
+  F1-Score: 78.45%, Accuracy: 78.81%
+
+LDAPI
+  Test Cases: 59 (27 vulnerable, 32 safe)
+  TP: 26, FP: 28, TN: 4, FN: 1
+  F1-Score: 64.20%, Accuracy: 50.85%
+
+PATHTRAVER
+  Test Cases: 268 (133 vulnerable, 135 safe)
+  TP: 122, FP: 108, TN: 27, FN: 11
+  F1-Score: 67.22%, Accuracy: 55.60%
+
+SECURECOOKIE
+  Test Cases: 67 (36 vulnerable, 31 safe)
+  TP: 36, FP: 4, TN: 27, FN: 0
+  F1-Score: 94.74%, Accuracy: 94.03%
+
+SQLI
+  Test Cases: 504 (272 vulnerable, 232 safe)
+  TP: 255, FP: 170, TN: 62, FN: 17
+  F1-Score: 73.17%, Accuracy: 62.90%
+
+TRUSTBOUND
+  Test Cases: 126 (83 vulnerable, 43 safe)
+  TP: 68, FP: 27, TN: 16, FN: 15
+  F1-Score: 76.40%, Accuracy: 66.67%
+
+WEAKRAND
+  Test Cases: 493 (218 vulnerable, 275 safe)
+  TP: 218, FP: 16, TN: 259, FN: 0
+  F1-Score: 96.46%, Accuracy: 96.75%
+
+XPATHI
+  Test Cases: 35 (15 vulnerable, 20 safe)
+  TP: 14, FP: 14, TN: 6, FN: 1
+  F1-Score: 65.12%, Accuracy: 57.14%
+
+XSS
+  Test Cases: 455 (246 vulnerable, 209 safe)
+  TP: 202, FP: 108, TN: 101, FN: 44
+  F1-Score: 72.66%, Accuracy: 66.59%
+
+INTERPRETATION
+================================
+TPR (True Positive Rate / Recall): % of real vulnerabilities detected
+FPR (False Positive Rate): % of safe code incorrectly flagged
+Precision: % of flagged code that is actually vulnerable
+F1-Score: Harmonic mean of Precision and Recall
+Youden Index: TPR - FPR (benchmark's primary metric)
+
+Industry Benchmarks:
+  Commercial SAST Average: TPR 30-40%, FPR 15-60%, Youden ~35%
+  Best-in-Class (Qwiet AI): TPR 100%, FPR 25%, Youden 75%
+  Academic Tools: F1-Score typically 60-75%

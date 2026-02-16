@@ -1,9 +1,19 @@
+
 {
   "version": "1.0.0",
   "name": "startup",
   "description": "Fast iteration profile with moderate risk tolerance for early-stage teams prioritising velocity",
   "profileHash": null,
-
+  "contextMultipliers": {
+    "internetFacing": 1.3,
+    "handlesPI": 1.2,
+    "production": 1.1,
+    "legacyCode": 1.1,
+    "businessCritical": 1.4,
+    "compliance": 1.1,
+    "thirdPartyIntegration": 1.1,
+    "complexAuth": 1.0
+  },
   "contextFactors": {
     "enabled": {
       "kevListed": true,
@@ -34,7 +44,6 @@
     },
     "totalLiftCap": 0.50
   },
-
   "fileRisk": {
     "topK": 5,
     "weights": {
@@ -49,30 +58,12 @@
       "exposure": 15
     }
   },
-
   "slaMapping": {
-    "P0": {
-      "threshold": 80,
-      "days": 21,
-      "description": "Critical issue - fix within 3 weeks"
-    },
-    "P1": {
-      "threshold": 65,
-      "days": 45,
-      "description": "High priority - fix within 6 weeks"
-    },
-    "P2": {
-      "threshold": 50,
-      "days": 90,
-      "description": "Medium priority - plan for next quarter"
-    },
-    "P3": {
-      "threshold": 0,
-      "days": 120,
-      "description": "Low priority - track in backlog"
-    }
+    "P0": { "threshold": 80, "days": 21, "description": "Critical issue - fix within 3 weeks" },
+    "P1": { "threshold": 65, "days": 45, "description": "High priority - fix within 6 weeks" },
+    "P2": { "threshold": 50, "days": 90, "description": "Medium priority - plan for next quarter" },
+    "P3": { "threshold": 0, "days": 120, "description": "Low priority - track in backlog" }
   },
-
   "scoring": {
     "severityPoints": {
       "critical": 25,
@@ -89,7 +80,6 @@
       "minimal": 0
     }
   },
-
   "features": {
     "contextInference": {
       "js": { "routes": true, "auth": true, "pii": true },
@@ -97,14 +87,13 @@
       "java": { "routes": true, "auth": true, "pii": true }
     }
   },
-
   "metadata": {
     "purpose": "Profile for startup environments prioritising development velocity with acceptable risk tolerance",
     "notes": [
+      "Lower contextMultipliers across all factors (combined core: 1.3 x 1.2 x 1.1 = 1.72x)",
       "Relaxed SLAs reflect smaller team capacity and faster iteration cycles",
       "Lower totalLiftCap (0.50) prevents over-escalation in resource-constrained environments",
-      "regulated factor disabled - startups typically pre-compliance phase",
-      "userBaseLarge disabled - early-stage user base assumed small"
+      "regulated and userBaseLarge disabled - startups typically pre-compliance with small user base"
     ]
   }
 }

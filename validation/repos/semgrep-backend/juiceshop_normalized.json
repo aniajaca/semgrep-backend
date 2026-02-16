@@ -1,0 +1,571 @@
+{
+  "results": [
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.sequelize.security.audit.sequelize-injection-express.express-sequelize-injection",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "Detected a sequelize statement that is tainted by user-input. This could lead to SQL injection if the variable is user-controlled and is not properly sanitized. In order to prevent SQL injection, it is recommended to use parameterized queries or prepared statements.",
+      "cwe": [
+        "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      ],
+      "owasp": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "file": "data/static/codefixes/dbSchemaChallenge_1.ts",
+      "startLine": 5,
+      "endLine": 5,
+      "startColumn": 28,
+      "endColumn": 162,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.sequelize.security.audit.sequelize-injection-express.express-sequelize-injection",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "Detected a sequelize statement that is tainted by user-input. This could lead to SQL injection if the variable is user-controlled and is not properly sanitized. In order to prevent SQL injection, it is recommended to use parameterized queries or prepared statements.",
+      "cwe": [
+        "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      ],
+      "owasp": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "file": "data/static/codefixes/dbSchemaChallenge_3.ts",
+      "startLine": 11,
+      "endLine": 11,
+      "startColumn": 28,
+      "endColumn": 159,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.sequelize.security.audit.sequelize-injection-express.express-sequelize-injection",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "Detected a sequelize statement that is tainted by user-input. This could lead to SQL injection if the variable is user-controlled and is not properly sanitized. In order to prevent SQL injection, it is recommended to use parameterized queries or prepared statements.",
+      "cwe": [
+        "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      ],
+      "owasp": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "file": "data/static/codefixes/unionSqlInjectionChallenge_1.ts",
+      "startLine": 6,
+      "endLine": 6,
+      "startColumn": 28,
+      "endColumn": 159,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.sequelize.security.audit.sequelize-injection-express.express-sequelize-injection",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "Detected a sequelize statement that is tainted by user-input. This could lead to SQL injection if the variable is user-controlled and is not properly sanitized. In order to prevent SQL injection, it is recommended to use parameterized queries or prepared statements.",
+      "cwe": [
+        "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      ],
+      "owasp": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "file": "data/static/codefixes/unionSqlInjectionChallenge_3.ts",
+      "startLine": 10,
+      "endLine": 10,
+      "startColumn": 28,
+      "endColumn": 159,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "generic.html-templates.security.unquoted-attribute-var.unquoted-attribute-var",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected a unquoted template variable as an attribute. If unquoted, a malicious actor could inject custom JavaScript handlers. To fix this, add quotes around the template expression, like this: \"{{ expr }}\".",
+      "cwe": [
+        "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      ],
+      "owasp": [
+        "A07:2017 - Cross-Site Scripting (XSS)",
+        "A03:2021 - Injection"
+      ],
+      "file": "frontend/src/app/navbar/navbar.component.html",
+      "startLine": 17,
+      "endLine": 17,
+      "startColumn": 47,
+      "endColumn": 66,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "generic.html-templates.security.unquoted-attribute-var.unquoted-attribute-var",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected a unquoted template variable as an attribute. If unquoted, a malicious actor could inject custom JavaScript handlers. To fix this, add quotes around the template expression, like this: \"{{ expr }}\".",
+      "cwe": [
+        "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      ],
+      "owasp": [
+        "A07:2017 - Cross-Site Scripting (XSS)",
+        "A03:2021 - Injection"
+      ],
+      "file": "frontend/src/app/purchase-basket/purchase-basket.component.html",
+      "startLine": 15,
+      "endLine": 15,
+      "startColumn": 71,
+      "endColumn": 87,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "generic.html-templates.security.unquoted-attribute-var.unquoted-attribute-var",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected a unquoted template variable as an attribute. If unquoted, a malicious actor could inject custom JavaScript handlers. To fix this, add quotes around the template expression, like this: \"{{ expr }}\".",
+      "cwe": [
+        "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      ],
+      "owasp": [
+        "A07:2017 - Cross-Site Scripting (XSS)",
+        "A03:2021 - Injection"
+      ],
+      "file": "frontend/src/app/search-result/search-result.component.html",
+      "startLine": 40,
+      "endLine": 40,
+      "startColumn": 97,
+      "endColumn": 110,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.jsonwebtoken.security.jwt-hardcode.hardcoded-jwt-secret",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "A hard-coded credential was detected. It is not recommended to store credentials in source-code, as this risks secrets being leaked and used by either an internal or external malicious adversary. It is recommended to use environment variables to securely provide credentials or retrieve credentials from a secure vault or HSM (Hardware Security Module).",
+      "cwe": [
+        "CWE-798: Use of Hard-coded Credentials"
+      ],
+      "owasp": [
+        "A07:2021 - Identification and Authentication Failures"
+      ],
+      "file": "lib/insecurity.ts",
+      "startLine": 56,
+      "endLine": 56,
+      "startColumn": 56,
+      "endColumn": 66,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.express.security.injection.raw-html-format.raw-html-format",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "User data flows into the host portion of this manually-constructed HTML. This can introduce a Cross-Site-Scripting (XSS) vulnerability if this comes from user-provided input. Consider using a sanitization library such as DOMPurify to sanitize the HTML within.",
+      "cwe": [
+        "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      ],
+      "owasp": [
+        "A07:2017 - Cross-Site Scripting (XSS)",
+        "A03:2021 - Injection"
+      ],
+      "file": "routes/chatbot.ts",
+      "startLine": 197,
+      "endLine": 197,
+      "startColumn": 46,
+      "endColumn": 56,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.express.security.audit.express-res-sendfile.express-res-sendfile",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "The application processes user-input, this is passed to res.sendFile which can allow an attacker to arbitrarily read files on the system through path traversal. It is recommended to perform input validation in addition to canonicalizing the path. This allows you to validate the path against the intended directory it should be accessing.",
+      "cwe": [
+        "CWE-73: External Control of File Name or Path"
+      ],
+      "owasp": [
+        "A04:2021 - Insecure Design"
+      ],
+      "file": "routes/fileServer.ts",
+      "startLine": 33,
+      "endLine": 33,
+      "startColumn": 20,
+      "endColumn": 46,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.express.security.audit.express-res-sendfile.express-res-sendfile",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "The application processes user-input, this is passed to res.sendFile which can allow an attacker to arbitrarily read files on the system through path traversal. It is recommended to perform input validation in addition to canonicalizing the path. This allows you to validate the path against the intended directory it should be accessing.",
+      "cwe": [
+        "CWE-73: External Control of File Name or Path"
+      ],
+      "owasp": [
+        "A04:2021 - Insecure Design"
+      ],
+      "file": "routes/keyServer.ts",
+      "startLine": 14,
+      "endLine": 14,
+      "startColumn": 20,
+      "endColumn": 57,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.express.security.audit.express-res-sendfile.express-res-sendfile",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "The application processes user-input, this is passed to res.sendFile which can allow an attacker to arbitrarily read files on the system through path traversal. It is recommended to perform input validation in addition to canonicalizing the path. This allows you to validate the path against the intended directory it should be accessing.",
+      "cwe": [
+        "CWE-73: External Control of File Name or Path"
+      ],
+      "owasp": [
+        "A04:2021 - Insecure Design"
+      ],
+      "file": "routes/logfileServer.ts",
+      "startLine": 14,
+      "endLine": 14,
+      "startColumn": 20,
+      "endColumn": 47,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.sequelize.security.audit.sequelize-injection-express.express-sequelize-injection",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "Detected a sequelize statement that is tainted by user-input. This could lead to SQL injection if the variable is user-controlled and is not properly sanitized. In order to prevent SQL injection, it is recommended to use parameterized queries or prepared statements.",
+      "cwe": [
+        "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      ],
+      "owasp": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "file": "routes/login.ts",
+      "startLine": 34,
+      "endLine": 34,
+      "startColumn": 28,
+      "endColumn": 169,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.express.security.audit.express-res-sendfile.express-res-sendfile",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "The application processes user-input, this is passed to res.sendFile which can allow an attacker to arbitrarily read files on the system through path traversal. It is recommended to perform input validation in addition to canonicalizing the path. This allows you to validate the path against the intended directory it should be accessing.",
+      "cwe": [
+        "CWE-73: External Control of File Name or Path"
+      ],
+      "owasp": [
+        "A04:2021 - Insecure Design"
+      ],
+      "file": "routes/quarantineServer.ts",
+      "startLine": 14,
+      "endLine": 14,
+      "startColumn": 20,
+      "endColumn": 57,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.express.security.audit.possible-user-input-redirect.unknown-value-in-redirect",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "It looks like 'toUrl' is read from user input and it is used to as a redirect. Ensure 'toUrl' is not externally controlled, otherwise this is an open redirect.",
+      "cwe": [
+        "CWE-601: URL Redirection to Untrusted Site ('Open Redirect')"
+      ],
+      "owasp": [
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "routes/redirect.ts",
+      "startLine": 19,
+      "endLine": 19,
+      "startColumn": 7,
+      "endColumn": 26,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.express.security.audit.express-open-redirect.express-open-redirect",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "The application redirects to a URL specified by user-supplied input `query` that is not validated. This could redirect users to malicious locations. Consider using an allow-list approach to validate URLs, or warn users they are being redirected to a third-party website.",
+      "cwe": [
+        "CWE-601: URL Redirection to Untrusted Site ('Open Redirect')"
+      ],
+      "owasp": [
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "routes/redirect.ts",
+      "startLine": 19,
+      "endLine": 19,
+      "startColumn": 20,
+      "endColumn": 25,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.sequelize.security.audit.sequelize-injection-express.express-sequelize-injection",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "Detected a sequelize statement that is tainted by user-input. This could lead to SQL injection if the variable is user-controlled and is not properly sanitized. In order to prevent SQL injection, it is recommended to use parameterized queries or prepared statements.",
+      "cwe": [
+        "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      ],
+      "owasp": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "file": "routes/search.ts",
+      "startLine": 23,
+      "endLine": 23,
+      "startColumn": 28,
+      "endColumn": 159,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.code-string-concat.code-string-concat",
+      "category": "security",
+      "severity": "ERROR",
+      "message": "Found data from an Express or Next web request flowing to `eval`. If this data is user-controllable this can lead to execution of arbitrary system commands in the context of your application process. Avoid `eval` whenever possible.",
+      "cwe": [
+        "CWE-95: Improper Neutralization of Directives in Dynamically Evaluated Code ('Eval Injection')"
+      ],
+      "owasp": [
+        "A03:2021 - Injection"
+      ],
+      "file": "routes/userProfile.ts",
+      "startLine": 62,
+      "endLine": 62,
+      "startColumn": 20,
+      "endColumn": 30,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Cannot determine what 'subs' is and it is used with a '<script>' tag. This could be susceptible to cross-site scripting (XSS). Ensure 'subs' is not externally controlled, or sanitize this data.",
+      "cwe": [
+        "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      ],
+      "owasp": [
+        "A07:2017 - Cross-Site Scripting (XSS)",
+        "A03:2021 - Injection"
+      ],
+      "file": "routes/videoHandler.ts",
+      "startLine": 58,
+      "endLine": 58,
+      "startColumn": 90,
+      "endColumn": 94,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Cannot determine what 'subs' is and it is used with a '<script>' tag. This could be susceptible to cross-site scripting (XSS). Ensure 'subs' is not externally controlled, or sanitize this data.",
+      "cwe": [
+        "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      ],
+      "owasp": [
+        "A07:2017 - Cross-Site Scripting (XSS)",
+        "A03:2021 - Injection"
+      ],
+      "file": "routes/videoHandler.ts",
+      "startLine": 71,
+      "endLine": 71,
+      "startColumn": 165,
+      "endColumn": 169,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.express.security.audit.express-check-directory-listing.express-check-directory-listing",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Directory listing/indexing is enabled, which may lead to disclosure of sensitive directories and files. It is recommended to disable directory listing unless it is a public resource. If you need directory listing, ensure that sensitive files are inaccessible when querying the resource.",
+      "cwe": [
+        "CWE-548: Exposure of Information Through Directory Listing"
+      ],
+      "owasp": [
+        "A06:2017 - Security Misconfiguration",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "server.ts",
+      "startLine": 269,
+      "endLine": 269,
+      "startColumn": 3,
+      "endColumn": 76,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.express.security.audit.express-check-directory-listing.express-check-directory-listing",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Directory listing/indexing is enabled, which may lead to disclosure of sensitive directories and files. It is recommended to disable directory listing unless it is a public resource. If you need directory listing, ensure that sensitive files are inaccessible when querying the resource.",
+      "cwe": [
+        "CWE-548: Exposure of Information Through Directory Listing"
+      ],
+      "owasp": [
+        "A06:2017 - Security Misconfiguration",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "server.ts",
+      "startLine": 273,
+      "endLine": 273,
+      "startColumn": 3,
+      "endColumn": 109,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.express.security.audit.express-check-directory-listing.express-check-directory-listing",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Directory listing/indexing is enabled, which may lead to disclosure of sensitive directories and files. It is recommended to disable directory listing unless it is a public resource. If you need directory listing, ensure that sensitive files are inaccessible when querying the resource.",
+      "cwe": [
+        "CWE-548: Exposure of Information Through Directory Listing"
+      ],
+      "owasp": [
+        "A06:2017 - Security Misconfiguration",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "server.ts",
+      "startLine": 277,
+      "endLine": 277,
+      "startColumn": 3,
+      "endColumn": 115,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.express.security.audit.express-check-directory-listing.express-check-directory-listing",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Directory listing/indexing is enabled, which may lead to disclosure of sensitive directories and files. It is recommended to disable directory listing unless it is a public resource. If you need directory listing, ensure that sensitive files are inaccessible when querying the resource.",
+      "cwe": [
+        "CWE-548: Exposure of Information Through Directory Listing"
+      ],
+      "owasp": [
+        "A06:2017 - Security Misconfiguration",
+        "A01:2021 - Broken Access Control"
+      ],
+      "file": "server.ts",
+      "startLine": 281,
+      "endLine": 281,
+      "startColumn": 3,
+      "endColumn": 103,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    },
+    {
+      "engine": "semgrep",
+      "ruleId": "generic.html-templates.security.unquoted-attribute-var.unquoted-attribute-var",
+      "category": "security",
+      "severity": "WARNING",
+      "message": "Detected a unquoted template variable as an attribute. If unquoted, a malicious actor could inject custom JavaScript handlers. To fix this, add quotes around the template expression, like this: \"{{ expr }}\".",
+      "cwe": [
+        "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      ],
+      "owasp": [
+        "A07:2017 - Cross-Site Scripting (XSS)",
+        "A03:2021 - Injection"
+      ],
+      "file": "views/dataErasureForm.hbs",
+      "startLine": 21,
+      "endLine": 21,
+      "startColumn": 58,
+      "endColumn": 71,
+      "snippet": "requires login",
+      "confidence": "MEDIUM",
+      "impact": "MEDIUM",
+      "likelihood": "MEDIUM"
+    }
+  ]
+}

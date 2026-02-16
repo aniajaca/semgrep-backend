@@ -1,9 +1,19 @@
+
 {
   "version": "1.0.0",
   "name": "neperia-internal",
   "description": "Business risk profile for Neperia internal security scanner development",
   "profileHash": null,
-  
+  "contextMultipliers": {
+    "internetFacing": 1.5,
+    "handlesPI": 1.4,
+    "production": 1.3,
+    "legacyCode": 1.2,
+    "businessCritical": 1.6,
+    "compliance": 1.3,
+    "thirdPartyIntegration": 1.2,
+    "complexAuth": 1.1
+  },
   "businessContext": {
     "projectType": "internal-security-tool",
     "criticality": "medium",
@@ -14,7 +24,6 @@
     "userBase": "internal-team",
     "deploymentContext": "development-environment"
   },
-  
   "contextFactors": {
     "enabled": {
       "kevListed": true,
@@ -22,7 +31,7 @@
       "epss": true,
       "internetFacing": false,
       "production": false,
-      "handlesPII": true,
+      "handlesPI": true,
       "userBaseLarge": false,
       "regulated": false,
       "noAuth": true
@@ -33,7 +42,7 @@
       "epss": 0.25,
       "internetFacing": 0.20,
       "production": 0.15,
-      "handlesPII": 0.15,
+      "handlesPI": 0.15,
       "userBaseLarge": 0.05,
       "regulated": 0.10,
       "noAuth": 0.15
@@ -45,7 +54,6 @@
     },
     "totalLiftCap": 0.60
   },
-  
   "businessFactors": {
     "reputationalImpact": {
       "enabled": true,
@@ -73,7 +81,6 @@
       "rationale": "Scanner contains proprietary security assessment algorithms and detection logic"
     }
   },
-  
   "fileRisk": {
     "topK": 5,
     "weights": {
@@ -88,7 +95,6 @@
       "exposure": 20
     }
   },
-  
   "slaMapping": {
     "P0": {
       "threshold": 85,
@@ -119,7 +125,6 @@
       "notificationChannels": []
     }
   },
-  
   "scoring": {
     "severityPoints": {
       "critical": 25,
@@ -136,27 +141,13 @@
       "minimal": 0
     }
   },
-  
   "features": {
     "contextInference": {
-      "js": {
-        "routes": true,
-        "auth": true,
-        "pii": true
-      },
-      "py": {
-        "routes": true,
-        "auth": true,
-        "pii": true
-      },
-      "java": {
-        "routes": true,
-        "auth": true,
-        "pii": true
-      }
+      "js": { "routes": true, "auth": true, "pii": true },
+      "py": { "routes": true, "auth": true, "pii": true },
+      "java": { "routes": true, "auth": true, "pii": true }
     }
   },
-  
   "metadata": {
     "createdAt": "2026-01-07",
     "createdBy": "Ania Jaca",
@@ -164,9 +155,10 @@
     "reviewDate": "2026-01-07",
     "nextReviewDate": "2026-04-07",
     "notes": [
-      "internetFacing set to false: while scanner runs on localhost:3000, it is NOT exposed to external networks in business context",
-      "KEV/EPSS factors enabled for model completeness but inactive for self-scan (no CVE mappings for custom codebase)",
-      "Lower totalLiftCap (0.60) reflects internal development environment vs. production customer-facing systems"
+      "internetFacing and production disabled: scanner runs locally in development context",
+      "Default contextMultipliers used (dormant for disabled factors, ready if re-enabled)",
+      "Lower totalLiftCap (0.60) reflects internal development environment"
     ]
   }
 }
+

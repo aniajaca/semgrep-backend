@@ -1,0 +1,1222 @@
+{
+    "status": "success",
+    "engine": "semgrep",
+    "findings": [
+        {
+            "engine": "semgrep",
+            "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+            "category": "security",
+            "severity": "HIGH",
+            "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+            "cwe": "CWE-22",
+            "owasp": [
+                "A05:2017 - Broken Access Control",
+                "A01:2021 - Broken Access Control"
+            ],
+            "file": "src/server.js",
+            "startLine": 215,
+            "endLine": 215,
+            "startColumn": 19,
+            "endColumn": 36,
+            "snippet": "requires login",
+            "confidence": "LOW",
+            "impact": "MEDIUM",
+            "likelihood": "HIGH",
+            "enrichedAt": "2026-01-02T11:30:32.509Z",
+            "cweId": "CWE-22",
+            "bts": 7.5,
+            "crs": 83,
+            "adjustedSeverity": "high",
+            "priority": {
+                "priority": "P1",
+                "action": "Fix within 48 hours",
+                "sla": "48 hours"
+            },
+            "context": {
+                "internetFacing": true,
+                "production": true,
+                "handlesPI": false
+            },
+            "contextEvidence": {},
+            "inferredFactors": [],
+            "appliedFactors": [
+                "production"
+            ],
+            "remediation": {
+                "priority": {
+                    "priority": "P1",
+                    "action": "Fix within 48 hours",
+                    "sla": "48 hours"
+                },
+                "timeline": "48 hours - High priority fix",
+                "approach": "Validate file paths, use safe APIs, implement access controls",
+                "validation": "Test with traversal sequences, verify file access boundaries",
+                "risk": "Unauthorized file access, information disclosure, system compromise",
+                "resources": {
+                    "documentation": "https://cwe.mitre.org/data/definitions/22.html",
+                    "owaspGuide": "https://owasp.org/www-project-top-ten/",
+                    "category": "Security Category: pathTraversal"
+                },
+                "preventionMeasures": [
+                    "Implement secure coding standards",
+                    "Add security linting rules",
+                    "Include security testing in CI/CD",
+                    "Conduct regular security training",
+                    "Perform periodic security audits"
+                ]
+            },
+            "sla": 14
+        },
+        {
+            "engine": "semgrep",
+            "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+            "category": "security",
+            "severity": "HIGH",
+            "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+            "cwe": "CWE-22",
+            "owasp": [
+                "A05:2017 - Broken Access Control",
+                "A01:2021 - Broken Access Control"
+            ],
+            "file": "src/server.js",
+            "startLine": 294,
+            "endLine": 294,
+            "startColumn": 34,
+            "endColumn": 37,
+            "snippet": "requires login",
+            "confidence": "LOW",
+            "impact": "MEDIUM",
+            "likelihood": "HIGH",
+            "enrichedAt": "2026-01-02T11:30:32.509Z",
+            "cweId": "CWE-22",
+            "bts": 7.5,
+            "crs": 83,
+            "adjustedSeverity": "high",
+            "priority": {
+                "priority": "P1",
+                "action": "Fix within 48 hours",
+                "sla": "48 hours"
+            },
+            "context": {
+                "internetFacing": true,
+                "production": true,
+                "handlesPI": false
+            },
+            "contextEvidence": {},
+            "inferredFactors": [],
+            "appliedFactors": [
+                "production"
+            ],
+            "remediation": {
+                "priority": {
+                    "priority": "P1",
+                    "action": "Fix within 48 hours",
+                    "sla": "48 hours"
+                },
+                "timeline": "48 hours - High priority fix",
+                "approach": "Validate file paths, use safe APIs, implement access controls",
+                "validation": "Test with traversal sequences, verify file access boundaries",
+                "risk": "Unauthorized file access, information disclosure, system compromise",
+                "resources": {
+                    "documentation": "https://cwe.mitre.org/data/definitions/22.html",
+                    "owaspGuide": "https://owasp.org/www-project-top-ten/",
+                    "category": "Security Category: pathTraversal"
+                },
+                "preventionMeasures": [
+                    "Implement secure coding standards",
+                    "Add security linting rules",
+                    "Include security testing in CI/CD",
+                    "Conduct regular security training",
+                    "Perform periodic security audits"
+                ]
+            },
+            "sla": 14
+        },
+        {
+            "engine": "semgrep",
+            "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+            "category": "security",
+            "severity": "HIGH",
+            "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+            "cwe": "CWE-22",
+            "owasp": [
+                "A05:2017 - Broken Access Control",
+                "A01:2021 - Broken Access Control"
+            ],
+            "file": "src/server.js",
+            "startLine": 329,
+            "endLine": 329,
+            "startColumn": 36,
+            "endColumn": 39,
+            "snippet": "requires login",
+            "confidence": "LOW",
+            "impact": "MEDIUM",
+            "likelihood": "HIGH",
+            "enrichedAt": "2026-01-02T11:30:32.509Z",
+            "cweId": "CWE-22",
+            "bts": 7.5,
+            "crs": 83,
+            "adjustedSeverity": "high",
+            "priority": {
+                "priority": "P1",
+                "action": "Fix within 48 hours",
+                "sla": "48 hours"
+            },
+            "context": {
+                "internetFacing": true,
+                "production": true,
+                "handlesPI": false
+            },
+            "contextEvidence": {},
+            "inferredFactors": [],
+            "appliedFactors": [
+                "production"
+            ],
+            "remediation": {
+                "priority": {
+                    "priority": "P1",
+                    "action": "Fix within 48 hours",
+                    "sla": "48 hours"
+                },
+                "timeline": "48 hours - High priority fix",
+                "approach": "Validate file paths, use safe APIs, implement access controls",
+                "validation": "Test with traversal sequences, verify file access boundaries",
+                "risk": "Unauthorized file access, information disclosure, system compromise",
+                "resources": {
+                    "documentation": "https://cwe.mitre.org/data/definitions/22.html",
+                    "owaspGuide": "https://owasp.org/www-project-top-ten/",
+                    "category": "Security Category: pathTraversal"
+                },
+                "preventionMeasures": [
+                    "Implement secure coding standards",
+                    "Add security linting rules",
+                    "Include security testing in CI/CD",
+                    "Conduct regular security training",
+                    "Perform periodic security audits"
+                ]
+            },
+            "sla": 14
+        },
+        {
+            "engine": "semgrep",
+            "ruleId": "javascript.express.security.audit.express-path-join-resolve-traversal.express-path-join-resolve-traversal",
+            "category": "security",
+            "severity": "HIGH",
+            "message": "Possible writing outside of the destination, make sure that the target path is nested in the intended destination",
+            "cwe": "CWE-22",
+            "owasp": [
+                "A05:2017 - Broken Access Control",
+                "A01:2021 - Broken Access Control"
+            ],
+            "file": "src/server.js",
+            "startLine": 698,
+            "endLine": 698,
+            "startColumn": 35,
+            "endColumn": 46,
+            "snippet": "requires login",
+            "confidence": "MEDIUM",
+            "impact": "MEDIUM",
+            "likelihood": "HIGH",
+            "enrichedAt": "2026-01-02T11:30:32.509Z",
+            "cweId": "CWE-22",
+            "bts": 7.5,
+            "crs": 83,
+            "adjustedSeverity": "high",
+            "priority": {
+                "priority": "P1",
+                "action": "Fix within 48 hours",
+                "sla": "48 hours"
+            },
+            "context": {
+                "internetFacing": true,
+                "production": true,
+                "handlesPI": false
+            },
+            "contextEvidence": {},
+            "inferredFactors": [],
+            "appliedFactors": [
+                "production"
+            ],
+            "remediation": {
+                "priority": {
+                    "priority": "P1",
+                    "action": "Fix within 48 hours",
+                    "sla": "48 hours"
+                },
+                "timeline": "48 hours - High priority fix",
+                "approach": "Validate file paths, use safe APIs, implement access controls",
+                "validation": "Test with traversal sequences, verify file access boundaries",
+                "risk": "Unauthorized file access, information disclosure, system compromise",
+                "resources": {
+                    "documentation": "https://cwe.mitre.org/data/definitions/22.html",
+                    "owaspGuide": "https://owasp.org/www-project-top-ten/",
+                    "category": "Security Category: pathTraversal"
+                },
+                "preventionMeasures": [
+                    "Implement secure coding standards",
+                    "Add security linting rules",
+                    "Include security testing in CI/CD",
+                    "Conduct regular security training",
+                    "Perform periodic security audits"
+                ]
+            },
+            "sla": 14
+        },
+        {
+            "engine": "semgrep",
+            "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+            "category": "security",
+            "severity": "HIGH",
+            "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+            "cwe": "CWE-22",
+            "owasp": [
+                "A05:2017 - Broken Access Control",
+                "A01:2021 - Broken Access Control"
+            ],
+            "file": "src/server.js",
+            "startLine": 698,
+            "endLine": 698,
+            "startColumn": 35,
+            "endColumn": 46,
+            "snippet": "requires login",
+            "confidence": "LOW",
+            "impact": "MEDIUM",
+            "likelihood": "HIGH",
+            "enrichedAt": "2026-01-02T11:30:32.509Z",
+            "cweId": "CWE-22",
+            "bts": 7.5,
+            "crs": 83,
+            "adjustedSeverity": "high",
+            "priority": {
+                "priority": "P1",
+                "action": "Fix within 48 hours",
+                "sla": "48 hours"
+            },
+            "context": {
+                "internetFacing": true,
+                "production": true,
+                "handlesPI": false
+            },
+            "contextEvidence": {},
+            "inferredFactors": [],
+            "appliedFactors": [
+                "production"
+            ],
+            "remediation": {
+                "priority": {
+                    "priority": "P1",
+                    "action": "Fix within 48 hours",
+                    "sla": "48 hours"
+                },
+                "timeline": "48 hours - High priority fix",
+                "approach": "Validate file paths, use safe APIs, implement access controls",
+                "validation": "Test with traversal sequences, verify file access boundaries",
+                "risk": "Unauthorized file access, information disclosure, system compromise",
+                "resources": {
+                    "documentation": "https://cwe.mitre.org/data/definitions/22.html",
+                    "owaspGuide": "https://owasp.org/www-project-top-ten/",
+                    "category": "Security Category: pathTraversal"
+                },
+                "preventionMeasures": [
+                    "Implement secure coding standards",
+                    "Add security linting rules",
+                    "Include security testing in CI/CD",
+                    "Conduct regular security training",
+                    "Perform periodic security audits"
+                ]
+            },
+            "sla": 14
+        },
+        {
+            "engine": "semgrep",
+            "ruleId": "javascript.express.security.audit.express-path-join-resolve-traversal.express-path-join-resolve-traversal",
+            "category": "security",
+            "severity": "HIGH",
+            "message": "Possible writing outside of the destination, make sure that the target path is nested in the intended destination",
+            "cwe": "CWE-22",
+            "owasp": [
+                "A05:2017 - Broken Access Control",
+                "A01:2021 - Broken Access Control"
+            ],
+            "file": "src/server.js",
+            "startLine": 704,
+            "endLine": 704,
+            "startColumn": 21,
+            "endColumn": 32,
+            "snippet": "requires login",
+            "confidence": "MEDIUM",
+            "impact": "MEDIUM",
+            "likelihood": "HIGH",
+            "enrichedAt": "2026-01-02T11:30:32.509Z",
+            "cweId": "CWE-22",
+            "bts": 7.5,
+            "crs": 83,
+            "adjustedSeverity": "high",
+            "priority": {
+                "priority": "P1",
+                "action": "Fix within 48 hours",
+                "sla": "48 hours"
+            },
+            "context": {
+                "internetFacing": true,
+                "production": true,
+                "handlesPI": false
+            },
+            "contextEvidence": {},
+            "inferredFactors": [],
+            "appliedFactors": [
+                "production"
+            ],
+            "remediation": {
+                "priority": {
+                    "priority": "P1",
+                    "action": "Fix within 48 hours",
+                    "sla": "48 hours"
+                },
+                "timeline": "48 hours - High priority fix",
+                "approach": "Validate file paths, use safe APIs, implement access controls",
+                "validation": "Test with traversal sequences, verify file access boundaries",
+                "risk": "Unauthorized file access, information disclosure, system compromise",
+                "resources": {
+                    "documentation": "https://cwe.mitre.org/data/definitions/22.html",
+                    "owaspGuide": "https://owasp.org/www-project-top-ten/",
+                    "category": "Security Category: pathTraversal"
+                },
+                "preventionMeasures": [
+                    "Implement secure coding standards",
+                    "Add security linting rules",
+                    "Include security testing in CI/CD",
+                    "Conduct regular security training",
+                    "Perform periodic security audits"
+                ]
+            },
+            "sla": 14
+        },
+        {
+            "engine": "semgrep",
+            "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+            "category": "security",
+            "severity": "HIGH",
+            "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+            "cwe": "CWE-22",
+            "owasp": [
+                "A05:2017 - Broken Access Control",
+                "A01:2021 - Broken Access Control"
+            ],
+            "file": "src/server.js",
+            "startLine": 704,
+            "endLine": 704,
+            "startColumn": 21,
+            "endColumn": 32,
+            "snippet": "requires login",
+            "confidence": "LOW",
+            "impact": "MEDIUM",
+            "likelihood": "HIGH",
+            "enrichedAt": "2026-01-02T11:30:32.509Z",
+            "cweId": "CWE-22",
+            "bts": 7.5,
+            "crs": 83,
+            "adjustedSeverity": "high",
+            "priority": {
+                "priority": "P1",
+                "action": "Fix within 48 hours",
+                "sla": "48 hours"
+            },
+            "context": {
+                "internetFacing": true,
+                "production": true,
+                "handlesPI": false
+            },
+            "contextEvidence": {},
+            "inferredFactors": [],
+            "appliedFactors": [
+                "production"
+            ],
+            "remediation": {
+                "priority": {
+                    "priority": "P1",
+                    "action": "Fix within 48 hours",
+                    "sla": "48 hours"
+                },
+                "timeline": "48 hours - High priority fix",
+                "approach": "Validate file paths, use safe APIs, implement access controls",
+                "validation": "Test with traversal sequences, verify file access boundaries",
+                "risk": "Unauthorized file access, information disclosure, system compromise",
+                "resources": {
+                    "documentation": "https://cwe.mitre.org/data/definitions/22.html",
+                    "owaspGuide": "https://owasp.org/www-project-top-ten/",
+                    "category": "Security Category: pathTraversal"
+                },
+                "preventionMeasures": [
+                    "Implement secure coding standards",
+                    "Add security linting rules",
+                    "Include security testing in CI/CD",
+                    "Conduct regular security training",
+                    "Perform periodic security audits"
+                ]
+            },
+            "sla": 14
+        },
+        {
+            "engine": "semgrep",
+            "ruleId": "javascript.express.security.audit.express-path-join-resolve-traversal.express-path-join-resolve-traversal",
+            "category": "security",
+            "severity": "HIGH",
+            "message": "Possible writing outside of the destination, make sure that the target path is nested in the intended destination",
+            "cwe": "CWE-22",
+            "owasp": [
+                "A05:2017 - Broken Access Control",
+                "A01:2021 - Broken Access Control"
+            ],
+            "file": "src/server.js",
+            "startLine": 705,
+            "endLine": 705,
+            "startColumn": 21,
+            "endColumn": 32,
+            "snippet": "requires login",
+            "confidence": "MEDIUM",
+            "impact": "MEDIUM",
+            "likelihood": "HIGH",
+            "enrichedAt": "2026-01-02T11:30:32.509Z",
+            "cweId": "CWE-22",
+            "bts": 7.5,
+            "crs": 83,
+            "adjustedSeverity": "high",
+            "priority": {
+                "priority": "P1",
+                "action": "Fix within 48 hours",
+                "sla": "48 hours"
+            },
+            "context": {
+                "internetFacing": true,
+                "production": true,
+                "handlesPI": false
+            },
+            "contextEvidence": {},
+            "inferredFactors": [],
+            "appliedFactors": [
+                "production"
+            ],
+            "remediation": {
+                "priority": {
+                    "priority": "P1",
+                    "action": "Fix within 48 hours",
+                    "sla": "48 hours"
+                },
+                "timeline": "48 hours - High priority fix",
+                "approach": "Validate file paths, use safe APIs, implement access controls",
+                "validation": "Test with traversal sequences, verify file access boundaries",
+                "risk": "Unauthorized file access, information disclosure, system compromise",
+                "resources": {
+                    "documentation": "https://cwe.mitre.org/data/definitions/22.html",
+                    "owaspGuide": "https://owasp.org/www-project-top-ten/",
+                    "category": "Security Category: pathTraversal"
+                },
+                "preventionMeasures": [
+                    "Implement secure coding standards",
+                    "Add security linting rules",
+                    "Include security testing in CI/CD",
+                    "Conduct regular security training",
+                    "Perform periodic security audits"
+                ]
+            },
+            "sla": 14
+        },
+        {
+            "engine": "semgrep",
+            "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+            "category": "security",
+            "severity": "HIGH",
+            "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+            "cwe": "CWE-22",
+            "owasp": [
+                "A05:2017 - Broken Access Control",
+                "A01:2021 - Broken Access Control"
+            ],
+            "file": "src/server.js",
+            "startLine": 705,
+            "endLine": 705,
+            "startColumn": 21,
+            "endColumn": 32,
+            "snippet": "requires login",
+            "confidence": "LOW",
+            "impact": "MEDIUM",
+            "likelihood": "HIGH",
+            "enrichedAt": "2026-01-02T11:30:32.509Z",
+            "cweId": "CWE-22",
+            "bts": 7.5,
+            "crs": 83,
+            "adjustedSeverity": "high",
+            "priority": {
+                "priority": "P1",
+                "action": "Fix within 48 hours",
+                "sla": "48 hours"
+            },
+            "context": {
+                "internetFacing": true,
+                "production": true,
+                "handlesPI": false
+            },
+            "contextEvidence": {},
+            "inferredFactors": [],
+            "appliedFactors": [
+                "production"
+            ],
+            "remediation": {
+                "priority": {
+                    "priority": "P1",
+                    "action": "Fix within 48 hours",
+                    "sla": "48 hours"
+                },
+                "timeline": "48 hours - High priority fix",
+                "approach": "Validate file paths, use safe APIs, implement access controls",
+                "validation": "Test with traversal sequences, verify file access boundaries",
+                "risk": "Unauthorized file access, information disclosure, system compromise",
+                "resources": {
+                    "documentation": "https://cwe.mitre.org/data/definitions/22.html",
+                    "owaspGuide": "https://owasp.org/www-project-top-ten/",
+                    "category": "Security Category: pathTraversal"
+                },
+                "preventionMeasures": [
+                    "Implement secure coding standards",
+                    "Add security linting rules",
+                    "Include security testing in CI/CD",
+                    "Conduct regular security training",
+                    "Perform periodic security audits"
+                ]
+            },
+            "sla": 14
+        },
+        {
+            "engine": "semgrep",
+            "ruleId": "javascript.express.security.audit.express-path-join-resolve-traversal.express-path-join-resolve-traversal",
+            "category": "security",
+            "severity": "HIGH",
+            "message": "Possible writing outside of the destination, make sure that the target path is nested in the intended destination",
+            "cwe": "CWE-22",
+            "owasp": [
+                "A05:2017 - Broken Access Control",
+                "A01:2021 - Broken Access Control"
+            ],
+            "file": "src/server.js",
+            "startLine": 706,
+            "endLine": 706,
+            "startColumn": 21,
+            "endColumn": 32,
+            "snippet": "requires login",
+            "confidence": "MEDIUM",
+            "impact": "MEDIUM",
+            "likelihood": "HIGH",
+            "enrichedAt": "2026-01-02T11:30:32.509Z",
+            "cweId": "CWE-22",
+            "bts": 7.5,
+            "crs": 83,
+            "adjustedSeverity": "high",
+            "priority": {
+                "priority": "P1",
+                "action": "Fix within 48 hours",
+                "sla": "48 hours"
+            },
+            "context": {
+                "internetFacing": true,
+                "production": true,
+                "handlesPI": false
+            },
+            "contextEvidence": {},
+            "inferredFactors": [],
+            "appliedFactors": [
+                "production"
+            ],
+            "remediation": {
+                "priority": {
+                    "priority": "P1",
+                    "action": "Fix within 48 hours",
+                    "sla": "48 hours"
+                },
+                "timeline": "48 hours - High priority fix",
+                "approach": "Validate file paths, use safe APIs, implement access controls",
+                "validation": "Test with traversal sequences, verify file access boundaries",
+                "risk": "Unauthorized file access, information disclosure, system compromise",
+                "resources": {
+                    "documentation": "https://cwe.mitre.org/data/definitions/22.html",
+                    "owaspGuide": "https://owasp.org/www-project-top-ten/",
+                    "category": "Security Category: pathTraversal"
+                },
+                "preventionMeasures": [
+                    "Implement secure coding standards",
+                    "Add security linting rules",
+                    "Include security testing in CI/CD",
+                    "Conduct regular security training",
+                    "Perform periodic security audits"
+                ]
+            },
+            "sla": 14
+        },
+        {
+            "engine": "semgrep",
+            "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+            "category": "security",
+            "severity": "HIGH",
+            "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+            "cwe": "CWE-22",
+            "owasp": [
+                "A05:2017 - Broken Access Control",
+                "A01:2021 - Broken Access Control"
+            ],
+            "file": "src/server.js",
+            "startLine": 706,
+            "endLine": 706,
+            "startColumn": 21,
+            "endColumn": 32,
+            "snippet": "requires login",
+            "confidence": "LOW",
+            "impact": "MEDIUM",
+            "likelihood": "HIGH",
+            "enrichedAt": "2026-01-02T11:30:32.509Z",
+            "cweId": "CWE-22",
+            "bts": 7.5,
+            "crs": 83,
+            "adjustedSeverity": "high",
+            "priority": {
+                "priority": "P1",
+                "action": "Fix within 48 hours",
+                "sla": "48 hours"
+            },
+            "context": {
+                "internetFacing": true,
+                "production": true,
+                "handlesPI": false
+            },
+            "contextEvidence": {},
+            "inferredFactors": [],
+            "appliedFactors": [
+                "production"
+            ],
+            "remediation": {
+                "priority": {
+                    "priority": "P1",
+                    "action": "Fix within 48 hours",
+                    "sla": "48 hours"
+                },
+                "timeline": "48 hours - High priority fix",
+                "approach": "Validate file paths, use safe APIs, implement access controls",
+                "validation": "Test with traversal sequences, verify file access boundaries",
+                "risk": "Unauthorized file access, information disclosure, system compromise",
+                "resources": {
+                    "documentation": "https://cwe.mitre.org/data/definitions/22.html",
+                    "owaspGuide": "https://owasp.org/www-project-top-ten/",
+                    "category": "Security Category: pathTraversal"
+                },
+                "preventionMeasures": [
+                    "Implement secure coding standards",
+                    "Add security linting rules",
+                    "Include security testing in CI/CD",
+                    "Conduct regular security training",
+                    "Perform periodic security audits"
+                ]
+            },
+            "sla": 14
+        },
+        {
+            "engine": "semgrep",
+            "ruleId": "javascript.express.security.audit.express-path-join-resolve-traversal.express-path-join-resolve-traversal",
+            "category": "security",
+            "severity": "HIGH",
+            "message": "Possible writing outside of the destination, make sure that the target path is nested in the intended destination",
+            "cwe": "CWE-22",
+            "owasp": [
+                "A05:2017 - Broken Access Control",
+                "A01:2021 - Broken Access Control"
+            ],
+            "file": "src/server.js",
+            "startLine": 952,
+            "endLine": 952,
+            "startColumn": 37,
+            "endColumn": 48,
+            "snippet": "requires login",
+            "confidence": "MEDIUM",
+            "impact": "MEDIUM",
+            "likelihood": "HIGH",
+            "enrichedAt": "2026-01-02T11:30:32.509Z",
+            "cweId": "CWE-22",
+            "bts": 7.5,
+            "crs": 83,
+            "adjustedSeverity": "high",
+            "priority": {
+                "priority": "P1",
+                "action": "Fix within 48 hours",
+                "sla": "48 hours"
+            },
+            "context": {
+                "internetFacing": true,
+                "production": true,
+                "handlesPI": false
+            },
+            "contextEvidence": {},
+            "inferredFactors": [],
+            "appliedFactors": [
+                "production"
+            ],
+            "remediation": {
+                "priority": {
+                    "priority": "P1",
+                    "action": "Fix within 48 hours",
+                    "sla": "48 hours"
+                },
+                "timeline": "48 hours - High priority fix",
+                "approach": "Validate file paths, use safe APIs, implement access controls",
+                "validation": "Test with traversal sequences, verify file access boundaries",
+                "risk": "Unauthorized file access, information disclosure, system compromise",
+                "resources": {
+                    "documentation": "https://cwe.mitre.org/data/definitions/22.html",
+                    "owaspGuide": "https://owasp.org/www-project-top-ten/",
+                    "category": "Security Category: pathTraversal"
+                },
+                "preventionMeasures": [
+                    "Implement secure coding standards",
+                    "Add security linting rules",
+                    "Include security testing in CI/CD",
+                    "Conduct regular security training",
+                    "Perform periodic security audits"
+                ]
+            },
+            "sla": 14
+        },
+        {
+            "engine": "semgrep",
+            "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+            "category": "security",
+            "severity": "HIGH",
+            "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first.",
+            "cwe": "CWE-22",
+            "owasp": [
+                "A05:2017 - Broken Access Control",
+                "A01:2021 - Broken Access Control"
+            ],
+            "file": "src/server.js",
+            "startLine": 952,
+            "endLine": 952,
+            "startColumn": 37,
+            "endColumn": 48,
+            "snippet": "requires login",
+            "confidence": "LOW",
+            "impact": "MEDIUM",
+            "likelihood": "HIGH",
+            "enrichedAt": "2026-01-02T11:30:32.509Z",
+            "cweId": "CWE-22",
+            "bts": 7.5,
+            "crs": 83,
+            "adjustedSeverity": "high",
+            "priority": {
+                "priority": "P1",
+                "action": "Fix within 48 hours",
+                "sla": "48 hours"
+            },
+            "context": {
+                "internetFacing": true,
+                "production": true,
+                "handlesPI": false
+            },
+            "contextEvidence": {},
+            "inferredFactors": [],
+            "appliedFactors": [
+                "production"
+            ],
+            "remediation": {
+                "priority": {
+                    "priority": "P1",
+                    "action": "Fix within 48 hours",
+                    "sla": "48 hours"
+                },
+                "timeline": "48 hours - High priority fix",
+                "approach": "Validate file paths, use safe APIs, implement access controls",
+                "validation": "Test with traversal sequences, verify file access boundaries",
+                "risk": "Unauthorized file access, information disclosure, system compromise",
+                "resources": {
+                    "documentation": "https://cwe.mitre.org/data/definitions/22.html",
+                    "owaspGuide": "https://owasp.org/www-project-top-ten/",
+                    "category": "Security Category: pathTraversal"
+                },
+                "preventionMeasures": [
+                    "Implement secure coding standards",
+                    "Add security linting rules",
+                    "Include security testing in CI/CD",
+                    "Conduct regular security training",
+                    "Perform periodic security audits"
+                ]
+            },
+            "sla": 14
+        },
+        {
+            "engine": "semgrep",
+            "ruleId": "javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage",
+            "category": "security",
+            "severity": "MEDIUM",
+            "message": "A CSRF middleware was not detected in your express application. Ensure you are either using one such as `csurf` or `csrf` (see rule references) and/or you are properly doing CSRF validation in your routes with a token or cookies.",
+            "cwe": "CWE-352",
+            "owasp": [
+                "A01:2021 - Broken Access Control"
+            ],
+            "file": "src/server.js",
+            "startLine": 54,
+            "endLine": 54,
+            "startColumn": 7,
+            "endColumn": 22,
+            "snippet": "requires login",
+            "confidence": "LOW",
+            "impact": "HIGH",
+            "likelihood": "LOW",
+            "enrichedAt": "2026-01-02T11:30:32.509Z",
+            "cweId": "CWE-352",
+            "bts": 5,
+            "crs": 58,
+            "adjustedSeverity": "medium",
+            "priority": {
+                "priority": "P2",
+                "action": "Fix in next sprint",
+                "sla": "2 weeks"
+            },
+            "context": {
+                "internetFacing": true,
+                "production": true,
+                "handlesPI": false
+            },
+            "contextEvidence": {},
+            "inferredFactors": [],
+            "appliedFactors": [
+                "production"
+            ],
+            "remediation": {
+                "priority": {
+                    "priority": "P2",
+                    "action": "Fix in next sprint",
+                    "sla": "2 weeks"
+                },
+                "timeline": "2 weeks - Include in next sprint",
+                "approach": "Review code and apply security best practices",
+                "validation": "Perform security testing",
+                "risk": "Potential security vulnerability",
+                "resources": {
+                    "documentation": "https://cwe.mitre.org/data/definitions/352.html",
+                    "owaspGuide": "https://owasp.org/www-project-top-ten/",
+                    "category": "Security Category: unknown"
+                },
+                "preventionMeasures": [
+                    "Implement secure coding standards",
+                    "Add security linting rules",
+                    "Include security testing in CI/CD",
+                    "Conduct regular security training",
+                    "Perform periodic security audits"
+                ]
+            },
+            "sla": 30
+        },
+        {
+            "engine": "semgrep",
+            "ruleId": "javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring",
+            "category": "security",
+            "severity": "MEDIUM",
+            "message": "Detected string concatenation with a non-literal variable in a util.format / console.log function. If an attacker injects a format specifier in the string, it will forge the log message. Try to use constant values for the format string.",
+            "cwe": "CWE-134",
+            "owasp": [
+                "A01:2021 - Broken Access Control"
+            ],
+            "file": "src/server.js",
+            "startLine": 308,
+            "endLine": 308,
+            "startColumn": 19,
+            "endColumn": 51,
+            "snippet": "requires login",
+            "confidence": "LOW",
+            "impact": "LOW",
+            "likelihood": "MEDIUM",
+            "enrichedAt": "2026-01-02T11:30:32.509Z",
+            "cweId": "CWE-134",
+            "bts": 5,
+            "crs": 58,
+            "adjustedSeverity": "medium",
+            "priority": {
+                "priority": "P2",
+                "action": "Fix in next sprint",
+                "sla": "2 weeks"
+            },
+            "context": {
+                "internetFacing": true,
+                "production": true,
+                "handlesPI": false
+            },
+            "contextEvidence": {},
+            "inferredFactors": [],
+            "appliedFactors": [
+                "production"
+            ],
+            "remediation": {
+                "priority": {
+                    "priority": "P2",
+                    "action": "Fix in next sprint",
+                    "sla": "2 weeks"
+                },
+                "timeline": "2 weeks - Include in next sprint",
+                "approach": "Avoid deserializing untrusted data, use safe formats (JSON), validate schemas",
+                "validation": "Test with malicious payloads, review deserialization points",
+                "risk": "Remote code execution, denial of service, privilege escalation",
+                "resources": {
+                    "documentation": "https://cwe.mitre.org/data/definitions/134.html",
+                    "owaspGuide": "https://owasp.org/www-project-top-ten/",
+                    "category": "Security Category: deserialization"
+                },
+                "preventionMeasures": [
+                    "Implement secure coding standards",
+                    "Add security linting rules",
+                    "Include security testing in CI/CD",
+                    "Conduct regular security training",
+                    "Perform periodic security audits"
+                ]
+            },
+            "sla": 30
+        },
+        {
+            "engine": "semgrep",
+            "ruleId": "javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring",
+            "category": "security",
+            "severity": "MEDIUM",
+            "message": "Detected string concatenation with a non-literal variable in a util.format / console.log function. If an attacker injects a format specifier in the string, it will forge the log message. Try to use constant values for the format string.",
+            "cwe": "CWE-134",
+            "owasp": [
+                "A01:2021 - Broken Access Control"
+            ],
+            "file": "src/server.js",
+            "startLine": 345,
+            "endLine": 345,
+            "startColumn": 21,
+            "endColumn": 54,
+            "snippet": "requires login",
+            "confidence": "LOW",
+            "impact": "LOW",
+            "likelihood": "MEDIUM",
+            "enrichedAt": "2026-01-02T11:30:32.509Z",
+            "cweId": "CWE-134",
+            "bts": 5,
+            "crs": 58,
+            "adjustedSeverity": "medium",
+            "priority": {
+                "priority": "P2",
+                "action": "Fix in next sprint",
+                "sla": "2 weeks"
+            },
+            "context": {
+                "internetFacing": true,
+                "production": true,
+                "handlesPI": false
+            },
+            "contextEvidence": {},
+            "inferredFactors": [],
+            "appliedFactors": [
+                "production"
+            ],
+            "remediation": {
+                "priority": {
+                    "priority": "P2",
+                    "action": "Fix in next sprint",
+                    "sla": "2 weeks"
+                },
+                "timeline": "2 weeks - Include in next sprint",
+                "approach": "Avoid deserializing untrusted data, use safe formats (JSON), validate schemas",
+                "validation": "Test with malicious payloads, review deserialization points",
+                "risk": "Remote code execution, denial of service, privilege escalation",
+                "resources": {
+                    "documentation": "https://cwe.mitre.org/data/definitions/134.html",
+                    "owaspGuide": "https://owasp.org/www-project-top-ten/",
+                    "category": "Security Category: deserialization"
+                },
+                "preventionMeasures": [
+                    "Implement secure coding standards",
+                    "Add security linting rules",
+                    "Include security testing in CI/CD",
+                    "Conduct regular security training",
+                    "Perform periodic security audits"
+                ]
+            },
+            "sla": 30
+        },
+        {
+            "engine": "semgrep",
+            "ruleId": "javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring",
+            "category": "security",
+            "severity": "MEDIUM",
+            "message": "Detected string concatenation with a non-literal variable in a util.format / console.log function. If an attacker injects a format specifier in the string, it will forge the log message. Try to use constant values for the format string.",
+            "cwe": "CWE-134",
+            "owasp": [
+                "A01:2021 - Broken Access Control"
+            ],
+            "file": "src/server.js",
+            "startLine": 1174,
+            "endLine": 1174,
+            "startColumn": 23,
+            "endColumn": 61,
+            "snippet": "requires login",
+            "confidence": "LOW",
+            "impact": "LOW",
+            "likelihood": "MEDIUM",
+            "enrichedAt": "2026-01-02T11:30:32.509Z",
+            "cweId": "CWE-134",
+            "bts": 5,
+            "crs": 58,
+            "adjustedSeverity": "medium",
+            "priority": {
+                "priority": "P2",
+                "action": "Fix in next sprint",
+                "sla": "2 weeks"
+            },
+            "context": {
+                "internetFacing": true,
+                "production": true,
+                "handlesPI": false
+            },
+            "contextEvidence": {},
+            "inferredFactors": [],
+            "appliedFactors": [
+                "production"
+            ],
+            "remediation": {
+                "priority": {
+                    "priority": "P2",
+                    "action": "Fix in next sprint",
+                    "sla": "2 weeks"
+                },
+                "timeline": "2 weeks - Include in next sprint",
+                "approach": "Avoid deserializing untrusted data, use safe formats (JSON), validate schemas",
+                "validation": "Test with malicious payloads, review deserialization points",
+                "risk": "Remote code execution, denial of service, privilege escalation",
+                "resources": {
+                    "documentation": "https://cwe.mitre.org/data/definitions/134.html",
+                    "owaspGuide": "https://owasp.org/www-project-top-ten/",
+                    "category": "Security Category: deserialization"
+                },
+                "preventionMeasures": [
+                    "Implement secure coding standards",
+                    "Add security linting rules",
+                    "Include security testing in CI/CD",
+                    "Conduct regular security training",
+                    "Perform periodic security audits"
+                ]
+            },
+            "sla": 30
+        }
+    ],
+    "overallRisk": {
+        "score": {
+            "raw": 227,
+            "normalized": 66,
+            "multiplier": 1.9500000000000002,
+            "final": 100,
+            "scale": "0-100"
+        },
+        "risk": {
+            "level": "critical",
+            "priority": {
+                "level": "P0",
+                "action": "Fix immediately",
+                "timeframe": "Today",
+                "description": "Drop everything and address now"
+            },
+            "confidence": 0.6
+        },
+        "level": "critical",
+        "priority": {
+            "level": "P0",
+            "action": "Fix immediately",
+            "timeframe": "Today",
+            "description": "Drop everything and address now"
+        }
+    },
+    "summary": {
+        "totalFindings": 17,
+        "severityDistribution": {
+            "critical": 0,
+            "high": 13,
+            "medium": 4,
+            "low": 0,
+            "info": 0
+        },
+        "contextFactorsDetected": [],
+        "top5": [
+            {
+                "file": "server.js",
+                "line": 215,
+                "cwe": "CWE-22",
+                "severity": "high",
+                "crs": 83,
+                "priority": "P1",
+                "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first."
+            },
+            {
+                "file": "server.js",
+                "line": 294,
+                "cwe": "CWE-22",
+                "severity": "high",
+                "crs": 83,
+                "priority": "P1",
+                "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first."
+            },
+            {
+                "file": "server.js",
+                "line": 329,
+                "cwe": "CWE-22",
+                "severity": "high",
+                "crs": 83,
+                "priority": "P1",
+                "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first."
+            },
+            {
+                "file": "server.js",
+                "line": 698,
+                "cwe": "CWE-22",
+                "severity": "high",
+                "crs": 83,
+                "priority": "P1",
+                "message": "Possible writing outside of the destination, make sure that the target path is nested in the intended destination"
+            },
+            {
+                "file": "server.js",
+                "line": 698,
+                "cwe": "CWE-22",
+                "severity": "high",
+                "crs": 83,
+                "priority": "P1",
+                "message": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first."
+            }
+        ]
+    },
+    "provenance": {
+        "profileId": "default",
+        "profileHash": "caca9f04ff44",
+        "profileVersion": "1.1.0",
+        "taxonomyVersion": "2.0.0",
+        "contextInferenceVersion": "1.0.0",
+        "timestamp": "2026-01-02T11:30:32.512Z",
+        "scanDuration": "15905ms",
+        "configuration": {
+            "language": "javascript",
+            "engine": "semgrep",
+            "contextInferenceEnabled": true,
+            "featuresEnabled": {
+                "js": {
+                    "routes": true,
+                    "auth": true,
+                    "pii": true
+                },
+                "py": {
+                    "routes": true,
+                    "auth": true,
+                    "pii": true
+                },
+                "java": {
+                    "routes": true,
+                    "auth": true,
+                    "pii": true
+                }
+            }
+        }
+    }
+}

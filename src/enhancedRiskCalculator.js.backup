@@ -11,8 +11,10 @@ function toTitle(s='') {
 
 class EnhancedRiskCalculator {
   constructor(config = {}) {
-    // Initialize the custom factor system
-    this.factorSystem = new CustomEnvironmentalFactorSystem();
+    // Initialize the custom factor system with profile-driven multipliers
+    this.factorSystem = new CustomEnvironmentalFactorSystem({
+      contextMultipliers: config.contextMultipliers || null
+    });
     
     // Base configuration for risk calculation (configurable)
     this.baseConfig = {

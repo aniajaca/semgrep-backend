@@ -1,0 +1,3 @@
+file,line,rule,severity,reason,confidence
+"/Users/aniajaca/Neperia-Local/semgrep-backend/src/contextInference/collectors/repoContextCollector.js",365,"javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal","MEDIUM","downgrade: moderate-confidence-protection-detected","N/A"
+"/Users/aniajaca/Neperia-Local/semgrep-backend/test/integration/server.test.js",4,"javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage","LOW","test file","N/A"

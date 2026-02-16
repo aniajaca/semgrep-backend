@@ -1,0 +1,14 @@
+{
+  "target": "validation/repos/express",
+  "timestamp": "2026-01-08T13:25:44.637Z",
+  "scanDuration": "9.2s",
+  "filterEnabled": true,
+  "findings": [],
+  "results": [],
+  "summary": {
+    "total": 0,
+    "beforeFilter": 41,
+    "filtered": 41,
+    "filterRate": "100.0%"
+  }
+}

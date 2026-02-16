@@ -1,0 +1,7 @@
+repo,internet_facing,handles_pii,prod_signals,test_only,notes
+juice-shop,true,true,false,false,E-commerce app with Express routes (routes/ folder) and user/payment data
+webgoat,true,true,false,false,Web app with Spring controllers and user authentication/registration
+spring-petclinic,true,true,true,false,Spring MVC app with controllers; has k8s/ deployment manifests
+semgrep-backend,true,false,false,false,Internal API (server.js) but no user PII - only scan configs/results
+
+next.js,false,false,true,false,Framework repo with test/example routes (correctly excluded) and k8s configs

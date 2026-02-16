@@ -1,0 +1,172 @@
+{
+  "version": "1.0.0",
+  "name": "neperia-internal",
+  "description": "Business risk profile for Neperia internal security scanner development",
+  "profileHash": null,
+  
+  "businessContext": {
+    "projectType": "internal-security-tool",
+    "criticality": "medium",
+    "customerFacing": false,
+    "regulatoryCompliance": false,
+    "dataClassification": "confidential",
+    "revenueImpact": "none",
+    "userBase": "internal-team",
+    "deploymentContext": "development-environment"
+  },
+  
+  "contextFactors": {
+    "enabled": {
+      "kevListed": true,
+      "publicExploit": true,
+      "epss": true,
+      "internetFacing": false,
+      "production": false,
+      "handlesPII": true,
+      "userBaseLarge": false,
+      "regulated": false,
+      "noAuth": true
+    },
+    "weights": {
+      "kevListed": 0.25,
+      "publicExploit": 0.15,
+      "epss": 0.25,
+      "internetFacing": 0.20,
+      "production": 0.15,
+      "handlesPII": 0.15,
+      "userBaseLarge": 0.05,
+      "regulated": 0.10,
+      "noAuth": 0.15
+    },
+    "exploitCaps": {
+      "kev": 0.25,
+      "publicExploit": 0.15,
+      "epss": 0.25
+    },
+    "totalLiftCap": 0.60
+  },
+  
+  "businessFactors": {
+    "reputationalImpact": {
+      "enabled": true,
+      "weight": 0.20,
+      "rationale": "Security tool breach damages credibility and trust in security assessment capabilities"
+    },
+    "operationalImpact": {
+      "enabled": true,
+      "weight": 0.15,
+      "rationale": "Development workflow depends on scanner availability; downtime affects team productivity"
+    },
+    "financialImpact": {
+      "enabled": false,
+      "weight": 0.05,
+      "rationale": "Internal tool with no direct revenue impact; indirect cost from development delays"
+    },
+    "complianceImpact": {
+      "enabled": false,
+      "weight": 0.0,
+      "rationale": "No regulatory compliance requirements for internal development tool"
+    },
+    "intellectualPropertyRisk": {
+      "enabled": true,
+      "weight": 0.15,
+      "rationale": "Scanner contains proprietary security assessment algorithms and detection logic"
+    }
+  },
+  
+  "fileRisk": {
+    "topK": 5,
+    "weights": {
+      "core": 0.7,
+      "density": 0.15,
+      "diversity": 0.08,
+      "exposure": 0.07
+    },
+    "caps": {
+      "density": 25,
+      "diversity": 15,
+      "exposure": 20
+    }
+  },
+  
+  "slaMapping": {
+    "P0": {
+      "threshold": 85,
+      "days": 1,
+      "description": "Critical security issue requiring immediate remediation",
+      "requiredApproval": "security-lead",
+      "notificationChannels": ["email", "slack"]
+    },
+    "P1": {
+      "threshold": 70,
+      "days": 7,
+      "description": "High priority issue to be fixed within current sprint",
+      "requiredApproval": "tech-lead",
+      "notificationChannels": ["slack"]
+    },
+    "P2": {
+      "threshold": 55,
+      "days": 30,
+      "description": "Medium priority issue planned for next quarter",
+      "requiredApproval": "none",
+      "notificationChannels": []
+    },
+    "P3": {
+      "threshold": 0,
+      "days": 90,
+      "description": "Low priority issue tracked in backlog",
+      "requiredApproval": "none",
+      "notificationChannels": []
+    }
+  },
+  
+  "scoring": {
+    "severityPoints": {
+      "critical": 25,
+      "high": 15,
+      "medium": 8,
+      "low": 3,
+      "info": 1
+    },
+    "riskThresholds": {
+      "critical": 85,
+      "high": 70,
+      "medium": 55,
+      "low": 30,
+      "minimal": 0
+    }
+  },
+  
+  "features": {
+    "contextInference": {
+      "js": {
+        "routes": true,
+        "auth": true,
+        "pii": true
+      },
+      "py": {
+        "routes": true,
+        "auth": true,
+        "pii": true
+      },
+      "java": {
+        "routes": true,
+        "auth": true,
+        "pii": true
+      }
+    }
+  },
+  
+  "metadata": {
+    "createdAt": "2026-01-07",
+    "createdBy": "Ania Jaca",
+    "purpose": "MSc thesis validation - Business risk scoring demonstration for internal development environment",
+    "reviewDate": "2026-01-07",
+    "nextReviewDate": "2026-04-07",
+    "notes": [
+      "internetFacing set to false: while scanner runs on localhost:3000, it is NOT exposed to external networks in business context",
+      "KEV/EPSS factors enabled for model completeness but inactive for self-scan (no CVE mappings for custom codebase)",
+      "Lower totalLiftCap (0.60) reflects internal development environment vs. production customer-facing systems"
+    ]
+  }
+}

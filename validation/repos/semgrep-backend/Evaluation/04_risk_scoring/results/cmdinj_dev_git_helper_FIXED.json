@@ -1,0 +1,148 @@
+{
+    "status": "success",
+    "engine": "semgrep",
+    "findings": [
+        {
+            "engine": "semgrep",
+            "ruleId": "javascript.lang.security.detect-child-process.detect-child-process",
+            "category": "security",
+            "severity": "CRITICAL",
+            "message": "Detected calls to child_process from a function argument `req`. This could lead to a command injection if the input is user controllable. Try to avoid calls to child_process, and if it is needed ensure user input is correctly sanitized or sandboxed. ",
+            "cwe": "CWE-78",
+            "owasp": [
+                "A01:2017 - Injection",
+                "A03:2021 - Injection"
+            ],
+            "file": "Evaluation/04_risk_scoring/test_files/dev_git_helper.js",
+            "startLine": 21,
+            "endLine": 21,
+            "startColumn": 8,
+            "endColumn": 15,
+            "snippet": "requires login",
+            "confidence": "LOW",
+            "impact": "HIGH",
+            "likelihood": "LOW",
+            "enrichedAt": "2026-01-02T12:18:01.800Z",
+            "cweId": "CWE-78",
+            "bts": 9,
+            "crs": 90,
+            "adjustedSeverity": "critical",
+            "priority": {
+                "priority": "P0",
+                "action": "Fix immediately",
+                "sla": "4 hours"
+            },
+            "context": {
+                "internetFacing": false,
+                "production": false,
+                "handlesPI": false
+            },
+            "contextEvidence": {},
+            "inferredFactors": [],
+            "appliedFactors": [],
+            "remediation": {
+                "priority": {
+                    "priority": "P0",
+                    "action": "Fix immediately",
+                    "sla": "4 hours"
+                },
+                "timeline": "48 hours - High priority fix",
+                "approach": "Use parameterized queries, avoid dynamic command construction, validate all inputs",
+                "validation": "Test with injection payloads, use automated scanning tools, code review",
+                "risk": "Can lead to complete system compromise, data breach, or service disruption",
+                "resources": {
+                    "documentation": "https://cwe.mitre.org/data/definitions/78.html",
+                    "owaspGuide": "https://owasp.org/www-project-top-ten/",
+                    "category": "Security Category: injection"
+                },
+                "preventionMeasures": [
+                    "Implement secure coding standards",
+                    "Add security linting rules",
+                    "Include security testing in CI/CD",
+                    "Conduct regular security training",
+                    "Perform periodic security audits"
+                ]
+            },
+            "sla": 7
+        }
+    ],
+    "overallRisk": {
+        "score": {
+            "raw": 25,
+            "normalized": 100,
+            "multiplier": 1,
+            "final": 25,
+            "scale": "0-100"
+        },
+        "risk": {
+            "level": "low",
+            "priority": {
+                "level": "P3",
+                "action": "Schedule later",
+                "timeframe": "30 days",
+                "description": "Add to technical debt backlog"
+            },
+            "confidence": 0.6
+        },
+        "level": "low",
+        "priority": {
+            "level": "P3",
+            "action": "Schedule later",
+            "timeframe": "30 days",
+            "description": "Add to technical debt backlog"
+        }
+    },
+    "summary": {
+        "totalFindings": 1,
+        "severityDistribution": {
+            "critical": 1,
+            "high": 0,
+            "medium": 0,
+            "low": 0,
+            "info": 0
+        },
+        "contextFactorsDetected": [],
+        "top5": [
+            {
+                "file": "dev_git_helper.js",
+                "line": 21,
+                "cwe": "CWE-78",
+                "severity": "critical",
+                "crs": 90,
+                "priority": "P0",
+                "message": "Detected calls to child_process from a function argument `req`. This could lead to a command injection if the input is user controllable. Try to avoid calls to child_process, and if it is needed ensure user input is correctly sanitized or sandboxed. "
+            }
+        ]
+    },
+    "provenance": {
+        "profileId": "default",
+        "profileHash": "caca9f04ff44",
+        "profileVersion": "1.1.0",
+        "taxonomyVersion": "2.0.0",
+        "contextInferenceVersion": "1.0.0",
+        "timestamp": "2026-01-02T12:18:01.801Z",
+        "scanDuration": "9948ms",
+        "configuration": {
+            "language": "javascript",
+            "engine": "semgrep",
+            "contextInferenceEnabled": true,
+            "featuresEnabled": {
+                "js": {
+                    "routes": true,
+                    "auth": true,
+                    "pii": true
+                },
+                "py": {
+                    "routes": true,
+                    "auth": true,
+                    "pii": true
+                },
+                "java": {
+                    "routes": true,
+                    "auth": true,
+                    "pii": true
+                }
+            }
+        }
+    }
+}

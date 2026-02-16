@@ -11,7 +11,10 @@
  * - vulnerabilityLevel: Additive adjustments for individual vulnerability scores
  */
 class CustomEnvironmentalFactorSystem {
-  constructor() {
+  constructor(config = {}) {
+    // Profile-driven multiplier overrides (falls back to validated defaults)
+    const fileLevelOverrides = config.contextMultipliers || {};
+    
     // Define all available factors with their impacts
     this.factors = {
       fileLevel: {
@@ -20,7 +23,7 @@ class CustomEnvironmentalFactorSystem {
           id: 'internetFacing',
           name: 'Internet-Facing System',
           description: 'System is directly accessible from the internet',
-          multiplier: 1.5,
+          multiplier: fileLevelOverrides.internetFacing || 1.5,
           category: 'exposure',
           rationale: 'Internet-facing systems have higher attack surface'
         },
@@ -30,7 +33,7 @@ class CustomEnvironmentalFactorSystem {
           id: 'handlesPI',
           name: 'Handles Personal Information',
           description: 'System processes or stores personal/sensitive data',
-          multiplier: 1.4,
+          multiplier: fileLevelOverrides.handlesPI || 1.4,
           category: 'data',
           rationale: 'PII breaches have severe regulatory and reputational impact'
         },
@@ -40,7 +43,7 @@ class CustomEnvironmentalFactorSystem {
           id: 'production',
           name: 'Production Environment',
           description: 'Code is deployed to production environment',
-          multiplier: 1.3,
+          multiplier: fileLevelOverrides.production || 1.3,
           category: 'environment',
           rationale: 'Production issues affect real users and business operations'
         },
@@ -50,7 +53,7 @@ class CustomEnvironmentalFactorSystem {
           id: 'legacyCode',
           name: 'Legacy System',
           description: 'Codebase is legacy or lacks modern security controls',
-          multiplier: 1.2,
+          multiplier: fileLevelOverrides.legacyCode || 1.2,
           category: 'technical-debt',
           rationale: 'Legacy systems often have accumulated vulnerabilities'
         },
@@ -60,7 +63,7 @@ class CustomEnvironmentalFactorSystem {
           id: 'businessCritical',
           name: 'Business Critical',
           description: 'System is critical to business operations',
-          multiplier: 1.6,
+          multiplier: fileLevelOverrides.businessCritical || 1.6,
           category: 'business',
           rationale: 'Critical systems require immediate attention'
         },
@@ -70,7 +73,7 @@ class CustomEnvironmentalFactorSystem {
           id: 'compliance',
           name: 'Compliance Required',
           description: 'System must meet regulatory compliance (PCI-DSS, HIPAA, GDPR)',
-          multiplier: 1.3,
+          multiplier: fileLevelOverrides.compliance || 1.3,
           category: 'regulatory',
           rationale: 'Compliance violations result in fines and legal issues'
         },
@@ -80,7 +83,7 @@ class CustomEnvironmentalFactorSystem {
           id: 'thirdPartyIntegration',
           name: 'Third-Party Integrations',
           description: 'System integrates with external third-party services',
-          multiplier: 1.2,
+          multiplier: fileLevelOverrides.thirdPartyIntegration || 1.2,
           category: 'integration',
           rationale: 'Third-party integrations expand attack surface'
         },
@@ -90,7 +93,7 @@ class CustomEnvironmentalFactorSystem {
           id: 'complexAuth',
           name: 'Complex Authentication',
           description: 'System has complex authentication/authorization requirements',
-          multiplier: 1.1,
+          multiplier: fileLevelOverrides.complexAuth || 1.1,
           category: 'authentication',
           rationale: 'Complex auth systems are prone to implementation errors'
         }

@@ -1,0 +1,18 @@
+============================================================
+🎯 OWASP BENCHMARK VALIDATION - SEMGREP BASELINE
+============================================================
+CONFUSION MATRIX:
+  TP: 1279   FP:  608
+  FN:  136   TN:  717
+
+METRICS:
+  TPR (Recall):    90.39%
+  FPR:             45.89%
+  Precision:       67.78%
+  F1 Score:        77.47%
+
+OWASP BENCHMARK TARGETS:
+  TPR ≥ 85%:       ✅ PASS
+  FPR ≤ 15%:       ❌ FAIL
+  F1 ≥ 70%:        ✅ PASS
+============================================================
