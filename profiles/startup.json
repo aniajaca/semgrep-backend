@@ -1,0 +1,110 @@
+{
+  "version": "1.0.0",
+  "name": "startup",
+  "description": "Fast iteration profile with moderate risk tolerance for early-stage teams prioritising velocity",
+  "profileHash": null,
+
+  "contextFactors": {
+    "enabled": {
+      "kevListed": true,
+      "publicExploit": true,
+      "epss": true,
+      "internetFacing": true,
+      "production": true,
+      "handlesPI": true,
+      "userBaseLarge": false,
+      "regulated": false,
+      "noAuth": true
+    },
+    "weights": {
+      "kevListed": 0.20,
+      "publicExploit": 0.10,
+      "epss": 0.20,
+      "internetFacing": 0.15,
+      "production": 0.10,
+      "handlesPI": 0.10,
+      "userBaseLarge": 0.05,
+      "regulated": 0.05,
+      "noAuth": 0.10
+    },
+    "exploitCaps": {
+      "kev": 0.20,
+      "publicExploit": 0.10,
+      "epss": 0.20
+    },
+    "totalLiftCap": 0.50
+  },
+
+  "fileRisk": {
+    "topK": 5,
+    "weights": {
+      "core": 0.7,
+      "density": 0.15,
+      "diversity": 0.08,
+      "exposure": 0.07
+    },
+    "caps": {
+      "density": 20,
+      "diversity": 15,
+      "exposure": 15
+    }
+  },
+
+  "slaMapping": {
+    "P0": {
+      "threshold": 80,
+      "days": 21,
+      "description": "Critical issue - fix within 3 weeks"
+    },
+    "P1": {
+      "threshold": 65,
+      "days": 45,
+      "description": "High priority - fix within 6 weeks"
+    },
+    "P2": {
+      "threshold": 50,
+      "days": 90,
+      "description": "Medium priority - plan for next quarter"
+    },
+    "P3": {
+      "threshold": 0,
+      "days": 120,
+      "description": "Low priority - track in backlog"
+    }
+  },
+
+  "scoring": {
+    "severityPoints": {
+      "critical": 25,
+      "high": 15,
+      "medium": 8,
+      "low": 3,
+      "info": 1
+    },
+    "riskThresholds": {
+      "critical": 85,
+      "high": 65,
+      "medium": 45,
+      "low": 20,
+      "minimal": 0
+    }
+  },
+
+  "features": {
+    "contextInference": {
+      "js": { "routes": true, "auth": true, "pii": true },
+      "py": { "routes": true, "auth": true, "pii": true },
+      "java": { "routes": true, "auth": true, "pii": true }
+    }
+  },
+
+  "metadata": {
+    "purpose": "Profile for startup environments prioritising development velocity with acceptable risk tolerance",
+    "notes": [
+      "Relaxed SLAs reflect smaller team capacity and faster iteration cycles",
+      "Lower totalLiftCap (0.50) prevents over-escalation in resource-constrained environments",
+      "regulated factor disabled - startups typically pre-compliance phase",
+      "userBaseLarge disabled - early-stage user base assumed small"
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "version": "1.0.1",
+  "contextFactors": {
+    "weights": {
+      "internetFacing": 0.2
+    }
+  },
+  "profileHash": "690903ba9540"
+}

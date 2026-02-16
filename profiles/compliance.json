@@ -1,0 +1,128 @@
+
+{
+  "version": "1.0.0",
+  "name": "compliance",
+  "description": "Maximum scrutiny profile for regulated environments subject to PCI-DSS, HIPAA, GDPR, or SOX audit requirements",
+  "profileHash": null,
+
+  "contextFactors": {
+    "enabled": {
+      "kevListed": true,
+      "publicExploit": true,
+      "epss": true,
+      "internetFacing": true,
+      "production": true,
+      "handlesPI": true,
+      "userBaseLarge": true,
+      "regulated": true,
+      "noAuth": true
+    },
+    "weights": {
+      "kevListed": 0.25,
+      "publicExploit": 0.25,
+      "epss": 0.25,
+      "internetFacing": 0.25,
+      "production": 0.20,
+      "handlesPI": 0.25,
+      "userBaseLarge": 0.15,
+      "regulated": 0.25,
+      "noAuth": 0.20
+    },
+    "exploitCaps": {
+      "kev": 0.25,
+      "publicExploit": 0.25,
+      "epss": 0.25
+    },
+    "totalLiftCap": 0.70
+  },
+
+  "bpsWeights": {
+    "criticality": 0.40,
+    "effort": 0.25,
+    "controls": 0.35
+  },
+
+  "fileRisk": {
+    "topK": 10,
+    "weights": {
+      "core": 0.50,
+      "density": 0.25,
+      "diversity": 0.15,
+      "exposure": 0.10
+    },
+    "caps": {
+      "density": 30,
+      "diversity": 25,
+      "exposure": 25
+    }
+  },
+
+  "slaMapping": {
+    "P0": {
+      "threshold": 80,
+      "days": 3,
+      "description": "Critical compliance violation - emergency remediation within 72 hours",
+      "requiredApproval": "ciso",
+      "notificationChannels": ["email", "slack", "pagerduty"]
+    },
+    "P1": {
+      "threshold": 65,
+      "days": 14,
+      "description": "High priority compliance finding - fix before next audit checkpoint",
+      "requiredApproval": "security-lead",
+      "notificationChannels": ["email", "slack"]
+    },
+    "P2": {
+      "threshold": 50,
+      "days": 30,
+      "description": "Medium priority - remediate within audit cycle",
+      "requiredApproval": "tech-lead",
+      "notificationChannels": ["email"]
+    },
+    "P3": {
+      "threshold": 0,
+      "days": 60,
+      "description": "Low priority - document in risk register and schedule remediation",
+      "requiredApproval": "none",
+      "notificationChannels": []
+    }
+  },
+
+  "scoring": {
+    "severityPoints": {
+      "critical": 25,
+      "high": 15,
+      "medium": 8,
+      "low": 3,
+      "info": 1
+    },
+    "riskThresholds": {
+      "critical": 75,
+      "high": 55,
+      "medium": 35,
+      "low": 15,
+      "minimal": 0
+    }
+  },
+
+  "features": {
+    "contextInference": {
+      "js": { "routes": true, "auth": true, "pii": true },
+      "py": { "routes": true, "auth": true, "pii": true },
+      "java": { "routes": true, "auth": true, "pii": true }
+    }
+  },
+
+  "metadata": {
+    "purpose": "Profile for regulated environments requiring maximum security scrutiny and audit-ready evidence",
+    "notes": [
+      "All factors enabled at maximum weights - regulatory non-compliance carries severe penalties",
+      "Lower riskThresholds mean findings escalate to higher severity bands more aggressively",
+      "P0 SLA of 3 days aligns with CISA KEV remediation guidance",
+      "P3 SLA shortened to 60 days (vs 90 default) - auditors expect no findings older than one quarter",
+      "regulated factor weight at 0.25 (maximum) - compliance scope is the primary driver",
+      "bpsWeights emphasise controls (0.35) - compensating controls carry more weight in audit contexts",
+      "handlesPI weight at 0.25 - PII/PHI handling is a primary audit concern under GDPR/HIPAA"
+    ]
+  }
+}
