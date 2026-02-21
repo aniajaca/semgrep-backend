@@ -29,3 +29,11 @@ coverage/
 # Test reports
 test-results/
 *.lcovvalidation/repos/
+
+# generated scan outputs
+scan_result.json
+scan_result*.json
+
+# big benchmark artifacts
+validation/repos/**/BenchmarkJava/results/
+validation/repos/**/results/
