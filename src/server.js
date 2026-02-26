@@ -627,8 +627,9 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
         }
         
         // ✅ CRITICAL: Call context inference with repository path
+        const findingForContext = code ? { ...finding, file: filename } : finding;
         const inferenceResult = await contextInference.inferFindingContext(
-          finding,
+          findingForContext,
           fileContent,
           actualTargetPath,  // Repository path for context detection
           { features: profile.features?.contextInference }

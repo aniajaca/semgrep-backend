@@ -107,8 +107,7 @@ class CustomEnvironmentalFactorSystem {
           description: 'Vulnerability in internet-facing component',
           additive: 1.5,
           category: 'exposure',
-          appliesTo: ['xss', 'injection', 'deserialization']
-        },
+          appliesTo: ['xss', 'injection', 'deserialization', 'pathTraversal']        },
         
         handlesPI: {
           id: 'handlesPI',
@@ -146,6 +145,15 @@ class CustomEnvironmentalFactorSystem {
           appliesTo: ['xss', 'injection', 'pathTraversal']
         },
         
+        testOrDevCode: {
+          id: 'testOrDevCode',
+          name: 'Test/Dev Code',
+          description: 'Code in test or development paths - lower operational risk',
+          additive: -4.0,
+          category: 'environment',
+          appliesTo: 'all'
+        },
+
         publicAPI: {
           id: 'publicAPI',
           name: 'Public API Endpoint',

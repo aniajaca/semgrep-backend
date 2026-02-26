@@ -18,6 +18,16 @@ class CustomEnvironmentalFactorSystem {
     // Define all available factors with their impacts
     this.factors = {
       fileLevel: {
+
+        testOrDevCode: {
+          id: 'testOrDevCode',
+          name: 'Test/Dev Code',
+          description: 'Code in test or development paths',
+          multiplier: 0.4,  // 60% reduction
+          category: 'environment',
+          applicableCategories: 'all'
+        },
+        
         // Network exposure factors
         internetFacing: {
           id: 'internetFacing',
@@ -100,6 +110,17 @@ class CustomEnvironmentalFactorSystem {
       },
       
       vulnerabilityLevel: {
+
+        // === NEW: Non-production downgrade ===
+        testOrDevCode: {
+          id: 'testOrDevCode',
+          name: 'Test/Dev Code',
+          description: 'Code in test or development paths - lower operational risk',
+          additive: -4.0,  // Strong downgrade: 9.0 → 5.0 (P2), 7.5 → 3.5 (P3)
+          category: 'environment',
+          appliesTo: 'all'
+        },
+
         // These add to CVSS scores rather than multiply
         internetFacing: {
           id: 'internetFacing',
@@ -107,8 +128,7 @@ class CustomEnvironmentalFactorSystem {
           description: 'Vulnerability in internet-facing component',
           additive: 1.5,
           category: 'exposure',
-          appliesTo: ['xss', 'injection', 'deserialization']
-        },
+          appliesTo: ['xss', 'injection', 'deserialization', 'pathTraversal']        },
         
         handlesPI: {
           id: 'handlesPI',
@@ -146,6 +166,15 @@ class CustomEnvironmentalFactorSystem {
           appliesTo: ['xss', 'injection', 'pathTraversal']
         },
         
+        testOrDevCode: {
+          id: 'testOrDevCode',
+          name: 'Test/Dev Code',
+          description: 'Code in test or development paths - lower operational risk',
+          additive: -4.0,
+          category: 'environment',
+          appliesTo: 'all'
+        },
+
         publicAPI: {
           id: 'publicAPI',
           name: 'Public API Endpoint',

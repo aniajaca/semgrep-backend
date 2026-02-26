@@ -32,6 +32,28 @@ class ContextInferenceSystem {
    */
   async inferFindingContext(finding, fileContent, repoPath, options = {}) {
     const result = {};
+    
+    // Detect test/dev file paths (language-independent)
+    const lowerPath = (finding.file || '').toLowerCase().replace(/\\/g, '/');
+    const nonProductionPatterns = [
+      /\btest[s]?\//,
+      /\bspec[s]?\//,
+      /\b__test__\//,
+      /\bscripts?\/(dev|util)\//,
+      /\bfixtures?\//,
+      /\bmocks?\//,
+      /\.test\.[jt]sx?$/,
+      /\.spec\.[jt]sx?$/,
+    ];
+    
+    if (nonProductionPatterns.some(p => p.test(lowerPath))) {
+      result.testOrDevCode = {
+        value: true,
+        confidence: 0.9,
+        evidence: [`File path matches non-production pattern: ${finding.file}`]
+      };
+    }
+    
     const language = this.detectLanguage(finding.file);
     
     if (!language || !this.detectors[language]) {
@@ -117,6 +139,31 @@ if (repoPath) {
     const result = {};
     const language = this.detectLanguage(filePath);
     
+    // === NEW: Detect test/dev/script file paths ===
+    const lowerPath = (filePath || '').toLowerCase().replace(/\\/g, '/');
+    const nonProductionPatterns = [
+      /\btest[s]?\b/,          // test/, tests/
+      /\bspec[s]?\b/,          // spec/, specs/
+      /\b__test__\b/,          // __test__/
+      /\b__spec__\b/,          // __spec__/
+      /\bscripts?\/(dev|util)/, // scripts/dev/, script/util/
+      /\bdev[-_]?tools?\b/,    // dev-tools/, devtool/
+      /\bfixtures?\b/,         // fixtures/
+      /\bmocks?\b/,            // mocks/
+      /\.test\.[jt]sx?$/,      // *.test.js, *.test.ts
+      /\.spec\.[jt]sx?$/,      // *.spec.js, *.spec.ts
+    ];
+    
+    if (nonProductionPatterns.some(p => p.test(lowerPath))) {
+      result.testOrDevCode = {
+        value: true,
+        confidence: 0.9,
+        evidence: [`File path matches non-production pattern: ${filePath}`]
+      };
+    }
+    // === END NEW ===
+
+
     if (!language || !this.detectors[language]) {
       return result;
     }

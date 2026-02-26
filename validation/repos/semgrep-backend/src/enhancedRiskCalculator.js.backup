@@ -564,7 +564,9 @@ calculateNormalizedFileScore(severityDistribution) {
       'production': 'production',
       'internetfacing': 'internetFacing',
       'internet-facing': 'internetFacing',
-      'compliance': 'compliance'
+      'compliance': 'compliance',
+      'testordevcode': 'testOrDevCode',
+      'testcode': 'testOrDevCode'
     };
     
     // Normalize context keys and values
@@ -776,7 +778,7 @@ calculateNormalizedFileScore(severityDistribution) {
     const isCriticalCategory = criticalCategories.includes(category);
     
     // Adjust priority based on category
-    if (score >= 9.0 || (score >= 7.0 && isCriticalCategory)) {
+    if (score >= 8.0 || (score >= 7.0 && isCriticalCategory)) {
       return {
         priority: 'P0',
         action: 'Fix immediately',
