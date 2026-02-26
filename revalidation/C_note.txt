@@ -1,0 +1,1 @@
+C1/C2/C3: Same scan as A1 (BPS not implemented)

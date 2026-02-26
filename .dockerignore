@@ -1,7 +1,31 @@
+# ---- node / deps ----
 node_modules
-npm-debug.log
+npm-debug.log*
+yarn.lock
+.pnpm-store
+.cache
+
+# ---- git ----
 .git
 .gitignore
-Dockerfile
-docker-compose.yml
-.env.local
+
+# ---- big / generated artifacts ----
+scan_result.json
+scan_result*.json
+*.log
+*.tmp
+*.zip
+*.tar
+*.gz
+
+# ---- validation / benchmark artifacts (huge) ----
+BenchmarkJava
+validation/repos
+validation/**/BenchmarkJava
+validation/**/results
+Evaluation/01_owasp_baseline/raw_logs
+**/*.xml
+
+# ---- OS / editor ----
+.DS_Store
+.vscode

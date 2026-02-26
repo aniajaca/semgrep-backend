@@ -1,0 +1,41 @@
+{
+  "part_a": {
+    "agree": 2,
+    "total": 9,
+    "scanner": [
+      "P1",
+      "P1",
+      "P1",
+      "P0",
+      "P0",
+      "P0",
+      "P1",
+      "P1",
+      "P1"
+    ],
+    "tom": [
+      "P0",
+      "P1",
+      "P3",
+      "P0",
+      "P1",
+      "P3",
+      "P0",
+      "P0",
+      "P0"
+    ]
+  },
+  "part_b": {
+    "agree": 4,
+    "total": 6
+  },
+  "part_c": {
+    "agree": 10,
+    "total": 15
+  },
+  "overall": {
+    "agree": 16,
+    "total": 30,
+    "percentage": 53.3
+  }
+}

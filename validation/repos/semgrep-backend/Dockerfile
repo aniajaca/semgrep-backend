@@ -1,7 +1,7 @@
 FROM node:18-alpine
 
 # Install Python and pip for Semgrep
-RUN apk add --no-cache python3 py3-pip git curl
+RUN apk add --no-cache python3 py3-pip git curl build-base
 
 # Install Semgrep and ensure it's in PATH
 RUN pip3 install semgrep --break-system-packages && \
@@ -24,7 +24,10 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install Node dependencies
-RUN npm ci --omit=dev
+RUN npm config set fetch-retries 5 \
+ && npm config set fetch-retry-mintimeout 20000 \
+ && npm config set fetch-retry-maxtimeout 120000 \
+ && npm ci --omit=dev
 
 # Copy the rest of the application
 COPY . .
