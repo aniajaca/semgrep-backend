@@ -99,6 +99,66 @@ class ContextInferenceSystem {
         }
       }
 
+      // =====================================================================
+      // Post-processing: Auth-aware internetFacing adjustment (Fix #6)
+      // =====================================================================
+      // After all three detectors have run, cross-reference their results.
+      //
+      // Problem this solves:
+      //   detectRoutes() finds app.get()/app.use() → sets internetFacing
+      //   detectAuth()  finds requireAuth          → does NOT set noAuth
+      //   But internetFacing stays set even though the service requires auth.
+      //
+      // Logic:
+      //   IF routes were detected (internetFacing is set)
+      //   AND auth middleware IS present (noAuth was NOT set)
+      //   AND at least one additional internal-service indicator exists:
+      //     - Non-standard port (not 80/443/3000)
+      //     - /admin/ path prefix
+      //     - /internal/ path prefix
+      //   THEN: reclassify from internetFacing → authenticatedInternal
+      //
+      // This means:
+      //   - Public API (routes + no auth)     → internetFacing stays  → P0
+      //   - Internal tool (routes + auth + internal signals) → authenticatedInternal → P1
+      //   - Public API with auth (routes + auth, standard port) → internetFacing stays → P0
+      //     (because auth alone is not enough — public APIs have auth too)
+      // =====================================================================
+      if (result.internetFacing && !result.noAuth && fileContent) {
+        const lowerContent = fileContent.toLowerCase();
+        const internalSignals = ['Auth middleware detected (noAuth not triggered)'];
+
+        // Non-standard ports suggest internal service (80/443/3000 are typical public ports)
+        const portMatch = lowerContent.match(/\.listen\s*\(\s*(\d+)/);
+        if (portMatch) {
+          const port = parseInt(portMatch[1]);
+          if (![80, 443, 3000].includes(port)) {
+            internalSignals.push(`Non-standard port ${port} suggests internal service`);
+          }
+        }
+
+        // Admin or internal path prefixes
+        if (/['"`]\/admin\b/i.test(lowerContent)) {
+          internalSignals.push('Admin path prefix detected');
+        }
+        if (/['"`]\/internal\b/i.test(lowerContent)) {
+          internalSignals.push('Internal path prefix detected');
+        }
+
+        // Auth + at least one additional internal indicator → reclassify
+        if (internalSignals.length >= 2) {
+          delete result.internetFacing;
+          result.authenticatedInternal = {
+            value: true,
+            confidence: 0.85,
+            evidence: internalSignals
+          };
+        }
+      }
+      // =====================================================================
+      // End post-processing
+      // =====================================================================
+
     // Apply repo-level context
 if (repoPath) {
   const repoContext = await this.repoCollector.collectRepoContext(repoPath);
