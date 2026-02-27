@@ -491,7 +491,8 @@ calculateNormalizedFileScore(severityDistribution) {
     const remediationPriority = this.determineVulnerabilityPriority(
       adjustedScore, 
       normalizedVuln.cwe,
-      cweCategory
+      cweCategory,
+      context
     );
     
     // Step 6: Generate remediation guidance
@@ -568,6 +569,8 @@ calculateNormalizedFileScore(severityDistribution) {
       'compliance': 'compliance',
       'testordevcode': 'testOrDevCode',    // NEW
       'testcode': 'testOrDevCode',          // NEW
+      'authenticatedinternal': 'authenticatedInternal',
+      'authenticated-internal': 'authenticatedInternal',
     };
     
     // Normalize context keys and values
@@ -773,12 +776,27 @@ calculateNormalizedFileScore(severityDistribution) {
   /**
    * Determine vulnerability priority
    */
-  determineVulnerabilityPriority(score, cwe, category) {
+  determineVulnerabilityPriority(score, cwe, category, context = {}) {
     // Critical categories that need urgent attention
     const criticalCategories = ['injection', 'deserialization', 'authentication'];
     const isCriticalCategory = criticalCategories.includes(category);
     
-    // Adjust priority based on category
+    // Authenticated internal services have reduced attack surface
+    const isProtected = this.normalizeBoolean(context.authenticatedInternal);
+    
+    if (isProtected) {
+      if (score >= 9.5) {
+        return { priority: 'P0', action: 'Fix immediately', sla: '4 hours' };
+      } else if (score >= 7.0) {
+        return { priority: 'P1', action: 'Fix within 48 hours', sla: '48 hours' };
+      } else if (score >= 4.0) {
+        return { priority: 'P2', action: 'Fix in next sprint', sla: '2 weeks' };
+      } else {
+        return { priority: 'P3', action: 'Track and monitor', sla: '90 days' };
+      }
+    }
+    
+    // Standard priority logic
     if (score >= 8.0 || (score >= 7.0 && isCriticalCategory)) {
       return {
         priority: 'P0',
@@ -817,7 +835,7 @@ calculateNormalizedFileScore(severityDistribution) {
     };
     
     return {
-      priority: this.determineVulnerabilityPriority(score, vulnerability.cwe, category),
+      priority: this.determineVulnerabilityPriority(score, vulnerability.cwe, category, context),
       timeline: this.determineRemediationTimeline(score, context),
       approach: categoryInfo.remediation,
       validation: categoryInfo.validation,
