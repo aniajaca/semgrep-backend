@@ -1,10 +1,12 @@
-// server.js - CORRECTED TOP SECTION
+// server.js
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs').promises;
 const os = require('os');
+const { toSARIF } = require('./lib/sarifFormatter');
+const { calculateAllFARS, calculatePRS } = require('./lib/aggregation');
 
 // Security and utility imports
 const rateLimit = require('express-rate-limit');
@@ -701,11 +703,20 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
     // Sort by CRS descending
     enrichedFindings.sort((a, b) => b.crs - a.crs);
     
-    // Calculate overall project risk
+    // Calculate overall project risk (existing - serves UI)
     const overallRisk = riskCalculator.calculateFileRisk(
       enrichedFindings,
       manualContext
     );
+    
+    // ── FARS: Per-file CRS-weighted aggregation (Lit Review §6.3 Stage 4) ──
+    // FARS = Σ(CRS_i × w(CRS_i)) / Σ(w(CRS_i))
+    // Weights: 1.0 (P0, CRS≥80), 0.7 (P1), 0.4 (P2), 0.2 (P3)
+    const fileRisks = calculateAllFARS(enrichedFindings);
+    
+    // ── PRS: Project-level P90 of FARS scores (Lit Review §6.3 Stage 5) ──
+    // PRS = P90({FARS_file})
+    const projectRisk = calculatePRS(fileRisks);
     
     // Build severity distribution
     const severityDistribution = {
@@ -723,8 +734,8 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
       }
     });
     
-    // Build response with provenance
-    res.json({
+    // Build response payload
+    const responsePayload = {
       status: 'success',
       engine: usedEngine,
       findings: enrichedFindings,
@@ -734,6 +745,8 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
         level: overallRisk.risk.level,
         priority: overallRisk.risk.priority
       },
+      fileRisks,
+      projectRisk,
       summary: {
         totalFindings: enrichedFindings.length,
         severityDistribution,
@@ -763,7 +776,18 @@ app.post('/scan-code', createRateLimiter(50, 60000), async (req, res) => {
           featuresEnabled: profile.features?.contextInference || {}
         }
       }
-    });
+    };
+    
+    // ── SARIF 2.1.0 output (FR-7, Architecture §4.6) ──
+    const format = req.query.format || req.body.format || 'json';
+    if (format === 'sarif') {
+      res.setHeader('Content-Type', 'application/sarif+json');
+      res.setHeader('Content-Disposition',
+        `attachment; filename="neperia-scan-${profileId}-${Date.now()}.sarif"`);
+      return res.json(toSARIF(responsePayload));
+    }
+    
+    res.json(responsePayload);
     
   } catch (error) {
     console.error('Scan error:', error);
@@ -1585,7 +1609,7 @@ app.get('/capabilities', async (req, res) => {
         customizable: true
       },
       reporting: {
-        formats: ['json', 'html', 'pdf'],
+        formats: ['json', 'sarif', 'html', 'pdf'],
         realtime: true,
         batch: true
       }

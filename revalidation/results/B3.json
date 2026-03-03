@@ -1,0 +1,169 @@
+{
+  "status": "success",
+  "engine": "semgrep",
+  "findings": [
+    {
+      "engine": "semgrep",
+      "ruleId": "javascript.lang.security.detect-child-process.detect-child-process",
+      "category": "security",
+      "severity": "CRITICAL",
+      "message": "Detected calls to child_process from a function argument `repoPath`. This could lead to a command injection if the input is user controllable. Try to avoid calls to child_process, and if it is needed ensure user input is correctly sanitized or sandboxed. ",
+      "cwe": "CWE-78",
+      "owasp": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection",
+        "A05:2025 - Injection"
+      ],
+      "file": "/var/folders/_p/1xx1tjz57sn81bfv3y0rgyrc0000gn/T/neperia-eA43eB/gitHelper.js",
+      "startLine": 4,
+      "endLine": 4,
+      "startColumn": 8,
+      "endColumn": 40,
+      "snippet": "   1:   const { exec } = require(\"child_process\");\n   2:   \n   3:   function gitStatus(repoPath) {\n   4: →   exec(\"git -C \" + repoPath + \" status\", (error, stdout) => {\n   5:       console.log(stdout);\n   6:     });\n   7:   }",
+      "confidence": "LOW",
+      "impact": "HIGH",
+      "likelihood": "LOW",
+      "enrichedAt": "2026-02-27T14:28:45.572Z",
+      "cweId": "CWE-78",
+      "bts": 9,
+      "crs": 50,
+      "adjustedSeverity": "medium",
+      "priority": {
+        "priority": "P2",
+        "action": "Fix in next sprint",
+        "sla": "2 weeks"
+      },
+      "context": {
+        "testOrDevCode": true,
+        "noAuth": true
+      },
+      "contextEvidence": {
+        "testOrDevCode": {
+          "confidence": 0.9,
+          "evidence": [
+            "File path matches non-production pattern: scripts/dev/gitHelper.js"
+          ]
+        },
+        "noAuth": {
+          "confidence": 0.5,
+          "evidence": [
+            "No auth patterns found via regex"
+          ]
+        }
+      },
+      "inferredFactors": [
+        "testOrDevCode",
+        "noAuth"
+      ],
+      "appliedFactors": [
+        "testOrDevCode"
+      ],
+      "remediation": {
+        "priority": {
+          "priority": "P2",
+          "action": "Fix in next sprint",
+          "sla": "2 weeks"
+        },
+        "timeline": "2 weeks - Include in next sprint",
+        "approach": "Use parameterized queries, avoid dynamic command construction, validate all inputs",
+        "validation": "Test with injection payloads, use automated scanning tools, code review",
+        "risk": "Can lead to complete system compromise, data breach, or service disruption",
+        "resources": {
+          "documentation": "https://cwe.mitre.org/data/definitions/78.html",
+          "owaspGuide": "https://owasp.org/www-project-top-ten/",
+          "category": "Security Category: injection"
+        },
+        "preventionMeasures": [
+          "Implement secure coding standards",
+          "Add security linting rules",
+          "Include security testing in CI/CD",
+          "Conduct regular security training",
+          "Perform periodic security audits"
+        ]
+      },
+      "sla": 30
+    }
+  ],
+  "overallRisk": {
+    "score": {
+      "raw": 25,
+      "normalized": 100,
+      "multiplier": 1,
+      "final": 25,
+      "scale": "0-100"
+    },
+    "risk": {
+      "level": "low",
+      "priority": {
+        "level": "P3",
+        "action": "Schedule later",
+        "timeframe": "30 days",
+        "description": "Add to technical debt backlog"
+      },
+      "confidence": 0.6
+    },
+    "level": "low",
+    "priority": {
+      "level": "P3",
+      "action": "Schedule later",
+      "timeframe": "30 days",
+      "description": "Add to technical debt backlog"
+    }
+  },
+  "summary": {
+    "totalFindings": 1,
+    "severityDistribution": {
+      "critical": 0,
+      "high": 0,
+      "medium": 1,
+      "low": 0,
+      "info": 0
+    },
+    "contextFactorsDetected": [
+      "testOrDevCode",
+      "noAuth"
+    ],
+    "top5": [
+      {
+        "file": "gitHelper.js",
+        "line": 4,
+        "cwe": "CWE-78",
+        "severity": "medium",
+        "crs": 50,
+        "priority": "P2",
+        "message": "Detected calls to child_process from a function argument `repoPath`. This could lead to a command injection if the input is user controllable. Try to avoid calls to child_process, and if it is needed ensure user input is correctly sanitized or sandboxed. "
+      }
+    ]
+  },
+  "provenance": {
+    "profileId": "default",
+    "profileHash": "a42dbec2ca96",
+    "profileVersion": "1.1.0",
+    "taxonomyVersion": "2.0.0",
+    "contextInferenceVersion": "1.0.0",
+    "timestamp": "2026-02-27T14:28:45.580Z",
+    "scanDuration": "10979ms",
+    "configuration": {
+      "language": "javascript",
+      "engine": "semgrep",
+      "contextInferenceEnabled": true,
+      "featuresEnabled": {
+        "js": {
+          "routes": true,
+          "auth": true,
+          "pii": true
+        },
+        "py": {
+          "routes": true,
+          "auth": true,
+          "pii": true
+        },
+        "java": {
+          "routes": true,
+          "auth": true,
+          "pii": true
+        }
+      }
+    }
+  }
+}
