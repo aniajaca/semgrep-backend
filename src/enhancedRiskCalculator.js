@@ -114,7 +114,15 @@ class EnhancedRiskCalculator {
         risk: 'Unauthorized access, privilege escalation, data breach'
       }
     };
-
+    
+    // SLA mapping from profile (fallback to default profile values)
+    this.slaMapping = config.slaMapping || {
+      P0: { days: 7, action: 'Fix immediately' },
+      P1: { days: 14, action: 'Fix within 14 days' },
+      P2: { days: 30, action: 'Fix in next sprint' },
+      P3: { days: 90, action: 'Track and monitor' }
+    };
+    
     // Cache configuration
     this.cacheConfig = {
       enabled: config.cacheEnabled !== false,  // Default true
@@ -777,51 +785,32 @@ calculateNormalizedFileScore(severityDistribution) {
    * Determine vulnerability priority
    */
   determineVulnerabilityPriority(score, cwe, category, context = {}) {
-    // Critical categories that need urgent attention
     const criticalCategories = ['injection', 'deserialization', 'authentication'];
     const isCriticalCategory = criticalCategories.includes(category);
-    
-    // Authenticated internal services have reduced attack surface
     const isProtected = this.normalizeBoolean(context.authenticatedInternal);
-    
+
+    let band;
     if (isProtected) {
-      if (score >= 9.5) {
-        return { priority: 'P0', action: 'Fix immediately', sla: '4 hours' };
-      } else if (score >= 7.0) {
-        return { priority: 'P1', action: 'Fix within 48 hours', sla: '48 hours' };
-      } else if (score >= 4.0) {
-        return { priority: 'P2', action: 'Fix in next sprint', sla: '2 weeks' };
-      } else {
-        return { priority: 'P3', action: 'Track and monitor', sla: '90 days' };
-      }
-    }
-    
-    // Standard priority logic
-    if (score >= 8.0 || (score >= 7.0 && isCriticalCategory)) {
-      return {
-        priority: 'P0',
-        action: 'Fix immediately',
-        sla: '4 hours'
-      };
+      if (score >= 9.5) band = 'P0';
+      else if (score >= 7.0) band = 'P1';
+      else if (score >= 4.0) band = 'P2';
+      else band = 'P3';
+    } else if (score >= 8.0 || (score >= 7.0 && isCriticalCategory)) {
+      band = 'P0';
     } else if (score >= 7.0) {
-      return {
-        priority: 'P1',
-        action: 'Fix within 48 hours',
-        sla: '48 hours'
-      };
+      band = 'P1';
     } else if (score >= 4.0) {
-      return {
-        priority: 'P2',
-        action: 'Fix in next sprint',
-        sla: '2 weeks'
-      };
+      band = 'P2';
     } else {
-      return {
-        priority: 'P3',
-        action: 'Track and monitor',
-        sla: '90 days'
-      };
+      band = 'P3';
     }
+
+    const sla = this.slaMapping[band] || { days: 90, action: 'Track and monitor' };
+    return {
+      priority: band,
+      action: sla.action || sla.description || `Remediate within ${sla.days} days`,
+      sla: `${sla.days} days`
+    };
   }
 
   /**
@@ -860,13 +849,13 @@ calculateNormalizedFileScore(severityDistribution) {
    */
   determineRemediationTimeline(score, context) {
     if (score >= 9.0 && this.normalizeBoolean(context.production)) {
-      return 'Immediate - Emergency patch required';
+      return `${this.slaMapping.P0?.days || 7} days - Emergency patch required`;
     } else if (score >= 7.0) {
-      return '48 hours - High priority fix';
+      return `${this.slaMapping.P1?.days || 14} days - High priority fix`;
     } else if (score >= 4.0) {
-      return '2 weeks - Include in next sprint';
+      return `${this.slaMapping.P2?.days || 30} days - Include in next sprint`;
     }
-    return '30 days - Schedule with regular maintenance';
+    return `${this.slaMapping.P3?.days || 90} days - Schedule with regular maintenance`;
   }
 
   /**
